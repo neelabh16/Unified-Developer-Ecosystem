@@ -520,8 +520,8 @@ ul { list-style: none; }
    ========================================================= */
 .wrap { max-width: var(--max-w); margin: 0 auto; padding: 0 28px; }
 main { padding-top: calc(var(--dock-h) + 26px); }
-.section { padding: 72px 0; position: relative; }
-.section-tight { padding: 42px 0; }
+.section { padding: 90px 0; position: relative; }
+.section-tight { padding: 56px 0; }
 .section-head {
   display: flex;
   align-items: flex-end;
@@ -1079,44 +1079,43 @@ footer { border-top: 1px solid var(--border); padding: 54px 0 30px; margin-top: 
 /* =========================================================
    PAGE HEADER (interior pages)
    ========================================================= */
-.page-header { padding: 40px 0 28px; }
+.page-header { padding: 50px 0 40px; }
 .page-header .eyebrow { margin-bottom: 12px; }
 
-/* ---- Page header split (text left, decorative right) ---- */
-.page-header-split {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  align-items: center;
-  gap: 40px;
-}
-.page-header-split .page-header-text { max-width: 560px; }
-.page-header-split .page-header-decor {
+/* Interior pages used to be just a title + one line of copy, which
+   left a big unused stretch of space beside them on anything wider
+   than a laptop. This turns the header into a two-column row — the
+   title/copy on the left, and a small live-stats panel (filled in
+   by dvRenderPageHeaderStats() in app.js, from the same data every
+   other section on the page already renders from) on the right. */
+.page-header-flex { display: flex; align-items: center; justify-content: space-between; gap: 36px; flex-wrap: wrap; }
+.page-header-text { flex: 1 1 420px; min-width: 260px; }
+.page-header-stats {
   display: flex;
-  justify-content: center;
-  align-items: center;
+  flex-direction: column;
+  gap: 14px;
+  flex-shrink: 0;
+  width: 250px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px 22px;
   position: relative;
-  min-height: 180px;
+  overflow: hidden;
 }
-@media (max-width: 900px) {
-  .page-header-split { grid-template-columns: 1fr; }
-  .page-header-split .page-header-decor { display: none; }
-}
-
-/* ---- Decorated section divider ---- */
-.section-decorated {
-  position: relative;
-  padding-top: 32px;
-  margin-top: 10px;
-}
-.section-decorated::before {
+.page-header-stats::before {
   content: "";
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--border-strong), var(--accent), var(--border-strong), transparent);
+  top: -40%; right: -30%;
+  width: 140px; height: 140px;
+  background: radial-gradient(circle, var(--accent-soft), transparent 70%);
+  pointer-events: none;
 }
+.page-header-stat { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; position: relative; }
+.page-header-stat + .page-header-stat { padding-top: 14px; border-top: 1px solid var(--border); }
+.page-header-stat .phs-label { font-size: 12px; color: var(--text-secondary); }
+.page-header-stat .phs-value { font-family: var(--font-mono); font-weight: 700; font-size: 16px; color: var(--accent); white-space: nowrap; }
+@media (max-width: 900px) { .page-header-stats { display: none; } }
 
 /* =========================================================
    COMMAND PALETTE (Ctrl/Cmd+K)

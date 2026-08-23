@@ -204,7 +204,6 @@ function dvSquadsInit() {
   });
 
   dvReveal(root);
-  dvRenderSquadDecoration();
 }
 
 function dvRenderSquadSkillChips(allSkills, profile) {
@@ -384,53 +383,6 @@ function dvSquadCardHTML(squad) {
       </div>` : `<p class="muted" style="font-size:12px;">Registered for every current hackathon.</p>`}
     </div>
   </div>`;
-}
-
-/** Decorative squad illustration — floating avatar nodes connected by
- *  gradient lines, built entirely with DOM manipulation and template
- *  literals. Pure cosmetic, no data logic. */
-function dvRenderSquadDecoration() {
-  const panel = document.getElementById('squad-decor-panel');
-  if (!panel) return;
-
-  const nodes = [
-    { seed: 'lumencross', x: '15%', y: '20%', size: 52 },
-    { seed: 'senapark',   x: '65%', y: '10%', size: 44 },
-    { seed: 'kmori',      x: '80%', y: '55%', size: 48 },
-    { seed: 'oriodev',    x: '35%', y: '65%', size: 40 },
-    { seed: 'zenkodo',    x: '50%', y: '35%', size: 56 },
-  ];
-
-  const connections = [
-    [0, 4], [1, 4], [2, 4], [3, 4], [0, 3], [1, 2]
-  ];
-
-  let html = '<div class="squad-decor-nodes">';
-
-  // Render avatar nodes
-  for (let i = 0; i < nodes.length; i++) {
-    const n = nodes[i];
-    html += `<div class="squad-decor-node" style="left:${n.x}; top:${n.y}; width:${n.size}px; height:${n.size}px;">`;
-    html += `<img src="${dvAvatar(n.seed, n.size)}" alt="">`;
-    html += '</div>';
-  }
-
-  // Render connection lines using CSS absolute positioning
-  for (let c = 0; c < connections.length; c++) {
-    const fromIdx = connections[c][0];
-    const toIdx = connections[c][1];
-    html += `<div class="squad-decor-line" style="left:${nodes[fromIdx].x}; top:${nodes[fromIdx].y}; width:${parseInt(nodes[toIdx].x) - parseInt(nodes[fromIdx].x) > 0 ? Math.abs(parseInt(nodes[toIdx].x) - parseInt(nodes[fromIdx].x)) + '%' : '30%'}; transform:rotate(${c * 15 - 20}deg);"></div>`;
-  }
-
-  // Add pulsing dots at key intersections
-  html += '<div class="squad-decor-pulse" style="left:50%; top:35%;"></div>';
-  html += '<div class="squad-decor-pulse" style="left:30%; top:45%;" ></div>';
-  html += '<div class="squad-decor-pulse" style="left:70%; top:30%;" ></div>';
-
-  html += '<div class="squad-decor-label">Squad Network</div>';
-  html += '</div>';
-
-  panel.innerHTML = html;
 }
 
 document.addEventListener('DOMContentLoaded', () => setTimeout(dvSquadsInit, 30));

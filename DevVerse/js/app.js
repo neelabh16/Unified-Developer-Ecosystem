@@ -1633,6 +1633,113 @@ function dvMarkActiveNav() {
   });
 }
 
+/* ---------- Page header stat panel ----------
+   Fills the empty space beside interior-page titles with a small
+   live-stats panel, built from the exact same arrays each page
+   already renders from below — never invented numbers. */
+function dvFormatCount(n) {
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'k';
+  return String(n);
+}
+/** Strips everything but digits out of a string like "$25,000",
+ *  built with a for...of loop + string comparison instead of regex. */
+function dvDigitsOnly(str) {
+  let out = '';
+  for (const ch of str) {
+    if (ch >= '0' && ch <= '9') out += ch;
+  }
+  return out;
+}
+function dvPageHeaderStats(page) {
+  if (page === 'communities') {
+    const totalMembers = DV_COMMUNITIES.reduce((sum, c) => sum + c.members, 0);
+    const totalOnline = DV_COMMUNITIES.reduce((sum, c) => sum + c.online, 0);
+    return [
+      { value: DV_COMMUNITIES.length, label: 'Communities' },
+      { value: dvFormatCount(totalMembers), label: 'Total members' },
+      { value: dvFormatCount(totalOnline), label: 'Online right now' },
+    ];
+  }
+  if (page === 'hackathons') {
+    const totalPrize = DV_HACKATHONS.reduce((sum, h) => sum + parseInt(dvDigitsOnly(h.prize), 10), 0);
+    const totalParticipants = DV_HACKATHONS.reduce((sum, h) => sum + h.participants, 0);
+    return [
+      { value: DV_HACKATHONS.length, label: 'Running now' },
+      { value: '$' + dvFormatCount(totalPrize), label: 'Total prize pool' },
+      { value: dvFormatCount(totalParticipants), label: 'Builders competing' },
+    ];
+  }
+  if (page === 'leaderboard') {
+    const totalPoints = DV_DEVS.reduce((sum, d) => sum + d.points, 0);
+    const topScore = DV_DEVS.reduce((max, d) => (d.points > max ? d.points : max), 0);
+    return [
+      { value: DV_DEVS.length, label: 'Ranked builders' },
+      { value: dvFormatCount(topScore), label: 'Top score' },
+      { value: dvFormatCount(totalPoints), label: 'Points on the board' },
+    ];
+  }
+  if (page === 'codex') {
+    const entries = dvCodexEntries();
+    const categories = dvUniqueArray(entries.map((e) => e.category));
+    const contributors = dvUniqueArray(entries.map((e) => e.author));
+    return [
+      { value: entries.length, label: 'Field notes' },
+      { value: categories.length, label: 'Categories' },
+      { value: contributors.length, label: 'Contributors' },
+    ];
+  }
+  if (page === 'squads') {
+    const allSkills = dvUniqueArray(DV_DEVS.reduce((acc, d) => acc.concat(d.skills), []));
+    return [
+      { value: DV_DEVS.length, label: 'Builders to match' },
+      { value: allSkills.length, label: 'Skills tracked' },
+      { value: dvMySquads().length, label: 'Your squads' },
+    ];
+  }
+  if (page === 'portfolio' && !dvGetQueryParam('u')) {
+    const data = dvPortfolioData();
+    return [
+      { value: data.skills.length, label: 'Skills listed' },
+      { value: data.links.length, label: 'Links added' },
+      { value: data.projects.length, label: 'Projects featured' },
+    ];
+  }
+  if (page === 'submit-project') {
+    const all = dvAllProjects();
+    const categories = dvUniqueArray(all.map((p) => p.category));
+    const authors = dvUniqueArray(all.map((p) => p.author));
+    return [
+      { value: all.length, label: 'Projects live' },
+      { value: categories.length, label: 'Categories' },
+      { value: authors.length, label: 'Builders shipping' },
+    ];
+  }
+  if (page === 'settings') {
+    return [
+      { value: '✓', label: 'Saved locally, instantly' },
+      { value: '✓', label: 'Synced across every page' },
+      { value: '↺', label: 'Reset anytime, no account needed' },
+    ];
+  }
+  return null;
+}
+function dvRenderPageHeaderStats() {
+  const root = document.getElementById('page-header-stats');
+  if (!root) return;
+  const page = document.body.dataset.page;
+  const stats = dvPageHeaderStats(page);
+  if (!stats || !stats.length) {
+    root.style.display = 'none';
+    return;
+  }
+  root.innerHTML = stats.map((s) => `
+    <div class="page-header-stat">
+      <span class="phs-label">${s.label}</span>
+      <span class="phs-value">${s.value}</span>
+    </div>`).join('');
+}
+
 /* ---------- Bookmark / like buttons wiring (delegated) ---------- */
 function dvWireInteractions(root = document) {
   root.addEventListener('click', (e) => {
@@ -1831,6 +1938,7 @@ document.addEventListener('DOMContentLoaded', () => {
   dvParticles();
   dvMobileMenu();
   dvMarkActiveNav();
+  dvRenderPageHeaderStats();
   dvAnimateCounters();
   dvReveal();
   dvWireInteractions();
