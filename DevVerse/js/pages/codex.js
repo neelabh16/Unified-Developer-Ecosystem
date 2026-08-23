@@ -113,9 +113,11 @@ function dvRenderCodexUnlocked(root) {
     e.target.reset();
     dvToast(`Added to the Codex (+${DV_POINT_VALUES.codexEntry} pts)`);
     dvRenderCodexEntries();
+    dvRenderCodexStats();
   });
 
   dvReveal(root);
+  dvRenderCodexStats();
 }
 
 function dvRenderCodexCategoryFilters(categories) {
@@ -183,5 +185,73 @@ document.addEventListener('click', (e) => {
   const body = document.getElementById(`codex-body-${id}`);
   if (body) body.style.display = body.style.display === 'none' ? 'block' : 'none';
 });
+
+/** Renders a stats bar above the codex showing entry count, categories,
+ *  and contributors — uses reduce, filter, map, and template literals. */
+function dvRenderCodexStats() {
+  const container = document.getElementById('codex-stats-container');
+  if (!container) return;
+
+  const entries = dvCodexEntries();
+  if (!entries.length) {
+    container.innerHTML = '';
+    return;
+  }
+
+  // Count unique categories using reduce
+  const categoryCount = entries.reduce(function(acc, entry) {
+    if (acc.indexOf(entry.category) === -1) acc.push(entry.category);
+    return acc;
+  }, []).length;
+
+  // Count unique authors using reduce
+  const authorCount = entries.reduce(function(acc, entry) {
+    if (acc.indexOf(entry.author) === -1) acc.push(entry.author);
+    return acc;
+  }, []).length;
+
+  // Sort entries by date descending, take first 5 for the recent strip
+  const recent = entries.slice().sort(function(a, b) { return b.createdAt - a.createdAt; }).slice(0, 5);
+
+  container.innerHTML = `
+    <div class="codex-stats-bar reveal in" style="margin-top:0;">
+      <div class="codex-stat-cell">
+        <div class="codex-stat-num">\${entries.length}</div>
+        <div class="codex-stat-label">Field Notes</div>
+      </div>
+      <div class="codex-stat-cell">
+        <div class="codex-stat-num">\${categoryCount}</div>
+        <div class="codex-stat-label">Categories</div>
+      </div>
+      <div class="codex-stat-cell">
+        <div class="codex-stat-num">\${authorCount}</div>
+        <div class="codex-stat-label">Contributors</div>
+      </div>
+    </div>
+    \${recent.length > 0 ? \`
+    <div class="codex-recent-strip">
+      \${recent.map(function(e) {
+        return '<div class="codex-recent-card" data-scroll-codex="' + e.id + '">' +
+          '<div class="codex-recent-title">' + e.title + '</div>' +
+          '<div class="codex-recent-meta">' + e.category + ' · ' + dvForumAgo(e.createdAt) + '</div>' +
+        '</div>';
+      }).join('')}
+    </div>\` : ''}
+  \`;
+
+  // Wire click events on recent cards to scroll to the entry
+  container.querySelectorAll('[data-scroll-codex]').forEach(function(card) {
+    card.addEventListener('click', function() {
+      const id = card.dataset.scrollCodex;
+      const entry = document.querySelector('[data-codex-entry="' + id + '"]');
+      if (entry) {
+        entry.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Expand the entry
+        const body = document.getElementById('codex-body-' + id);
+        if (body) body.style.display = 'block';
+      }
+    });
+  });
+}
 
 document.addEventListener('DOMContentLoaded', () => setTimeout(dvCodexInit, 30));

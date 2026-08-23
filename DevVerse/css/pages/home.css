@@ -4,5 +4,66 @@
    this page live here.
    ========================================================= */
 
-/* This page currently uses only css/style.css.
-   Add page-specific overrides here if needed. */
+/* ---- Section loading skeleton placeholders ---- */
+.home-skel-card {
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.home-skel-thumb {
+  height: 150px;
+  background: linear-gradient(90deg, var(--surface) 25%, var(--surface-hover) 37%, var(--surface) 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease infinite;
+}
+.home-skel-line {
+  height: 12px;
+  border-radius: 6px;
+  margin: 14px 18px;
+  background: linear-gradient(90deg, var(--surface) 25%, var(--surface-hover) 37%, var(--surface) 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease infinite;
+}
+.home-skel-line:last-child {
+  width: 60%;
+  margin-bottom: 18px;
+}
+
+/* ---- Category tile skeleton ---- */
+.home-skel-tile {
+  height: 90px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(90deg, var(--surface) 25%, var(--surface-hover) 37%, var(--surface) 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease infinite;
+  border: 1px solid var(--border);
+}
+
+/* ---- Dev card skeleton ---- */
+.home-skel-dev {
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.home-skel-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: linear-gradient(90deg, var(--surface) 25%, var(--surface-hover) 37%, var(--surface) 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease infinite;
+}
+.home-skel-text {
+  height: 10px;
+  width: 80px;
+  border-radius: 5px;
+  background: linear-gradient(90deg, var(--surface) 25%, var(--surface-hover) 37%, var(--surface) 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease infinite;
+}

@@ -39,6 +39,7 @@ function dvPortfolioSave(data) {
   DVStore.set('portfolio', data);
   dvCheckPortfolioMilestones(data);
   dvRenderPortfolioPreview();
+  dvRenderPortfolioProgress();
 }
 
 /** One-time milestone rewards for portfolio progress. Guarded by
@@ -322,6 +323,7 @@ function dvRenderPortfolioEditor(root, selfHandle) {
   });
 
   dvRenderPortfolioPreview();
+  dvRenderPortfolioProgress();
   dvReveal(root);
 }
 
@@ -406,6 +408,50 @@ function dvRenderPortfolioPreview() {
         ${d.projects.map((p) => `<div style="padding:12px 14px; border-radius:12px; background:rgba(255,255,255,0.03); border:1px solid var(--border);"><div style="font-size:13px; font-weight:600;">${p.title}</div><div class="muted" style="font-size:12px; margin-top:2px;">${p.desc || ''}</div></div>`).join('')}
       </div>
     </div>`;
+}
+
+/** Renders a portfolio completion progress tracker with milestone icons.
+ *  Uses conditionals, arrays, objects, and DOM manipulation. */
+function dvRenderPortfolioProgress() {
+  const container = document.getElementById('pf-progress-container');
+  if (!container) return;
+
+  const data = dvPortfolioData();
+
+  const steps = [
+    { label: 'Name',     icon: '👤', done: data.name && data.name !== 'Your Name' && data.name.length >= 2 },
+    { label: 'Bio',      icon: '📝', done: (data.bio || '').trim().length >= 20 },
+    { label: 'Skills',   icon: '⚡', done: data.skills.length >= 1 },
+    { label: 'Links',    icon: '🔗', done: data.links.length >= 1 },
+    { label: 'Projects', icon: '🚀', done: data.projects.length >= 1 },
+  ];
+
+  const completedCount = steps.filter(function(s) { return s.done; }).length;
+  const percent = Math.round((completedCount / steps.length) * 100);
+
+  let html = '<div class="pf-progress-bar">';
+
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
+    const cls = step.done ? 'pf-progress-step completed' : 'pf-progress-step';
+    html += \`<div class="\${cls}">\`;
+    html += \`<div class="pf-progress-icon">\${step.done ? '✓' : step.icon}</div>\`;
+    html += \`<span class="pf-progress-label">\${step.label}</span>\`;
+    html += '</div>';
+
+    if (i < steps.length - 1) {
+      const connectorCls = steps[i].done && steps[i + 1].done ? 'pf-progress-connector filled' : 'pf-progress-connector';
+      html += \`<div class="\${connectorCls}"></div>\`;
+    }
+  }
+
+  html += '<div class="pf-progress-summary">';
+  html += \`<div class="pf-progress-percent">\${percent}%</div>\`;
+  html += \`<div class="pf-progress-text">\${completedCount === steps.length ? 'Portfolio complete!' : completedCount + ' of ' + steps.length + ' done'}</div>\`;
+  html += '</div>';
+  html += '</div>';
+
+  container.innerHTML = html;
 }
 
 document.addEventListener('DOMContentLoaded', () => setTimeout(dvPortfolioInit, 30));

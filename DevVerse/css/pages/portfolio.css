@@ -4,5 +4,87 @@
    this page live here.
    ========================================================= */
 
-/* This page currently uses only css/style.css.
-   Add page-specific overrides here if needed. */
+/* ---- Portfolio completion progress tracker ---- */
+.pf-progress-bar {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 26px;
+  padding: 18px 22px;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(16px);
+  overflow-x: auto;
+}
+.pf-progress-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  padding: 6px 0;
+}
+.pf-progress-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  transition: all 0.3s var(--ease);
+  flex-shrink: 0;
+}
+.pf-progress-step.completed .pf-progress-icon {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.pf-progress-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  transition: color 0.3s;
+}
+.pf-progress-step.completed .pf-progress-label {
+  color: var(--text-primary);
+}
+.pf-progress-connector {
+  flex: 1;
+  min-width: 20px;
+  height: 2px;
+  background: var(--border);
+  margin: 0 8px;
+  border-radius: 1px;
+  position: relative;
+  overflow: hidden;
+}
+.pf-progress-connector.filled {
+  background: linear-gradient(90deg, var(--accent), var(--cyan));
+}
+.pf-progress-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-left: 14px;
+  border-left: 1px solid var(--border);
+  margin-left: 14px;
+  flex-shrink: 0;
+}
+.pf-progress-percent {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--accent);
+}
+.pf-progress-text {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+}
+@media (max-width: 640px) {
+  .pf-progress-label { display: none; }
+  .pf-progress-connector { min-width: 12px; }
+}
