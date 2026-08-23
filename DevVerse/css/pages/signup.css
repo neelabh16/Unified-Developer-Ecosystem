@@ -98,9 +98,9 @@
   position: absolute;
   z-index: 1;
   right: 8%;
-  top: 53%;
-  transform: translateY(-56%);
-  width: clamp(170px, 28vw, 230px);
+  top: 55%;
+  transform: translateY(-46%);
+  width: clamp(170px, 24vw, 230px);
   pointer-events: none;
 }
 .signup2-robot {

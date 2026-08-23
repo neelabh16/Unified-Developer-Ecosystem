@@ -866,9 +866,26 @@ html[data-theme="light"] .hero-robot .hero-robot-img-light { display: block; }
 .pc-thumb::after {
   content: "";
   position: absolute; inset: 0;
-  background: linear-gradient(180deg, transparent 40%, rgba(0,0,0,0.55));
+  background: linear-gradient(180deg, transparent 40%, rgba(0,0,0,0.45));
+  pointer-events: none;
 }
-.pc-diff { position: relative; z-index: 1; }
+.pc-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  padding: 8px 18px;
+  z-index: 0;
+  filter: drop-shadow(0 10px 18px rgba(0,0,0,0.22));
+  transition: transform 0.45s var(--ease), filter 0.45s var(--ease);
+}
+.project-card:hover .pc-art {
+  transform: scale(1.06) translateY(-2px);
+  filter: drop-shadow(0 14px 24px rgba(0,0,0,0.30));
+}
+.pc-diff { position: relative; z-index: 2; }
 .pc-tags { display: flex; gap: 6px; flex-wrap: wrap; }
 .pc-title { font-size: 16px; font-weight: 600; font-family: var(--font-display); }
 .pc-desc { font-size: 13.5px; color: var(--text-tertiary); }

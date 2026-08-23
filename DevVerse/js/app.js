@@ -528,6 +528,7 @@ function dvProjectCardHTML(p) {
   return `
   <a href="project.html?id=${p.id}" class="project-card glass card-lift reveal">
     <div class="pc-thumb" style="background:${DV_TECH_GRADIENTS[p.gradient]}">
+      <img class="pc-art" src="assets/img/project-cards/${p.art}" alt="" aria-hidden="true">
       <span class="chip pc-diff">${p.difficulty}</span>
     </div>
     <div>
