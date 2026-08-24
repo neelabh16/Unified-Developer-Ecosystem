@@ -521,14 +521,30 @@ document.addEventListener('error', function (e) {
   }
 }, true);
 
+/** User-submitted projects don't collect an image, so they need a
+ *  sensible piece of card art instead of a broken <img>. Sniff the
+ *  title/description for a subject match (currently just medical —
+ *  add more keyword sets here as more themed art gets added) and
+ *  fall back to one of the seeded illustrations otherwise, picked
+ *  deterministically from the project id so it's stable on rerender. */
+function dvPickProjectArt(p) {
+  const text = ((p.title || '') + ' ' + (p.desc || '')).toLowerCase();
+  const medicalWords = ['health', 'medical', 'medicine', 'doctor', 'clinic', 'clinician', 'patient', 'hospital', 'pharmacy', 'nurse', 'therapy', 'diagnosis'];
+  if (medicalWords.some((w) => text.includes(w))) return 'project-16.png';
+  const fallbackPool = ['project-1.png', 'project-2.png', 'project-3.png', 'project-4.png', 'project-5.png'];
+  const idx = Math.abs(String(p.id).split('').reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 0)) % fallbackPool.length;
+  return fallbackPool[idx];
+}
+
 /* ---------- Shared project card (used on Home, Explore, Profile, Project Details) ---------- */
 function dvProjectCardHTML(p) {
   const liked = DVStore.has('likes', p.id);
   const bookmarked = DVStore.has('bookmarks', p.id);
+  const art = p.art || dvPickProjectArt(p);
   return `
   <a href="project.html?id=${p.id}" class="project-card glass card-lift reveal">
     <div class="pc-thumb" style="background:${DV_TECH_GRADIENTS[p.gradient]}">
-      <img class="pc-art" src="assets/img/project-cards/${p.art}" alt="" aria-hidden="true">
+      <img class="pc-art" src="assets/img/project-cards/${art}" alt="" aria-hidden="true">
       <span class="chip pc-diff">${p.difficulty}</span>
     </div>
     <div>
@@ -1552,6 +1568,7 @@ function dvAddUserProject(project) {
     views: 0,
     createdAt: Date.now(),
   };
+  entry.art = dvPickProjectArt(entry);
   list.unshift(entry);
   dvSaveUserProjects(list);
   dvAwardPoints(DV_POINT_VALUES.projectSubmit, `Published "${entry.title}" to Explore`);
