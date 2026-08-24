@@ -319,9 +319,9 @@ GitHub: [@neelabh16](https://github.com/neelabh16)
 
 ## 🙌 Contributors
 
-- **Neelabh** — [@neelabh16](https://github.com/neelabh16)
-- **Aryan Verma** - [@Aryan-verma-ai]
-- **Nitin Kataria** - [@NITIN17102004]
+- **Neelabh** 
+- **Aryan Verma**
+- **Nitin Kataria**
 
 Thanks to everyone who has contributed ideas, code, and design to DevVerse!
 
