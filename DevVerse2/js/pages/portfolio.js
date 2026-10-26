@@ -321,7 +321,23 @@ function dvRenderPortfolioEditor(root, selfHandle) {
   document.getElementById('pf-avatar-file').addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    dvToast(`Selected "${file.name}" — using generated avatar preview (no backend to store uploads yet)`);
+    if (window.DVApi && DVApi.uploads && DVApi.uploads.avatar) {
+      dvToast(`Uploading ${file.name}…`);
+      DVApi.uploads.avatar(file).then((res) => {
+        if (res && res.data && res.data.url) {
+          const d = dvPortfolioData();
+          d.avatarSeed = res.data.url;
+          dvPortfolioSave(d);
+          const avatarInput = document.getElementById('pf-avatar');
+          if (avatarInput) avatarInput.value = res.data.url;
+          dvToast('Avatar uploaded and updated');
+        }
+      }).catch((err) => {
+        dvToast(err.message || 'Avatar upload failed');
+      });
+    } else {
+      dvToast(`Selected "${file.name}"`);
+    }
   });
 
   dvRenderPortfolioPreview();

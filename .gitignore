@@ -3,3 +3,7 @@ node_modules/
 *.log
 coverage/
 .DS_Store
+uploads/*
+!uploads/.gitkeep
+DevVerse2/server/uploads/*
+!DevVerse2/server/uploads/.gitkeep

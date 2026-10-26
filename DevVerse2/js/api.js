@@ -29,7 +29,9 @@ const DVApi = {
       ...options,
     };
 
-    if (config.body && typeof config.body === 'object' && !(config.body instanceof FormData)) {
+    if (config.body instanceof FormData) {
+      delete config.headers['Content-Type'];
+    } else if (config.body && typeof config.body === 'object') {
       config.body = JSON.stringify(config.body);
     }
 
@@ -213,6 +215,20 @@ const DVApi = {
   // ---------------------------------------------------------
   health: {
     check: () => DVApi.request('/health'),
+  },
+
+  // ---------------------------------------------------------
+  // Uploads API
+  // ---------------------------------------------------------
+  uploads: {
+    avatar: (file) => {
+      const formData = new FormData();
+      formData.append('avatar', file);
+      return DVApi.request('/uploads/avatar', {
+        method: 'POST',
+        body: formData,
+      });
+    },
   },
 };
 

@@ -73,6 +73,18 @@ const errorHandler = (err, req, res, _next) => {
     message = info.message;
   }
 
+  // Multer upload errors
+  if (err.name === 'MulterError') {
+    statusCode = 400;
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      message = 'File size exceeds 2 MB limit.';
+    } else if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+      message = `Unexpected upload field "${err.field}".`;
+    } else {
+      message = `Upload error: ${err.message}`;
+    }
+  }
+
   // Log unexpected errors in development
   if (process.env.NODE_ENV === 'development' && statusCode === 500) {
     console.error('💥 Unhandled Error:', err);

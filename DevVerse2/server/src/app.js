@@ -6,6 +6,9 @@ const cors = require('cors');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 const morgan = require('morgan');
+const path = require('path');
+const mongoSanitize = require('express-mongo-sanitize');
+const rateLimit = require('express-rate-limit');
 
 const AppError = require('./utils/AppError');
 const errorHandler = require('./middleware/errorHandler');
@@ -25,6 +28,7 @@ const messageRoutes = require('./routes/messageRoutes');
 const bookmarkRoutes = require('./routes/bookmarkRoutes');
 const activityRoutes = require('./routes/activityRoutes');
 const leaderboardRoutes = require('./routes/leaderboardRoutes');
+const uploadRoutes = require('./routes/uploadRoutes');
 
 const app = express();
 
@@ -66,10 +70,39 @@ app.use(
   })
 );
 
-// Request parsing & limits
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// Request parsing & size limits (1MB max payload to mitigate DOS attacks)
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(cookieParser());
+
+// Sanitize inputs to prevent NoSQL query injection
+app.use(mongoSanitize());
+
+// Rate Limiting (active in development and production, bypassed in test mode)
+if (process.env.NODE_ENV !== 'test') {
+  const generalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 500,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, message: 'Too many requests from this IP, please try again in 15 minutes.' }
+  });
+  app.use('/api/', generalLimiter);
+
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, message: 'Too many authentication attempts, please try again in 15 minutes.' }
+  });
+  app.use('/api/v1/auth/login', authLimiter);
+  app.use('/api/v1/auth/register', authLimiter);
+}
+
+// Serve uploaded assets safely with traversal protection
+const uploadsPath = path.resolve(__dirname, '../uploads');
+app.use('/uploads', express.static(uploadsPath, { dotfiles: 'ignore', index: false }));
 
 // API v1 Routes
 const API_PREFIX = '/api/v1';
@@ -88,6 +121,7 @@ app.use(`${API_PREFIX}/messages`, messageRoutes);
 app.use(`${API_PREFIX}/bookmarks`, bookmarkRoutes);
 app.use(`${API_PREFIX}/activity`, activityRoutes);
 app.use(`${API_PREFIX}/leaderboard`, leaderboardRoutes);
+app.use(`${API_PREFIX}/uploads`, uploadRoutes);
 
 // Centralized 404 handler for unmatched routes
 app.all('*', (req, res, next) => {

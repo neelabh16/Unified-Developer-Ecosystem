@@ -4,6 +4,7 @@
 require('dotenv').config();
 const app = require('./app');
 const { connectDB } = require('./config/database');
+const { validateEnv } = require('./config/envValidator');
 
 const PORT = process.env.PORT || 5000;
 
@@ -11,10 +12,12 @@ let server;
 
 /**
  * Start the application:
- * 1. Connect to MongoDB Atlas (fails hard if DB cannot be reached)
- * 2. Start HTTP listener
+ * 1. Validate environment configuration
+ * 2. Connect to MongoDB Atlas (fails hard if DB cannot be reached)
+ * 3. Start HTTP listener
  */
 const startServer = async () => {
+  validateEnv();
   // Connect database first
   await connectDB();
 

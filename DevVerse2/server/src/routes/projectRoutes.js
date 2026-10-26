@@ -6,6 +6,14 @@ const router = express.Router();
 const projectController = require('../controllers/projectController');
 const { protect, optionalAuth } = require('../middleware/auth');
 const csrfProtection = require('../middleware/csrf');
+const { validateIdParams } = require('../middleware/validateObjectId');
+
+router.param('id', (req, res, next, val) => {
+  if (typeof val !== 'string' || /[${}]/.test(val)) {
+    return res.status(400).json({ success: false, message: 'Invalid ID format' });
+  }
+  next();
+});
 
 // Public project browsing
 router.get('/', projectController.getProjects);
