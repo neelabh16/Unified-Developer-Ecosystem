@@ -1,9 +1,5 @@
 /* =========================================================
-   SUBMIT A PROJECT
-   Two ways in: paste a public GitHub repo URL and fetch its real
-   name/description/language via the GitHub API to pre-fill the
-   form, or just fill it in by hand. Either way, the person reviews
-   and can edit everything before it actually goes live on Explore.
+   SUBMIT A PROJECT (Connected to Backend REST API)
    ========================================================= */
 
 function dvSubmitProjectInit() {
@@ -80,7 +76,6 @@ function dvSubmitProjectInit() {
   dvReveal(root);
 }
 
-// Holds GitHub-fetched timeline entries until the form is submitted.
 let dvGithubTimeline = [];
 
 function dvFetchGithubForSubmit() {
@@ -106,7 +101,6 @@ function dvFetchGithubForSubmit() {
       document.getElementById('sp-github').value = repo.html_url || urlInput.value.trim();
       status.textContent = `Pulled ${repo.full_name} \u2014 ${repo.stargazers_count.toLocaleString()} stars. Fetching recent commits\u2026`;
 
-      // Fetch the 5 most recent commits for the timeline
       return fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}/commits?per_page=5`);
     })
     .then(function (res) {
@@ -117,9 +111,8 @@ function dvFetchGithubForSubmit() {
       dvGithubTimeline = [];
       for (let i = 0; i < commits.length; i++) {
         const c = commits[i];
-        const msg = c.commit.message.split('\n')[0]; // first line only
+        const msg = c.commit.message.split('\n')[0];
         const date = c.commit.author.date;
-        // Format as relative time from the date string
         const msAgo = Date.now() - new Date(date).getTime();
         const daysAgo = Math.floor(msAgo / 86400000);
         let when = 'just now';
@@ -137,34 +130,60 @@ function dvFetchGithubForSubmit() {
     });
 }
 
-function dvHandleProjectSubmit(e) {
+async function dvHandleProjectSubmit(e) {
   e.preventDefault();
   const form = e.target;
   if (!dvValidateForm(form)) return;
 
+  const submitBtn = form.querySelector('button[type="submit"]');
   const tagsRaw = document.getElementById('sp-tags').value;
-  const tags = tagsRaw.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
+  const tags = tagsRaw.split(',').map((t) => t.trim()).filter(Boolean);
 
   const featuresRaw = document.getElementById('sp-features').value;
-  const features = featuresRaw.split(',').map(function (f) { return f.trim(); }).filter(Boolean);
+  const features = featuresRaw.split(',').map((f) => f.trim()).filter(Boolean);
 
-  const entry = dvAddUserProject({
+  const payload = {
     title: document.getElementById('sp-title').value.trim(),
     desc: document.getElementById('sp-desc').value.trim(),
     category: document.getElementById('sp-category').value,
     difficulty: document.getElementById('sp-difficulty').value,
-    tags: tags,
-    features: features,
+    tags,
+    features,
     timeline: dvGithubTimeline,
-    githubUrl: document.getElementById('sp-github').value.trim(),
-  });
+    githubUrl: document.getElementById('sp-github').value.trim() || null,
+  };
 
-  dvToast(`Published "${entry.title}" (+${DV_POINT_VALUES.projectSubmit} pts)`);
-  window.location.href = `project.html?id=${entry.id}`;
+  try {
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Publishing…';
+    }
+
+    const res = await DVApi.projects.create(payload);
+    const created = res.data.project;
+
+    // Keep client store updated
+    dvAddUserProject({
+      ...payload,
+      id: created._id,
+    });
+
+    dvToast(`Published "${created.title}" (+${DV_POINT_VALUES.projectSubmit} pts)`);
+    setTimeout(() => {
+      window.location.href = `project.html?id=${created._id}`;
+    }, 400);
+  } catch (err) {
+    dvToast(err.message || 'Error submitting project');
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = `Publish to Explore (+${DV_POINT_VALUES.projectSubmit} pts)`;
+    }
+  }
 }
 
 function dvRenderMyPublishedProjects() {
   const root = document.getElementById('my-published-projects');
+  if (!root) return;
   const mine = dvUserProjects();
   root.innerHTML = mine.length
     ? `<div class="grid grid-3">${mine.map(dvProjectCardHTML).join('')}</div>`

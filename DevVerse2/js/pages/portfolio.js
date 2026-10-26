@@ -39,6 +39,9 @@ function dvPortfolioSave(data) {
   DVStore.set('portfolio', data);
   dvCheckPortfolioMilestones(data);
   dvRenderPortfolioPreview();
+  if (window.DVApi && DVApi.portfolios && DVApi.portfolios.save) {
+    DVApi.portfolios.save(data).catch(function () {});
+  }
 }
 
 /** One-time milestone rewards for portfolio progress. Guarded by

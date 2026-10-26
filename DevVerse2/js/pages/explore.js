@@ -3,6 +3,7 @@
    ========================================================= */
 
 let dvExploreState = { search: '', category: 'All', difficulty: 'All', sort: 'trending' };
+let dvExploreApiProjects = null;
 
 function dvExploreInit() {
   const grid = document.getElementById('explore-grid');
@@ -12,6 +13,33 @@ function dvExploreInit() {
 
   dvRenderCategoryFilters();
   dvRenderExploreGrid();
+
+  if (window.DVApi && DVApi.projects && DVApi.projects.list) {
+    DVApi.projects.list({ limit: 100 }).then(function (res) {
+      if (res && res.data && res.data.length) {
+        dvExploreApiProjects = res.data.map(function (p) {
+          return {
+            id: p.id || p._id,
+            title: p.title,
+            desc: p.desc || p.tagline,
+            tags: p.tags || [],
+            difficulty: p.difficulty || 'Intermediate',
+            category: p.category || 'General',
+            likes: p.likes || 0,
+            views: p.views || 0,
+            author: p.author || 'devverse',
+            gradient: typeof p.gradient === 'number' ? p.gradient : 0,
+            art: p.art || null,
+            features: p.features || [],
+            timeline: p.timeline || [],
+            githubUrl: p.githubUrl || ''
+          };
+        });
+        dvRenderCategoryFilters();
+        dvRenderExploreGrid();
+      }
+    }).catch(function () {});
+  }
 
   document.getElementById('explore-search').addEventListener('input', (e) => {
     dvExploreState.search = e.target.value.toLowerCase();
@@ -43,7 +71,8 @@ function dvExploreInit() {
 function dvRenderCategoryFilters() {
   const root = document.getElementById('category-filters');
   if (!root) return;
-  const cats = ['All', ...dvUniqueArray(dvAllProjects().map((p) => p.category))];
+  const source = dvExploreApiProjects || dvAllProjects();
+  const cats = ['All', ...dvUniqueArray(source.map((p) => p.category))];
   root.innerHTML = cats.map((c) => `<button class="chip ${c === dvExploreState.category ? 'chip-accent' : ''}" data-cat="${c}">${c}</button>`).join('');
   root.querySelectorAll('[data-cat]').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -58,7 +87,8 @@ function dvRenderExploreGrid() {
   const grid = document.getElementById('explore-grid');
   const empty = document.getElementById('explore-empty');
   const count = document.getElementById('explore-count');
-  let list = dvAllProjects().filter((p) => {
+  const source = dvExploreApiProjects || dvAllProjects();
+  let list = source.filter((p) => {
     const matchSearch = !dvExploreState.search || p.title.toLowerCase().includes(dvExploreState.search) || p.desc.toLowerCase().includes(dvExploreState.search) || p.tags.some((t) => t.toLowerCase().includes(dvExploreState.search));
     const matchCat = dvExploreState.category === 'All' || p.category === dvExploreState.category;
     const matchDiff = dvExploreState.difficulty === 'All' || p.difficulty === dvExploreState.difficulty;

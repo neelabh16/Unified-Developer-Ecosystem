@@ -1,5 +1,5 @@
 /* =========================================================
-   SIGN UP
+   SIGN UP (Connected to Backend REST API)
    ========================================================= */
 
 function dvSignupInit() {
@@ -19,12 +19,10 @@ function dvSignupInit() {
     return;
   }
 
-
-
   dvWirePasswordField('signup-password', 'signup-password-toggle', 'signup-capslock-warning');
   dvWirePasswordField('signup-confirm', 'signup-confirm-toggle', null);
 
-  form.addEventListener('submit', (e) => {
+  form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
     const nameInput = document.getElementById('signup-name');
@@ -32,13 +30,11 @@ function dvSignupInit() {
     const emailInput = document.getElementById('signup-email');
     const passwordInput = document.getElementById('signup-password');
     const confirmInput = document.getElementById('signup-confirm');
+    const submitBtn = form.querySelector('button[type="submit"]');
 
     if (!dvValidateForm(form)) return;
 
-    // --- Password strength validation ---
-    // Must contain at least 1 uppercase, 1 number, 1 special character,
-    // and be at least 7 characters long. Checked character-by-character
-    // using a for loop and string methods (all within lectures 1–24).
+    // Password strength validation
     const pw = passwordInput.value.trim();
     let hasUpper = false;
     let hasNumber = false;
@@ -72,7 +68,7 @@ function dvSignupInit() {
       return;
     }
 
-    // Confirm password must match.
+    // Confirm password match
     dvClearFieldError(confirmInput);
     if (confirmInput.value.trim() !== pw) {
       dvShowFieldError(confirmInput, 'Passwords don\u2019t match.');
@@ -82,43 +78,70 @@ function dvSignupInit() {
 
     const email = emailInput.value.trim().toLowerCase();
     const username = usernameInput.value.trim().toLowerCase();
+    const name = nameInput.value.trim();
 
-    // Check if an account with this email already exists.
-    if (dvFindAccountByEmail(email)) {
-      dvShowFieldError(emailInput, 'An account with this email already exists. Try signing in instead.');
-      emailInput.focus();
-      return;
+    try {
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Creating account…';
+      }
+
+      const res = await DVApi.auth.register({
+        name,
+        username,
+        email,
+        password: pw,
+      });
+
+      const user = res.data.user;
+
+      // Sync local account array & session for seamless client rendering
+      const accounts = DVStore.get('auth.accounts', []);
+      const idx = accounts.findIndex((a) => a.email === user.email);
+      const accObj = {
+        name: user.name,
+        username: user.username,
+        email: user.email,
+      };
+      if (idx !== -1) {
+        accounts[idx] = accObj;
+      } else {
+        accounts.push(accObj);
+      }
+      DVStore.set('auth.accounts', accounts);
+      DVStore.set('auth.session', user.email);
+
+      DVStore.set('profile.overrides', {
+        name: user.name,
+        username: user.username,
+        bio: user.bio || '',
+        avatarSeed: user.avatarSeed || 'you-builder',
+      });
+
+      dvToast(`Welcome to DevVerse, ${user.name.split(' ')[0]}!`);
+      setTimeout(() => {
+        window.location.href = redirectTarget;
+      }, 300);
+    } catch (err) {
+      const msg = err.message || 'Registration failed.';
+      if (msg.toLowerCase().includes('email')) {
+        dvShowFieldError(emailInput, msg);
+        emailInput.focus();
+      } else if (msg.toLowerCase().includes('username')) {
+        dvShowFieldError(usernameInput, msg);
+        usernameInput.focus();
+      } else {
+        dvToast(msg);
+      }
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Create Account';
+      }
     }
-
-    // Check if an account with this username already exists.
-    if (dvFindAccountByUsername(username)) {
-      dvShowFieldError(usernameInput, 'That username is already taken. Try another one.');
-      usernameInput.focus();
-      return;
-    }
-
-    const account = {
-      name: nameInput.value.trim(),
-      username: username,
-      email: email,
-      password: pw,
-    };
-
-    // Add the new account to the accounts array so multiple accounts
-    // can coexist on the same device.
-    const accounts = DVStore.get('auth.accounts', []);
-    accounts.push(account);
-    DVStore.set('auth.accounts', accounts);
-
-    DVStore.set('auth.session', account.email);
-    DVStore.set('profile.overrides', { name: account.name, username: account.username, bio: '', avatarSeed: 'you-builder' });
-
-    dvAwardOnce('milestone', 'account-created', DV_POINT_VALUES.milestone.accountCreated, 'Created your DevVerse account');
-    dvToast(`Welcome to DevVerse, ${account.name.split(' ')[0]}!`);
-    window.location.href = redirectTarget;
   });
 
-  // Clear a field's error as soon as the person starts fixing it.
+  // Clear field errors on input
   form.querySelectorAll('input').forEach((input) => {
     input.addEventListener('input', function () {
       if (this.classList.contains('field-error')) dvClearFieldError(this);

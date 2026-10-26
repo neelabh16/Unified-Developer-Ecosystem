@@ -93,6 +93,4 @@ const hackathonSchema = new mongoose.Schema(
   }
 );
 
-hackathonSchema.index({ end: 1 });
-
 module.exports = mongoose.model('Hackathon', hackathonSchema);

@@ -229,10 +229,14 @@ function dvRenderComments(projectId) {
       const idx = parseInt(this.dataset.commentIndex, 10);
       const cmts = DVStore.get('comments.' + pId, []);
       if (idx >= 0 && idx < cmts.length && cmts[idx].author === 'you') {
+        const deletedComment = cmts[idx];
         cmts.splice(idx, 1);
         DVStore.set('comments.' + pId, cmts);
         dvRenderComments(pId);
         dvToast('Comment deleted');
+        if (window.DVApi && DVApi.projects && DVApi.projects.deleteComment && deletedComment._id) {
+          DVApi.projects.deleteComment(pId, deletedComment._id).catch(function () {});
+        }
       }
     });
   });
@@ -244,12 +248,21 @@ function dvPostComment(projectId) {
   if (!dvValidateForm(form)) return;
   const text = input.value.trim();
   const comments = DVStore.get(`comments.${projectId}`, []);
-  comments.unshift({ author: 'you', text, time: 'just now' });
+  const newComment = { author: 'you', text, time: 'just now' };
+  comments.unshift(newComment);
   DVStore.set(`comments.${projectId}`, comments);
   form.reset();
   dvRenderComments(projectId);
   dvAwardPoints(DV_POINT_VALUES.comment, 'Posted a comment');
   dvToast(`Comment posted (+${DV_POINT_VALUES.comment} pts)`);
+  if (window.DVApi && DVApi.projects && DVApi.projects.addComment) {
+    DVApi.projects.addComment(projectId, text).then(function (res) {
+      if (res && res.data && res.data._id) {
+        newComment._id = res.data._id;
+        DVStore.set(`comments.${projectId}`, comments);
+      }
+    }).catch(function () {});
+  }
 }
 
 /** Wires the "Edit category" control on your own project's detail

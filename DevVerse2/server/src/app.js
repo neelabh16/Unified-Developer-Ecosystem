@@ -14,6 +14,17 @@ const errorHandler = require('./middleware/errorHandler');
 const healthRoutes = require('./routes/healthRoutes');
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
+const projectRoutes = require('./routes/projectRoutes');
+const communityRoutes = require('./routes/communityRoutes');
+const discussionRoutes = require('./routes/discussionRoutes');
+const codexRoutes = require('./routes/codexRoutes');
+const hackathonRoutes = require('./routes/hackathonRoutes');
+const portfolioRoutes = require('./routes/portfolioRoutes');
+const squadRoutes = require('./routes/squadRoutes');
+const messageRoutes = require('./routes/messageRoutes');
+const bookmarkRoutes = require('./routes/bookmarkRoutes');
+const activityRoutes = require('./routes/activityRoutes');
+const leaderboardRoutes = require('./routes/leaderboardRoutes');
 
 const app = express();
 
@@ -43,7 +54,6 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Allow requests with no origin (like mobile apps, curl, postman)
       if (!origin) return callback(null, true);
       if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
         return callback(null, true);
@@ -67,6 +77,17 @@ const API_PREFIX = '/api/v1';
 app.use(API_PREFIX, healthRoutes);
 app.use(`${API_PREFIX}/auth`, authRoutes);
 app.use(`${API_PREFIX}/users`, userRoutes);
+app.use(`${API_PREFIX}/projects`, projectRoutes);
+app.use(`${API_PREFIX}/communities`, communityRoutes);
+app.use(`${API_PREFIX}/discussions`, discussionRoutes);
+app.use(`${API_PREFIX}/codex`, codexRoutes);
+app.use(`${API_PREFIX}/hackathons`, hackathonRoutes);
+app.use(`${API_PREFIX}/portfolios`, portfolioRoutes);
+app.use(`${API_PREFIX}/squads`, squadRoutes);
+app.use(`${API_PREFIX}/messages`, messageRoutes);
+app.use(`${API_PREFIX}/bookmarks`, bookmarkRoutes);
+app.use(`${API_PREFIX}/activity`, activityRoutes);
+app.use(`${API_PREFIX}/leaderboard`, leaderboardRoutes);
 
 // Centralized 404 handler for unmatched routes
 app.all('*', (req, res, next) => {

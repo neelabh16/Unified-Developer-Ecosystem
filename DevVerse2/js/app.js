@@ -1208,11 +1208,17 @@ function dvCreateSquad(name, description, memberHandles) {
   squads.push(squad);
   dvSaveSquads(squads);
   dvAwardPoints(DV_POINT_VALUES.squadFormed, `Formed the ${name} squad`);
+  if (window.DVApi && DVApi.squads && DVApi.squads.create) {
+    DVApi.squads.create({ name, description, memberHandles }).catch(function () {});
+  }
   return squad;
 }
 function dvLeaveSquad(squadId) {
   const squads = dvSquads().filter((s) => s.id !== squadId);
   dvSaveSquads(squads);
+  if (window.DVApi && DVApi.squads && DVApi.squads.leave) {
+    DVApi.squads.leave(squadId).catch(function () {});
+  }
 }
 function dvRegisterSquadForHackathon(squadId, hackathonId) {
   const squads = dvSquads();
@@ -1232,6 +1238,9 @@ function dvRegisterSquadForHackathon(squadId, hackathonId) {
     DVStore.set('hackathons', personal);
   }
   dvAwardOnce('squadHackathon', `${squadId}-${hackathonId}`, DV_POINT_VALUES.squadRegister, 'Registered a squad for a hackathon');
+  if (window.DVApi && DVApi.squads && DVApi.squads.registerHackathon) {
+    DVApi.squads.registerHackathon(squadId, hackathonId).catch(function () {});
+  }
   return true;
 }
 
@@ -1373,6 +1382,9 @@ function dvSendMessage(handle, text, onReply) {
   msgs.push({ from: 'you', text, at: Date.now() });
   dvSaveMessages(handle, msgs);
   dvAwardPoints(DV_POINT_VALUES.message, 'Sent a message');
+  if (window.DVApi && DVApi.messages && DVApi.messages.send) {
+    DVApi.messages.send(handle, text).catch(function () {});
+  }
   setTimeout(() => {
     const reply = DV_CANNED_REPLIES[Math.floor(Math.random() * DV_CANNED_REPLIES.length)];
     const msgs2 = dvMessages(handle);
@@ -1517,6 +1529,16 @@ function dvAddCodexEntry(entry) {
   });
   dvSaveCodexEntries(entries);
   dvAwardPoints(DV_POINT_VALUES.codexEntry, 'Contributed to the Codex');
+  if (window.DVApi && DVApi.codex && DVApi.codex.create) {
+    DVApi.codex.create({
+      title: entry.title,
+      category: entry.category,
+      problem: entry.problem,
+      tried: entry.tried,
+      fix: entry.fix,
+      lesson: entry.lesson
+    }).catch(function () {});
+  }
 }
 function dvCodexAuthorInfo(handle) {
   if (handle === 'you') {
@@ -1579,6 +1601,9 @@ function dvDeleteUserProject(id) {
   const list = dvUserProjects();
   const filtered = list.filter(function (p) { return p.id !== id; });
   dvSaveUserProjects(filtered);
+  if (window.DVApi && DVApi.projects && DVApi.projects.delete) {
+    DVApi.projects.delete(id).catch(function () {});
+  }
 }
 /** Patches a user-submitted project (currently used for the "Edit
  *  category" control on your own project's detail page) and saves
@@ -1590,6 +1615,9 @@ function dvUpdateUserProject(id, patch) {
   if (index === -1) return null;
   list[index] = Object.assign({}, list[index], patch);
   dvSaveUserProjects(list);
+  if (window.DVApi && DVApi.projects && DVApi.projects.update) {
+    DVApi.projects.update(id, patch).catch(function () {});
+  }
   return list[index];
 }
 /** Same idea as dvCodexAuthorInfo/dvSquadMemberInfo — resolves a
@@ -1787,6 +1815,9 @@ function dvWireInteractions(root = document) {
       } else {
         dvToast(active ? 'Added to your likes' : 'Removed from your likes');
       }
+      if (window.DVApi && DVApi.projects && DVApi.projects.toggleLike) {
+        DVApi.projects.toggleLike(id).catch(function () {});
+      }
     }
     const bmBtn = e.target.closest('[data-bookmark]');
     if (bmBtn) {
@@ -1799,6 +1830,13 @@ function dvWireInteractions(root = document) {
         dvToast(`Saved to bookmarks (+${DV_POINT_VALUES.bookmark} pts)`);
       } else {
         dvToast(active ? 'Saved to bookmarks' : 'Removed from bookmarks');
+      }
+      if (window.DVApi) {
+        if (id.indexOf('hack-') === 0 && DVApi.hackathons && DVApi.hackathons.toggleBookmark) {
+          DVApi.hackathons.toggleBookmark(id.replace('hack-', '')).catch(function () {});
+        } else if (DVApi.projects && DVApi.projects.toggleBookmark) {
+          DVApi.projects.toggleBookmark(id).catch(function () {});
+        }
       }
     }
     const followBtn = e.target.closest('[data-follow]');
@@ -1813,6 +1851,9 @@ function dvWireInteractions(root = document) {
       } else {
         dvToast(active ? `Following ${id}` : `Unfollowed ${id}`);
       }
+      if (window.DVApi && DVApi.users && DVApi.users.toggleFollow) {
+        DVApi.users.toggleFollow(id).catch(function () {});
+      }
     }
     const joinBtn = e.target.closest('[data-join]');
     if (joinBtn) {
@@ -1826,6 +1867,9 @@ function dvWireInteractions(root = document) {
       } else {
         dvToast(active ? 'Joined community' : 'Left community');
       }
+      if (window.DVApi && DVApi.communities && DVApi.communities.toggleJoin) {
+        DVApi.communities.toggleJoin(id).catch(function () {});
+      }
     }
     const regBtn = e.target.closest('[data-register]');
     if (regBtn) {
@@ -1837,6 +1881,9 @@ function dvWireInteractions(root = document) {
         dvToast(`Registered for hackathon (+${DV_POINT_VALUES.register} pts)`);
       } else {
         dvToast(active ? 'Registered for hackathon' : 'Registration cancelled');
+      }
+      if (window.DVApi && DVApi.hackathons && DVApi.hackathons.toggleRegister) {
+        DVApi.hackathons.toggleRegister(id).catch(function () {});
       }
     }
     const shareBtn = e.target.closest('[data-share]');

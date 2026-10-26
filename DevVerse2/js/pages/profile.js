@@ -264,12 +264,16 @@ function dvProfileInit() {
       // silently dropping the "username" field that signup had put there
       // (Object.assign/spread merges it with what's already stored instead
       // of throwing it away).
-      DVStore.set('profile.overrides', {
+      const updatedProfile = {
         ...DVStore.get('profile.overrides', {}),
         name: document.getElementById('edit-name').value.trim() || 'You',
         bio: document.getElementById('edit-bio').value.trim(),
         avatarSeed: document.getElementById('edit-avatar').value.trim() || 'you-builder',
-      });
+      };
+      DVStore.set('profile.overrides', updatedProfile);
+      if (window.DVApi && DVApi.users && DVApi.users.updateProfile) {
+        DVApi.users.updateProfile(updatedProfile).catch(function () {});
+      }
       if (dvAwardOnce('milestone', 'profile-edited', DV_POINT_VALUES.milestone.profileEdited, 'Customized your profile')) {
         dvToast(`Profile saved (+${DV_POINT_VALUES.milestone.profileEdited} pts)`);
       } else {

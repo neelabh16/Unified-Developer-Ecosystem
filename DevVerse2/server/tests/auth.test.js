@@ -312,8 +312,10 @@ describe('User Model & Auth Controller Unit/Integration Tests', () => {
 
   describe('User Profile Operations (userController)', () => {
     it('getProfile should return profile by username', async () => {
-      const mockUser = { username: 'adalovelace', name: 'Ada Lovelace', bio: 'Pioneer' };
+      const mockUser = { _id: '123', username: 'adalovelace', name: 'Ada Lovelace', bio: 'Pioneer' };
+      const Engagement = require('../src/models/Engagement');
       jest.spyOn(User, 'findOne').mockResolvedValue(mockUser);
+      jest.spyOn(Engagement, 'countDocuments').mockResolvedValue(0);
 
       const req = { params: { username: 'adalovelace' } };
       const res = {
@@ -328,6 +330,7 @@ describe('User Model & Auth Controller Unit/Integration Tests', () => {
       expect(res.json.mock.calls[0][0].data.user.name).toBe('Ada Lovelace');
 
       User.findOne.mockRestore();
+      Engagement.countDocuments.mockRestore();
     });
 
     it('updateProfile should update user settings and bio', async () => {
