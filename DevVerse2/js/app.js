@@ -207,11 +207,21 @@ function dvInitAuth() {
                   window.DVCurrentUser.points = actRes.data.totalPoints;
                 }
                 if (Array.isArray(actRes.data.log) && actRes.data.log.length > 0) {
-                  const mappedLog = actRes.data.log.map((item) => ({
-                    amount: item.pointsEarned || item.amount || 0,
-                    reason: item.description || item.action || 'Activity',
+                  let mappedLog = actRes.data.log.map((item) => ({
+                    amount: item.amount || item.pointsEarned || 0,
+                    reason: item.reason || item.description || item.action || 'Activity',
                     at: new Date(item.createdAt).getTime() || Date.now(),
                   }));
+                  // Ensure activity ledger includes full user balance
+                  const userPts = window.DVCurrentUser.points || 0;
+                  const logSum = mappedLog.reduce((s, x) => s + (x.amount || 0), 0);
+                  if (userPts > logSum) {
+                    mappedLog.push({
+                      amount: userPts - logSum,
+                      reason: 'Welcome bonus — Account created',
+                      at: Date.now() - 3600000,
+                    });
+                  }
                   DVStore.set('points.log', mappedLog);
                 }
               }
@@ -220,7 +230,7 @@ function dvInitAuth() {
           if (!DVStore.get('points.log', []).length && (window.DVCurrentUser.points || 0) > 0) {
             DVStore.set('points.log', [{
               amount: window.DVCurrentUser.points,
-              reason: 'Initial account balance',
+              reason: 'Welcome bonus — Account created',
               at: Date.now()
             }]);
           }
@@ -1772,13 +1782,6 @@ function dvParseGithubRepoUrl(url) {
 function dvPointsTotal(sinceMs) {
   const log = DVStore.get('points.log', []);
   const sum = log.reduce((s, entry) => (!sinceMs || entry.at >= sinceMs ? s + entry.amount : s), 0);
-  if (sinceMs) {
-    if (sum > 0) return sum;
-    if (window.DVCurrentUser && typeof window.DVCurrentUser.points === 'number') {
-      return window.DVCurrentUser.points;
-    }
-    return sum;
-  }
   if (window.DVCurrentUser && typeof window.DVCurrentUser.points === 'number') {
     return Math.max(window.DVCurrentUser.points, sum);
   }

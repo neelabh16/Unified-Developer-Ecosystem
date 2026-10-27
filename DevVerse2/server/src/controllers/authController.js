@@ -2,6 +2,7 @@
 // Auth Controller
 // =============================================================================
 const User = require('../models/User');
+const Activity = require('../models/Activity');
 const AppError = require('../utils/AppError');
 const { sendSuccess } = require('../utils/response');
 const { signToken, setAuthCookie, clearAuthCookie } = require('../utils/token');
@@ -54,6 +55,14 @@ const register = async (req, res, next) => {
       password,
       role: 'user',
       points: 20, // 20 milestone points for account creation
+    });
+
+    await Activity.create({
+      user: newUser._id,
+      amount: 20,
+      reason: 'Welcome bonus — Account created',
+      bucket: 'register',
+      entityId: newUser._id.toString(),
     });
 
     const token = signToken(newUser._id, newUser.role);
@@ -215,6 +224,14 @@ const oauthLogin = async (req, res, next) => {
         github: provider === 'github' ? (github || username || candidateUsername) : (github || ''),
         role: 'user',
         points: 20, // Welcome milestone bonus
+      });
+
+      await Activity.create({
+        user: user._id,
+        amount: 20,
+        reason: 'Welcome bonus — Account created',
+        bucket: 'register',
+        entityId: user._id.toString(),
       });
     } else {
       // If user signed in with GitHub and hasn't linked github handle yet, link it

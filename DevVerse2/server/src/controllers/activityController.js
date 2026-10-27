@@ -12,14 +12,30 @@ const { sendSuccess } = require('../utils/response');
  */
 const getMyActivity = async (req, res, next) => {
   try {
-    const log = await Activity.find({ user: req.user._id })
+    let log = await Activity.find({ user: req.user._id })
       .sort({ createdAt: -1 })
       .limit(50);
 
     const user = await User.findById(req.user._id);
 
+    // If user's total points exceed recorded activities, backfill initial welcome bonus activity
+    const activityTotal = log.reduce((sum, item) => sum + (item.amount || 0), 0);
+    if (user && user.points > activityTotal) {
+      const diff = user.points - activityTotal;
+      const welcome = await Activity.create({
+        user: user._id,
+        amount: diff,
+        reason: 'Welcome bonus — Account created',
+        bucket: 'register',
+        entityId: user._id.toString(),
+        createdAt: user.createdAt || new Date(),
+      });
+      log.push(welcome);
+      log.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }
+
     return sendSuccess(res, 200, 'Activity retrieved', {
-      totalPoints: user.points,
+      totalPoints: user ? user.points : 0,
       log,
     });
   } catch (error) {
@@ -48,9 +64,9 @@ const getGlobalFeed = async (req, res, next) => {
         username: (item.user && item.user.username) || 'builder',
         avatarSeed: (item.user && item.user.avatarSeed) || 'builder',
       },
-      action: item.action || 'earned points',
-      description: item.description || 'earned points',
-      pointsEarned: item.pointsEarned || 0,
+      action: item.reason || item.action || 'earned points',
+      description: item.reason || item.description || 'earned points',
+      pointsEarned: item.amount || item.pointsEarned || 0,
       createdAt: item.createdAt,
     }));
 
