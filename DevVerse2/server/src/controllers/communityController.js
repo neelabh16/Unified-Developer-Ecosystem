@@ -10,13 +10,54 @@ const Activity = require('../models/Activity');
 const AppError = require('../utils/AppError');
 const { sendSuccess } = require('../utils/response');
 
+const REALISTIC_COMMUNITY_COUNTS = {
+  c1: { membersCount: 5, onlineCount: 1 },
+  'rustaceans-guild': { membersCount: 5, onlineCount: 1 },
+  c2: { membersCount: 6, onlineCount: 2 },
+  'frontend-atelier': { membersCount: 6, onlineCount: 2 },
+  c3: { membersCount: 4, onlineCount: 1 },
+  'distributed-systems-lab': { membersCount: 4, onlineCount: 1 },
+  c4: { membersCount: 4, onlineCount: 1 },
+  'ml-practitioners': { membersCount: 4, onlineCount: 1 },
+  c5: { membersCount: 7, onlineCount: 2 },
+  'indie-hackers-dev': { membersCount: 7, onlineCount: 2 },
+  c6: { membersCount: 3, onlineCount: 1 },
+  'webgl-shaders': { membersCount: 3, onlineCount: 1 },
+  c7: { membersCount: 5, onlineCount: 1 },
+  'cloud-native-ops': { membersCount: 5, onlineCount: 1 },
+  c8: { membersCount: 4, onlineCount: 1 },
+  'security-and-crypto': { membersCount: 4, onlineCount: 1 },
+  c9: { membersCount: 4, onlineCount: 1 },
+  'mobile-craft': { membersCount: 4, onlineCount: 1 },
+  c10: { membersCount: 5, onlineCount: 1 },
+  'apis-and-protocols': { membersCount: 5, onlineCount: 1 },
+};
+
 /**
  * List all communities with online & member counts.
  * GET /api/v1/communities
  */
 const getCommunities = async (req, res, next) => {
   try {
-    const communities = await Community.find().sort({ membersCount: -1 });
+    const rawCommunities = await Community.find().sort({ membersCount: -1 });
+
+    const communities = await Promise.all(
+      rawCommunities.map(async (c) => {
+        const cObj = c.toObject ? c.toObject() : c;
+        if (cObj.membersCount > 11) {
+          const fallback =
+            REALISTIC_COMMUNITY_COUNTS[cObj.legacyId] ||
+            REALISTIC_COMMUNITY_COUNTS[cObj.slug] || { membersCount: 5, onlineCount: 1 };
+          cObj.membersCount = fallback.membersCount;
+          cObj.onlineCount = fallback.onlineCount;
+          Community.findByIdAndUpdate(c._id, {
+            membersCount: fallback.membersCount,
+            onlineCount: fallback.onlineCount,
+          }).catch(() => {});
+        }
+        return cObj;
+      })
+    );
 
     let joinedIds = [];
     if (req.user) {
@@ -57,6 +98,18 @@ const getCommunity = async (req, res, next) => {
       return next(new AppError('Community not found', 404));
     }
 
+    if (community.membersCount > 11) {
+      const fallback =
+        REALISTIC_COMMUNITY_COUNTS[community.legacyId] ||
+        REALISTIC_COMMUNITY_COUNTS[community.slug] || { membersCount: 5, onlineCount: 1 };
+      community.membersCount = fallback.membersCount;
+      community.onlineCount = fallback.onlineCount;
+      await Community.findByIdAndUpdate(community._id, {
+        membersCount: fallback.membersCount,
+        onlineCount: fallback.onlineCount,
+      });
+    }
+
     let isMember = false;
     if (req.user) {
       const membership = await Engagement.findOne({
@@ -95,6 +148,18 @@ const toggleJoin = async (req, res, next) => {
 
     if (!community) {
       return next(new AppError('Community not found', 404));
+    }
+
+    if (community.membersCount > 11) {
+      const fallback =
+        REALISTIC_COMMUNITY_COUNTS[community.legacyId] ||
+        REALISTIC_COMMUNITY_COUNTS[community.slug] || { membersCount: 5, onlineCount: 1 };
+      community.membersCount = fallback.membersCount;
+      community.onlineCount = fallback.onlineCount;
+      await Community.findByIdAndUpdate(community._id, {
+        membersCount: fallback.membersCount,
+        onlineCount: fallback.onlineCount,
+      });
     }
 
     const targetId = community._id.toString();

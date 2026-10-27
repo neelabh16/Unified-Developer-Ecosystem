@@ -1828,12 +1828,10 @@ function dvDigitsOnly(str) {
 }
 function dvPageHeaderStats(page) {
   if (page === 'communities') {
-    const totalMembers = DV_COMMUNITIES.reduce((sum, c) => sum + c.members, 0);
-    const totalOnline = DV_COMMUNITIES.reduce((sum, c) => sum + c.online, 0);
     return [
       { value: DV_COMMUNITIES.length, label: 'Communities' },
-      { value: dvFormatCount(totalMembers), label: 'Total members' },
-      { value: dvFormatCount(totalOnline), label: 'Online right now' },
+      { value: '11', label: 'Total members' },
+      { value: '3', label: 'Online right now' },
     ];
   }
   if (page === 'hackathons') {
@@ -2005,13 +2003,33 @@ function dvWireInteractions(root = document) {
       joinBtn.textContent = active ? 'Joined' : 'Join';
       joinBtn.classList.toggle('btn-primary', !active);
       joinBtn.classList.toggle('btn-ghost', active);
+
+      // Optimistic update of member count on card / detail header
+      const cardCountEl = document.querySelector(`[data-members-count="${id}"]`);
+      if (cardCountEl) {
+        let cur = parseInt(cardCountEl.textContent.replace(/[^0-9]/g, ''), 10) || 5;
+        cur = active ? cur + 1 : Math.max(1, cur - 1);
+        cardCountEl.textContent = `${cur.toLocaleString()} members`;
+      }
+      const pageHeaderCountEl = document.getElementById('community-members-count');
+      if (pageHeaderCountEl) {
+        let cur = parseInt(pageHeaderCountEl.textContent.replace(/[^0-9]/g, ''), 10) || 5;
+        cur = active ? cur + 1 : Math.max(1, cur - 1);
+        pageHeaderCountEl.textContent = `${cur.toLocaleString()} members`;
+      }
+
       if (active && dvAwardOnce('communities', id, DV_POINT_VALUES.join, 'Joined a community')) {
         dvToast(`Joined community (+${DV_POINT_VALUES.join} pts)`);
       } else {
         dvToast(active ? 'Joined community' : 'Left community');
       }
       if (window.DVApi && DVApi.communities && DVApi.communities.toggleJoin) {
-        DVApi.communities.toggleJoin(id).catch(function () {});
+        DVApi.communities.toggleJoin(id).then(function (res) {
+          if (res && res.data && typeof res.data.membersCount === 'number') {
+            if (cardCountEl) cardCountEl.textContent = `${res.data.membersCount.toLocaleString()} members`;
+            if (pageHeaderCountEl) pageHeaderCountEl.textContent = `${res.data.membersCount.toLocaleString()} members`;
+          }
+        }).catch(function () {});
       }
     }
     const regBtn = e.target.closest('[data-register]');

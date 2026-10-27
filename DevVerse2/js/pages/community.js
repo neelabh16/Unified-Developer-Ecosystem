@@ -15,7 +15,7 @@ function dvCommunityInit() {
   const root = document.getElementById('community-root');
   if (!root) return;
   const id = dvGetQueryParam('id') || DV_COMMUNITIES[0].id;
-  const c = DV_COMMUNITIES.find((x) => x.id === id) || DV_COMMUNITIES[0];
+  const c = DV_COMMUNITIES.find((x) => x.id === id || x.slug === id || x.legacyId === id) || DV_COMMUNITIES[0];
   dvForumCommunity = c.id;
   document.title = `${c.name} — DevVerse`;
 
@@ -31,8 +31,8 @@ function dvCommunityInit() {
         </div>
       </div>
       <div style="display:flex; align-items:center; gap:14px;">
-        <span class="chip"><span class="mono">${c.online}</span> online</span>
-        <span class="mono muted" style="font-size:12.5px;">${c.members.toLocaleString()} members</span>
+        <span class="chip"><span class="mono" id="community-online-count">${c.online || 1}</span> online</span>
+        <span class="mono muted" id="community-members-count" style="font-size:12.5px;">${(c.members || 5).toLocaleString()} members</span>
         <button class="btn ${joined ? 'btn-ghost' : 'btn-primary'}" data-join="${c.id}" id="community-join-btn">${joined ? 'Joined' : 'Join'}</button>
       </div>
     </div>
@@ -116,6 +116,23 @@ function dvCommunityInit() {
       }
     }).catch(function () {});
   }
+
+  if (window.DVApi && DVApi.communities && DVApi.communities.get) {
+    DVApi.communities.get(c.id).then(function (res) {
+      const comm = res && res.data && (res.data.community || res.data);
+      if (comm) {
+        const memEl = document.getElementById('community-members-count');
+        const onlEl = document.getElementById('community-online-count');
+        if (memEl && typeof comm.membersCount === 'number') {
+          memEl.textContent = `${comm.membersCount.toLocaleString()} members`;
+        }
+        if (onlEl && typeof comm.onlineCount === 'number') {
+          onlEl.textContent = comm.onlineCount;
+        }
+      }
+    }).catch(function () {});
+  }
+
   dvReveal(root);
 }
 

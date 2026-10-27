@@ -9,20 +9,20 @@ function dvRenderCommunityList(communities) {
     const cid = c.legacyId || c.slug || c.id || c._id;
     const joined = DVStore.has('communities', cid);
     const grad = typeof c.gradient === 'number' ? c.gradient : 0;
-    const members = c.membersCount || c.members || 0;
-    const online = c.onlineCount || c.online || Math.max(12, Math.floor(members * 0.1));
+    const members = typeof c.membersCount === 'number' ? c.membersCount : (typeof c.members === 'number' ? c.members : 5);
+    const online = typeof c.onlineCount === 'number' ? c.onlineCount : (typeof c.online === 'number' ? c.online : 1);
     return `
     <div class="glass card-lift reveal" style="padding:22px; display:flex; flex-direction:column; gap:14px;">
       <div style="display:flex; justify-content:space-between; align-items:flex-start;">
         <div style="width:48px;height:48px;border-radius:14px;background:${DV_TECH_GRADIENTS[grad] || DV_TECH_GRADIENTS[0]};"></div>
-        <span class="chip"><span class="mono">${online}</span> online</span>
+        <span class="chip"><span class="mono" data-online-count="${cid}">${online}</span> online</span>
       </div>
       <a href="community.html?id=${cid}" style="text-decoration:none;">
         <h3>${c.name}</h3>
         <p style="font-size:13.5px; margin-top:6px;">${c.desc || c.description || ''}</p>
       </a>
       <div style="display:flex; justify-content:space-between; align-items:center; padding-top:12px; border-top:1px solid var(--border);">
-        <span class="mono" style="font-size:12px; color:var(--text-tertiary);">${members.toLocaleString()} members</span>
+        <span class="mono" data-members-count="${cid}" style="font-size:12px; color:var(--text-tertiary);">${members.toLocaleString()} members</span>
         <div style="display:flex; gap:8px;">
           <a href="community.html?id=${cid}" class="btn btn-sm btn-outline">Open forum</a>
           <button class="btn btn-sm ${joined ? 'btn-ghost' : 'btn-primary'}" data-join="${cid}">${joined ? 'Joined' : 'Join'}</button>

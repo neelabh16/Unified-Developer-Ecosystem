@@ -42,16 +42,16 @@ const DV_PROJECTS = [
 
 // 3. Exactly 10 Communities
 const DV_COMMUNITIES = [
-  { legacyId: 'c1', slug: 'rustaceans-guild', name: 'Rustaceans Guild', membersCount: 18200, desc: 'Everything Rust — from borrow-checker fights to production war stories.', gradient: 0, onlineCount: 412 },
-  { legacyId: 'c2', slug: 'frontend-atelier', name: 'Frontend Atelier', membersCount: 24500, desc: 'A home for people who care about the pixel and the framework equally.', gradient: 2, onlineCount: 890 },
-  { legacyId: 'c3', slug: 'distributed-systems-lab', name: 'Distributed Systems Lab', membersCount: 9100, desc: 'CAP theorem debates, consensus algorithms, and postmortems.', gradient: 1, onlineCount: 205 },
-  { legacyId: 'c4', slug: 'ml-practitioners', name: 'ML Practitioners', membersCount: 15300, desc: 'From fine-tuning to inference — practical machine learning talk.', gradient: 3, onlineCount: 560 },
-  { legacyId: 'c5', slug: 'indie-hackers-dev', name: 'Indie Hackers Dev', membersCount: 31200, desc: 'Shipping solo projects and side quests into real products.', gradient: 4, onlineCount: 1240 },
-  { legacyId: 'c6', slug: 'webgl-shaders', name: 'WebGL & Shaders', membersCount: 6700, desc: 'For people who think the GPU is the most fun part of the browser.', gradient: 0, onlineCount: 140 },
-  { legacyId: 'c7', slug: 'cloud-native-ops', name: 'Cloud Native & DevOps', membersCount: 21400, desc: 'Kubernetes architecture, CI/CD pipelines, and zero-downtime scaling.', gradient: 1, onlineCount: 630 },
-  { legacyId: 'c8', slug: 'security-and-crypto', name: 'Security & Cryptography', membersCount: 11800, desc: 'Penetration testing, threat modeling, zero-knowledge proofs, and secure code.', gradient: 2, onlineCount: 310 },
-  { legacyId: 'c9', slug: 'mobile-craft', name: 'Mobile Craft', membersCount: 14600, desc: 'High-performance iOS, Android, Flutter, and React Native engineering.', gradient: 3, onlineCount: 450 },
-  { legacyId: 'c10', slug: 'apis-and-protocols', name: 'APIs & Protocols', membersCount: 8900, desc: 'REST, GraphQL, gRPC, WebSockets, and designing durable developer interfaces.', gradient: 4, onlineCount: 280 },
+  { legacyId: 'c1', slug: 'rustaceans-guild', name: 'Rustaceans Guild', membersCount: 5, desc: 'Everything Rust — from borrow-checker fights to production war stories.', gradient: 0, onlineCount: 1 },
+  { legacyId: 'c2', slug: 'frontend-atelier', name: 'Frontend Atelier', membersCount: 6, desc: 'A home for people who care about the pixel and the framework equally.', gradient: 2, onlineCount: 2 },
+  { legacyId: 'c3', slug: 'distributed-systems-lab', name: 'Distributed Systems Lab', membersCount: 4, desc: 'CAP theorem debates, consensus algorithms, and postmortems.', gradient: 1, onlineCount: 1 },
+  { legacyId: 'c4', slug: 'ml-practitioners', name: 'ML Practitioners', membersCount: 4, desc: 'From fine-tuning to inference — practical machine learning talk.', gradient: 3, onlineCount: 1 },
+  { legacyId: 'c5', slug: 'indie-hackers-dev', name: 'Indie Hackers Dev', membersCount: 7, desc: 'Shipping solo projects and side quests into real products.', gradient: 4, onlineCount: 2 },
+  { legacyId: 'c6', slug: 'webgl-shaders', name: 'WebGL & Shaders', membersCount: 3, desc: 'For people who think the GPU is the most fun part of the browser.', gradient: 0, onlineCount: 1 },
+  { legacyId: 'c7', slug: 'cloud-native-ops', name: 'Cloud Native & DevOps', membersCount: 5, desc: 'Kubernetes architecture, CI/CD pipelines, and zero-downtime scaling.', gradient: 1, onlineCount: 1 },
+  { legacyId: 'c8', slug: 'security-and-crypto', name: 'Security & Cryptography', membersCount: 4, desc: 'Penetration testing, threat modeling, zero-knowledge proofs, and secure code.', gradient: 2, onlineCount: 1 },
+  { legacyId: 'c9', slug: 'mobile-craft', name: 'Mobile Craft', membersCount: 4, desc: 'High-performance iOS, Android, Flutter, and React Native engineering.', gradient: 3, onlineCount: 1 },
+  { legacyId: 'c10', slug: 'apis-and-protocols', name: 'APIs & Protocols', membersCount: 5, desc: 'REST, GraphQL, gRPC, WebSockets, and designing durable developer interfaces.', gradient: 4, onlineCount: 1 },
 ];
 
 // 4. Exactly 10 Hackathons

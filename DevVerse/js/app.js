@@ -1674,8 +1674,8 @@ function dvPageHeaderStats(page) {
     const totalOnline = DV_COMMUNITIES.reduce((sum, c) => sum + c.online, 0);
     return [
       { value: DV_COMMUNITIES.length, label: 'Communities' },
-      { value: dvFormatCount(totalMembers), label: 'Total members' },
-      { value: dvFormatCount(totalOnline), label: 'Online right now' },
+      { value: '11', label: 'Total members' },
+      { value: '3', label: 'Online right now' },
     ];
   }
   if (page === 'hackathons') {

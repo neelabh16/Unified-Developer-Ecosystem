@@ -60,12 +60,12 @@ const DV_HACKATHONS = [
 ];
 
 const DV_COMMUNITIES = [
-  { id: 'c1', name: 'Rustaceans Guild', members: 18200, desc: 'Everything Rust — from borrow-checker fights to production war stories.', gradient: 0, online: 412 },
-  { id: 'c2', name: 'Frontend Atelier', members: 24500, desc: 'A home for people who care about the pixel and the framework equally.', gradient: 2, online: 890 },
-  { id: 'c3', name: 'Distributed Systems Lab', members: 9100, desc: 'CAP theorem debates, consensus algorithms, and postmortems.', gradient: 1, online: 205 },
-  { id: 'c4', name: 'ML Practitioners', members: 15300, desc: 'From fine-tuning to inference — practical machine learning talk.', gradient: 3, online: 560 },
-  { id: 'c5', name: 'Indie Hackers Dev', members: 31200, desc: 'Shipping solo projects and side quests into real products.', gradient: 4, online: 1240 },
-  { id: 'c6', name: 'WebGL & Shaders', members: 6700, desc: 'For people who think the GPU is the most fun part of the browser.', gradient: 0, online: 140 },
+  { id: 'c1', name: 'Rustaceans Guild', members: 5, desc: 'Everything Rust — from borrow-checker fights to production war stories.', gradient: 0, online: 1 },
+  { id: 'c2', name: 'Frontend Atelier', members: 6, desc: 'A home for people who care about the pixel and the framework equally.', gradient: 2, online: 2 },
+  { id: 'c3', name: 'Distributed Systems Lab', members: 4, desc: 'CAP theorem debates, consensus algorithms, and postmortems.', gradient: 1, online: 1 },
+  { id: 'c4', name: 'ML Practitioners', members: 4, desc: 'From fine-tuning to inference — practical machine learning talk.', gradient: 3, online: 1 },
+  { id: 'c5', name: 'Indie Hackers Dev', members: 7, desc: 'Shipping solo projects and side quests into real products.', gradient: 4, online: 2 },
+  { id: 'c6', name: 'WebGL & Shaders', members: 3, desc: 'For people who think the GPU is the most fun part of the browser.', gradient: 0, online: 1 },
 ];
 
 const DV_TECHS = [
