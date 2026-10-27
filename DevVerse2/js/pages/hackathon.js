@@ -235,4 +235,30 @@ function dvHackathonDetailInit() {
   dvTickCountdowns();
 }
 
+// Multi-tab synchronization for hackathon detail page
+window.addEventListener('focus', () => {
+  if (!dvCurrentHackathon) return;
+  const h = dvCurrentHackathon;
+  const mySquads = typeof dvMySquads === 'function' ? dvMySquads() : [];
+  const squadReg = mySquads.find((sq) => {
+    return (sq.registeredHackathons || []).some((hid) => {
+      const f = typeof dvFindHackathon === 'function' ? dvFindHackathon(hid) : null;
+      return hid === h.id || hid === h.legacyId || (f && f.id === h.id);
+    });
+  });
+  const isReg = DVStore.has('hackathons', h.id) || !!squadReg;
+  const regBtn = document.querySelector(`[data-register="${h.id}"]`);
+  if (regBtn) {
+    regBtn.textContent = isReg ? (squadReg ? `Registered (${squadReg.name}) ✓` : 'Registered ✓') : 'Register now';
+    regBtn.classList.toggle('btn-outline', isReg);
+    regBtn.classList.toggle('btn-primary', !isReg);
+  }
+  if (typeof dvRenderDevVerseRoster === 'function' && dvCurrentRosterList) {
+    dvRenderDevVerseRoster(h.id, dvCurrentRosterList, isReg);
+  }
+});
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) window.dispatchEvent(new Event('focus'));
+});
+
 document.addEventListener('DOMContentLoaded', () => setTimeout(dvHackathonDetailInit, 30));

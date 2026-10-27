@@ -42,19 +42,36 @@ const DVStore = {
   get(path, fallback) {
     const data = this._isAuthPath(path) ? this._read() : this._readUser();
     let result = path.split('.').reduce((o, k) => (o && o[k] !== undefined ? o[k] : undefined), data);
-    if ((result === undefined || (Array.isArray(result) && !result.length)) && !this._isAuthPath(path)) {
+    if (!this._isAuthPath(path)) {
       if (path === 'hackathons') {
         const c = dvGetCookie('dv_hackathons');
         if (c) {
-          result = c.split(',').map((s) => s.trim()).filter(Boolean);
-          this._user.hackathons = result;
+          const cookieItems = c.split(',').map((s) => s.trim()).filter(Boolean);
+          const combined = Array.from(new Set([...(Array.isArray(result) ? result : []), ...cookieItems]));
+          this._user.hackathons = combined;
+          result = combined;
         }
       } else if (path === 'squads') {
         const c = dvGetCookie('dv_squads');
         if (c) {
           try {
-            result = JSON.parse(c);
-            this._user.squads = result;
+            const parsed = JSON.parse(c);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              if (Array.isArray(result) && result.length > 0) {
+                parsed.forEach((cs) => {
+                  const existing = result.find((s) => s.id === cs.id || s._id === cs._id || s.name === cs.name);
+                  if (existing) {
+                    const mergedReg = new Set([...(existing.registeredHackathons || []), ...(cs.registeredHackathons || [])]);
+                    existing.registeredHackathons = Array.from(mergedReg);
+                  } else {
+                    result.push(cs);
+                  }
+                });
+              } else {
+                result = parsed;
+              }
+              this._user.squads = result;
+            }
           } catch (e) {}
         }
       }
@@ -109,12 +126,44 @@ const DVStore = {
     return active;
   },
   has(path, id) {
+    if (path === 'hackathons') {
+      const arr = this.get('hackathons', []);
+      const found = typeof dvFindHackathon === 'function' ? dvFindHackathon(id) : null;
+      const canonicalId = found ? found.id : id;
+      if (arr.includes(id) || arr.includes(canonicalId)) return true;
+      if (found && found.legacyId && arr.includes(found.legacyId)) return true;
+      if (found && found.title && arr.includes(found.title.toLowerCase())) return true;
+      if (typeof dvMySquads === 'function') {
+        const mySq = dvMySquads();
+        const inSquad = mySq.some((s) => {
+          return (s.registeredHackathons || []).some((hid) => {
+            const hFound = typeof dvFindHackathon === 'function' ? dvFindHackathon(hid) : null;
+            return hid === id || hid === canonicalId || (hFound && hFound.id === canonicalId);
+          });
+        });
+        if (inSquad) return true;
+      }
+      return false;
+    }
     return (this.get(path, []) || []).includes(id);
   },
   resetAll() {
     this._user = {};
   },
 };
+
+function dvRegisteredHackathons() {
+  const set = new Set();
+  const c = typeof dvGetCookie === 'function' ? dvGetCookie('dv_hackathons') : null;
+  if (c) {
+    c.split(',').map((s) => s.trim()).filter(Boolean).forEach((id) => set.add(id));
+  }
+  const storeArr = DVStore.get('hackathons', []);
+  if (Array.isArray(storeArr)) {
+    storeArr.forEach((id) => set.add(id));
+  }
+  return Array.from(set);
+}
 
 /* ---------- Migrate old un-namespaced data into a per-account bucket ----------
    Before the fix above, everything (likes, bookmarks, portfolio, settings,
@@ -1397,6 +1446,38 @@ function dvCmdkActivate(index) {
    simulated the same way following or messaging them is — but the
    squad itself, its description, and its registrations are real,
    persisted data. */
+const DV_HACKATHON_ALIASES = {
+  h1: ['aurora-hacks-2026', 'aurora-hacks', 'aurora hacks 2026'],
+  h2: ['systems-underground', 'systems underground'],
+  h3: ['ai-for-builders', 'ai for builders'],
+  h4: ['pixel-and-motion', 'pixel-&--motion', 'pixel-motion', 'pixel & motion', 'pixel and motion'],
+  h5: ['edge-cloud-sprint', 'edge cloud sprint'],
+  h6: ['zero-knowledge-jam', 'zero-knowledge jam', 'zero knowledge jam'],
+  h7: ['open-source-revival', 'open source revival'],
+  h8: ['mobile-first-odyssey', 'mobile-first odyssey', 'mobile first odyssey'],
+  h9: ['browser-game-jam', 'browser game jam'],
+  h10: ['cyber-defense-crucible', 'cyber defense crucible'],
+};
+
+function dvFindHackathon(ident) {
+  if (!ident || typeof DV_HACKATHONS === 'undefined') return null;
+  const raw = typeof ident === 'string' ? ident.trim() : (ident.id || ident.legacyId || ident.title || ident.slug || '');
+  if (!raw) return null;
+  const clean = raw.toLowerCase().replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim();
+
+  return DV_HACKATHONS.find((h) => {
+    if (h.id.toLowerCase() === raw.toLowerCase()) return true;
+    if (h.legacyId && h.legacyId.toLowerCase() === raw.toLowerCase()) return true;
+    const hTitle = h.title.toLowerCase().replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (hTitle === clean) return true;
+    const aliases = DV_HACKATHON_ALIASES[h.id] || [];
+    return aliases.some((a) => {
+      const aClean = a.replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim();
+      return a === raw.toLowerCase() || aClean === clean;
+    });
+  }) || null;
+}
+
 function dvNormalizeBackendSquad(s) {
   if (!s) return null;
   const selfHandle = dvSelfHandle();
@@ -1418,19 +1499,10 @@ function dvNormalizeBackendSquad(s) {
   if (members.indexOf('you') === -1) members.unshift('you');
 
   const registeredHackathons = (s.registeredHackathons || []).map((h) => {
-    if (typeof h === 'string') {
-      const match = typeof DV_HACKATHONS !== 'undefined' ? DV_HACKATHONS.find((dh) => dh.id === h || dh.legacyId === h || (dh._id && dh._id.toString() === h.toString())) : null;
-      return match ? match.id : h;
-    }
-    if (h && typeof h === 'object') {
-      const legacy = h.legacyId || h.id;
-      if (legacy) return legacy;
-      if (h.title && typeof DV_HACKATHONS !== 'undefined') {
-        const byTitle = DV_HACKATHONS.find((dh) => dh.title.toLowerCase() === h.title.toLowerCase());
-        if (byTitle) return byTitle.id;
-      }
-      return h._id ? h._id.toString() : (h.id || '');
-    }
+    const found = dvFindHackathon(h);
+    if (found) return found.id;
+    if (typeof h === 'string') return h;
+    if (h && typeof h === 'object') return h.legacyId || h.id || (h._id ? h._id.toString() : '');
     return h;
   });
 
@@ -1498,34 +1570,44 @@ function dvRegisterSquadForHackathon(squadId, hackathonId) {
   const squad = squads.find((s) => s.id === squadId || s._id === squadId);
   if (!squad) return false;
   if (!squad.registeredHackathons) squad.registeredHackathons = [];
-  if (squad.registeredHackathons.indexOf(hackathonId) !== -1) return false;
-  squad.registeredHackathons.push(hackathonId);
+
+  const matchH = dvFindHackathon(hackathonId);
+  const canonicalId = matchH ? matchH.id : hackathonId;
+
+  if (squad.registeredHackathons.indexOf(canonicalId) === -1) {
+    squad.registeredHackathons.push(canonicalId);
+  }
+  if (squad.registeredHackathons.indexOf(hackathonId) === -1) {
+    squad.registeredHackathons.push(hackathonId);
+  }
   dvSaveSquads(squads);
-  // Continuity: if your squad registers, you're registered too —
-  // the same 'hackathons' set that drives the Register button
-  // everywhere else on the site (hackathon cards, the detail page,
-  // your profile library) so there's one source of truth instead of
-  // two registration states that can drift apart.
+
+  // Continuity: mark registration across stores and cookies
+  DVStore.addToSet('hackathons', canonicalId);
   DVStore.addToSet('hackathons', hackathonId);
-  const matchH = typeof DV_HACKATHONS !== 'undefined' ? DV_HACKATHONS.find((h) => h.id === hackathonId || h.legacyId === hackathonId) : null;
   if (matchH) {
-    DVStore.addToSet('hackathons', matchH.id);
     if (matchH.legacyId) DVStore.addToSet('hackathons', matchH.legacyId);
+    if (matchH.title) DVStore.addToSet('hackathons', matchH.title.toLowerCase());
   }
 
-  dvAwardOnce('squadHackathon', `${squadId}-${hackathonId}`, DV_POINT_VALUES.squadRegister, 'Registered a squad for a hackathon');
+  dvAwardOnce('squadHackathon', `${squadId}-${canonicalId}`, DV_POINT_VALUES.squadRegister, 'Registered a squad for a hackathon');
   if (window.DVApi && DVApi.squads && DVApi.squads.registerHackathon) {
     const apiSquadId = squad._id || squad.id;
-    DVApi.squads.registerHackathon(apiSquadId, hackathonId).then(function (res) {
+    DVApi.squads.registerHackathon(apiSquadId, canonicalId).then(function (res) {
       if (res && res.data && res.data.squad) {
         const updated = dvNormalizeBackendSquad(res.data.squad);
+        if (updated.registeredHackathons.indexOf(canonicalId) === -1) {
+          updated.registeredHackathons.push(canonicalId);
+        }
         const idx = squads.findIndex((s) => s.id === squad.id || s._id === squad.id);
         if (idx !== -1) squads[idx] = updated;
         else squads.push(updated);
         dvSaveSquads(squads);
         dvRefreshSquadDisplays();
       }
-    }).catch(function () {});
+    }).catch(function (err) {
+      console.warn('Backend squad register error:', err);
+    });
   }
   return true;
 }
@@ -2270,6 +2352,25 @@ function dvWireInteractions(root = document) {
     if (regBtn) {
       const id = regBtn.dataset.register;
       const active = DVStore.toggleInSet('hackathons', id);
+      const matchH = typeof dvFindHackathon === 'function' ? dvFindHackathon(id) : null;
+      const canonicalId = matchH ? matchH.id : id;
+
+      if (active) {
+        DVStore.addToSet('hackathons', canonicalId);
+        if (matchH) {
+          if (matchH.legacyId) DVStore.addToSet('hackathons', matchH.legacyId);
+          if (matchH.title) DVStore.addToSet('hackathons', matchH.title.toLowerCase());
+        }
+        const mySquads = typeof dvMySquads === 'function' ? dvMySquads() : [];
+        if (mySquads.length > 0) {
+          mySquads.forEach((sq) => {
+            if (!sq.registeredHackathons) sq.registeredHackathons = [];
+            if (!sq.registeredHackathons.includes(canonicalId)) sq.registeredHackathons.push(canonicalId);
+            if (!sq.registeredHackathons.includes(id)) sq.registeredHackathons.push(id);
+          });
+          dvSaveSquads(dvSquads());
+        }
+      }
       regBtn.textContent = active ? 'Registered ✓' : 'Register now';
       regBtn.classList.toggle('btn-outline', active);
 
@@ -2450,6 +2551,47 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Authenticate against backend REST API via HttpOnly JWT cookie
   dvInitAuth();
+
+  // Multi-tab synchronization for cookies, hackathon registrations, and squads
+  function dvOnTabVisibilityOrFocus() {
+    if (typeof DVStore !== 'undefined') {
+      const hackCookie = dvGetCookie('dv_hackathons');
+      if (hackCookie) {
+        const items = hackCookie.split(',').map((s) => s.trim()).filter(Boolean);
+        DVStore._user.hackathons = Array.from(new Set([...(DVStore._user.hackathons || []), ...items]));
+      }
+      const squadCookie = dvGetCookie('dv_squads');
+      if (squadCookie) {
+        try {
+          const parsed = JSON.parse(squadCookie);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const current = DVStore._user.squads || [];
+            parsed.forEach((ps) => {
+              const ex = current.find((s) => s.id === ps.id || s._id === ps._id || s.name === ps.name);
+              if (ex) {
+                const merged = new Set([...(ex.registeredHackathons || []), ...(ps.registeredHackathons || [])]);
+                ex.registeredHackathons = Array.from(merged);
+              } else {
+                current.push(ps);
+              }
+            });
+            DVStore._user.squads = current;
+          }
+        } catch (e) {}
+      }
+    }
+    if (typeof dvRefreshSquadDisplays === 'function') {
+      dvRefreshSquadDisplays();
+    }
+    if (typeof dvSyncAndRenderMySquads === 'function') {
+      dvSyncAndRenderMySquads();
+    }
+  }
+  window.addEventListener('focus', dvOnTabVisibilityOrFocus);
+  window.addEventListener('pageshow', dvOnTabVisibilityOrFocus);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) dvOnTabVisibilityOrFocus();
+  });
 
   // Single scroll/resize listener drives both the reveal and counter
   // animations for the whole page (registered once here, rather than

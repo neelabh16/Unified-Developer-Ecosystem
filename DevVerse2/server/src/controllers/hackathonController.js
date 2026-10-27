@@ -280,9 +280,17 @@ const toggleRegister = async (req, res, next) => {
     });
 
     let registered = false;
+    const userSquad = await Squad.findOne({ members: req.user._id });
+
     if (existingReg) {
       // Unregister
       await HackathonRegistration.deleteOne({ _id: existingReg._id });
+      if (userSquad) {
+        userSquad.registeredHackathons = (userSquad.registeredHackathons || []).filter(
+          (h) => h.toString() !== hackathon._id.toString()
+        );
+        await userSquad.save();
+      }
       await Hackathon.findByIdAndUpdate(hackathon._id, { $inc: { participantsCount: -1 } });
       registered = false;
     } else {
@@ -290,7 +298,15 @@ const toggleRegister = async (req, res, next) => {
       await HackathonRegistration.create({
         user: req.user._id,
         hackathon: hackathon._id,
+        squad: userSquad ? userSquad._id : undefined,
       });
+      if (userSquad) {
+        if (!userSquad.registeredHackathons) userSquad.registeredHackathons = [];
+        if (!userSquad.registeredHackathons.some((h) => h.toString() === hackathon._id.toString())) {
+          userSquad.registeredHackathons.push(hackathon._id);
+          await userSquad.save();
+        }
+      }
       await Hackathon.findByIdAndUpdate(hackathon._id, { $inc: { participantsCount: 1 } });
       registered = true;
 
