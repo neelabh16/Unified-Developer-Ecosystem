@@ -4,8 +4,8 @@
    settings application, and small reusable utilities.
    ========================================================= */
 
-// Ensure browser storage is cleared completely
-try { localStorage.clear(); } catch (e) {}
+// Ensure browser storage is cleared completely (zero localStorage & zero sessionStorage)
+try { localStorage.clear(); sessionStorage.clear(); } catch (e) {}
 
 /* ---------- State Store (In-Memory, Zero LocalStorage) ----------
    All persistent state is stored and retrieved strictly through the
