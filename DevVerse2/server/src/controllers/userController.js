@@ -60,11 +60,12 @@ const getProfile = async (req, res, next) => {
  */
 const updateProfile = async (req, res, next) => {
   try {
-    const { name, bio, avatarSeed, settings, skills, squadFinderProfile } = req.body;
+    const { name, bio, github, avatarSeed, settings, skills, squadFinderProfile } = req.body;
 
     const updates = {};
     if (name !== undefined) updates.name = name.trim();
     if (bio !== undefined) updates.bio = bio.trim();
+    if (github !== undefined) updates.github = github.trim().replace(/^@/, '');
     if (avatarSeed !== undefined) updates.avatarSeed = avatarSeed.trim();
     if (skills !== undefined && Array.isArray(skills)) updates.skills = skills;
     if (squadFinderProfile && typeof squadFinderProfile === 'object') {

@@ -23,7 +23,7 @@ const getUserGitHubData = async (req, res, next) => {
 
     // Try finding the user in DevVerse to see if they have custom settings or linked handle
     const devUser = await User.findOne({ username: username.toLowerCase() });
-    const targetGithub = (devUser && devUser.username) || username;
+    const targetGithub = (devUser && (devUser.github || devUser.username)) || username;
 
     const data = await githubService.getGitHubUserData(targetGithub);
 

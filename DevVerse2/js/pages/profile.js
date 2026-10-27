@@ -34,7 +34,7 @@ function dvRenderProfileContent(root) {
   // edit yet showed the literal placeholder "You" here instead of the
   // name entered at signup.
   const data = isSelf
-    ? { ...base, handle: selfUsername, name: overrides.name || (account && account.name) || 'You', bio: overrides.bio || base.bio, avatarSeed: overrides.avatarSeed || 'you-builder', points: realPoints, skills: userSkills }
+    ? { ...base, handle: selfUsername, name: overrides.name || (account && account.name) || 'You', github: overrides.github || (account && account.github) || selfUsername, bio: overrides.bio || base.bio, avatarSeed: overrides.avatarSeed || 'you-builder', points: realPoints, skills: userSkills }
     : base;
 
   const tier = dvCurrentTier(data.points);
@@ -98,8 +98,9 @@ function dvRenderProfileContent(root) {
     <div id="edit-panel" class="glass reveal in" style="display:none; padding:22px; margin:24px 0;">
       <div class="grid grid-2">
         <div class="field"><label>Display name</label><input id="edit-name" value="${data.name}"></div>
-        <div class="field"><label>Avatar seed</label><input id="edit-avatar" value="${data.avatarSeed}"></div>
+        <div class="field"><label>GitHub username</label><input id="edit-github" value="${data.github || ''}" placeholder="e.g. ${selfUsername}"></div>
       </div>
+      <div class="field"><label>Avatar seed</label><input id="edit-avatar" value="${data.avatarSeed}"></div>
       ${usernameFieldHTML}
       <div class="field"><label>Bio</label><textarea id="edit-bio" rows="3">${data.bio}</textarea></div>
       <button class="btn btn-primary btn-sm" id="save-profile-btn">Save changes</button>
@@ -309,8 +310,8 @@ function dvRenderProfileContent(root) {
 
   // Fetch real GitHub contributions and live activity feed
   const ghUsername = isSelf
-    ? ((account && (account.github || account.username)) || selfUsername || 'neelabh16')
-    : (data.github || data.handle || 'neelabh16');
+    ? (data.github || (account && (account.github || account.username)) || selfUsername)
+    : (data.github || data.handle);
 
   if (window.DVApi && DVApi.github && DVApi.github.getUser) {
     DVApi.github.getUser(ghUsername).then(function (res) {
@@ -423,6 +424,7 @@ function dvRenderProfileContent(root) {
       const updatedProfile = {
         ...DVStore.get('profile.overrides', {}),
         name: document.getElementById('edit-name').value.trim() || 'You',
+        github: document.getElementById('edit-github') ? document.getElementById('edit-github').value.trim().replace(/^@/, '') : (data.github || ''),
         bio: document.getElementById('edit-bio').value.trim(),
         avatarSeed: document.getElementById('edit-avatar').value.trim() || 'you-builder',
       };
