@@ -19,6 +19,7 @@ function dvFetchLeaderboardApi() {
                 name: u.name,
                 avatarSeed: u.avatarSeed || u.username,
                 points: u.points || 0,
+                allTimePoints: u.allTimePoints || u.points || 0,
                 skills: u.skills || []
               };
             });
@@ -67,23 +68,64 @@ function dvLeaderboardInit() {
 
 function dvRenderLeaderboard() {
   const root = document.getElementById('leaderboard-list');
-  const factor = dvBoardRange === 'weekly' ? 0.18 : 1;
-  // BUG FIXED: this used to build a "You" row (name, avatar, tier
-  // badge, points) and splice it into the ranked list unconditionally
-  // — even for a visitor who has never signed up. Combined with a
-  // separate bug where a "welcome" bonus was silently awarded to
-  // guests before they ever created an account, a brand-new visitor
-  // would open Leaderboard and see themselves already ranked with
-  // real points, looking exactly like they were logged in when they
-  // weren't. The "You" row (and the "Your points" panel below) now
-  // only render when someone's actually signed in.
+  if (!root) return;
   const loggedIn = dvIsLoggedIn();
 
   if (dvBoardMode === 'developers') {
     const overrides = DVStore.get('profile.overrides', {});
     const account = dvAuthAccount();
     const selfHandle = dvSelfHandle();
-    const currentPoints = dvPointsTotal();
+    const totalPoints = dvPointsTotal();
+
+    let userRangePoints = totalPoints;
+    if (dvBoardRange === 'weekly') {
+      const since = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      const weekly = dvPointsTotal(since);
+      userRangePoints = weekly > 0 ? weekly : totalPoints;
+    } else if (dvBoardRange === 'monthly') {
+      const since = Date.now() - 30 * 24 * 60 * 60 * 1000;
+      const monthly = dvPointsTotal(since);
+      userRangePoints = monthly > 0 ? monthly : totalPoints;
+    }
+
+    const SEED_WEEKLY_MAP = {
+      'sena.codes': 85,
+      'ari-devs': 70,
+      'lumen': 65,
+      'kmori': 55,
+      'elena-v': 45,
+      'marcus-k': 40,
+      'priya.dev': 35,
+      'noa.ml': 30,
+      'devon.codes': 25,
+      'dax': 20,
+    };
+    const SEED_MONTHLY_MAP = {
+      'sena.codes': 340,
+      'lumen': 310,
+      'marcus-k': 280,
+      'kmori': 240,
+      'ari-devs': 210,
+      'elena-v': 190,
+      'noa.ml': 160,
+      'priya.dev': 130,
+      'devon.codes': 110,
+      'dax': 85,
+    };
+
+    function getPointsForDev(d, isMe) {
+      if (isMe) return userRangePoints;
+      if (dvLiveDevRankings && typeof d.points === 'number' && d.points > 0) {
+        return d.points;
+      }
+      if (dvBoardRange === 'weekly') {
+        return SEED_WEEKLY_MAP[d.handle] || Math.max(10, Math.round((d.points || 0) * 0.007));
+      }
+      if (dvBoardRange === 'monthly') {
+        return SEED_MONTHLY_MAP[d.handle] || Math.max(30, Math.round((d.points || 0) * 0.028));
+      }
+      return d.allTimePoints || d.points || 0;
+    }
 
     const sourceDevs = dvLiveDevRankings || DV_DEVS;
     let foundYou = false;
@@ -91,13 +133,14 @@ function dvRenderLeaderboard() {
     const mappedDevs = sourceDevs.map((d) => {
       const isMe = loggedIn && (d.handle === selfHandle || d.handle === (account && account.username) || d.handle === 'you');
       if (isMe) foundYou = true;
-      const pts = isMe ? currentPoints : d.points;
+      const rangePts = getPointsForDev(d, isMe);
+      const allTime = isMe ? totalPoints : (d.allTimePoints || d.points || rangePts);
       return {
         ...d,
         name: isMe ? (overrides.name || (account && account.name) || d.name || 'You') : d.name,
         avatarSeed: isMe ? (overrides.avatarSeed || (account && account.avatarSeed) || d.avatarSeed || 'you-builder') : d.avatarSeed,
-        points: Math.round(pts * factor),
-        allTimePoints: pts,
+        points: rangePts,
+        allTimePoints: allTime,
         isYou: isMe,
       };
     });
@@ -107,8 +150,8 @@ function dvRenderLeaderboard() {
         handle: selfHandle,
         name: overrides.name || (account && account.name) || 'You',
         avatarSeed: overrides.avatarSeed || (account && account.avatarSeed) || 'you-builder',
-        points: Math.round(currentPoints * factor),
-        allTimePoints: currentPoints,
+        points: userRangePoints,
+        allTimePoints: totalPoints,
         isYou: true,
       });
     }
@@ -122,7 +165,7 @@ function dvRenderLeaderboard() {
           <img src="${dvAvatar(d.avatarSeed, 40)}">
           <div>
             <div style="font-weight:600; font-size:14px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">${d.name}${d.isYou ? '<span class="chip chip-accent" style="font-size:10px; padding:2px 8px;">You</span>' : ''} ${dvTierBadgeHTML(d.allTimePoints)}</div>
-            <div class="bar-track" style="width:140px; margin-top:6px;"><div class="bar-fill" style="width:${(d.points / max) * 100}%"></div></div>
+            <div class="bar-track" style="width:140px; margin-top:6px;"><div class="bar-fill" style="width:${Math.min(100, (d.points / max) * 100)}%"></div></div>
           </div>
         </div>
         <div class="mono" style="font-size:13px; text-align:right;">${d.points.toLocaleString()} pts</div>
@@ -130,8 +173,12 @@ function dvRenderLeaderboard() {
       </div>`).join('');
   } else {
     const sourceProjects = dvLiveProjectRankings || DV_PROJECTS;
-    const list = [...sourceProjects].sort((a, b) => b.likes - a.likes);
-    const max = list[0].likes;
+    const factor = dvBoardRange === 'weekly' ? 0.05 : dvBoardRange === 'monthly' ? 0.22 : 1;
+    const list = [...sourceProjects].map((p) => {
+      const likes = dvBoardRange === 'all' ? p.likes : Math.max(5, Math.round(p.likes * factor));
+      return { ...p, displayLikes: likes };
+    }).sort((a, b) => b.displayLikes - a.displayLikes);
+    const max = Math.max(list[0] ? list[0].displayLikes : 1, 1);
     root.innerHTML = list.map((p, i) => `
       <div class="rank-row ${i < 3 ? 'top' + (i + 1) : ''} reveal in">
         <div class="rank-num">${String(i + 1).padStart(2, '0')}</div>
@@ -139,10 +186,10 @@ function dvRenderLeaderboard() {
           <div style="width:40px;height:40px;border-radius:10px;background:${DV_TECH_GRADIENTS[p.gradient]};"></div>
           <div>
             <div style="font-weight:600; font-size:14px;">${p.title}</div>
-            <div class="bar-track" style="width:140px; margin-top:6px;"><div class="bar-fill" style="width:${(p.likes * factor / (max * factor)) * 100}%"></div></div>
+            <div class="bar-track" style="width:140px; margin-top:6px;"><div class="bar-fill" style="width:${Math.min(100, (p.displayLikes / max) * 100)}%"></div></div>
           </div>
         </div>
-        <div class="mono" style="font-size:13px; text-align:right;">${Math.round(p.likes * factor).toLocaleString()} likes</div>
+        <div class="mono" style="font-size:13px; text-align:right;">${p.displayLikes.toLocaleString()} likes</div>
         <a href="project.html?id=${p.id}" class="btn btn-sm btn-ghost">View</a>
       </div>`).join('');
   }
@@ -155,12 +202,6 @@ function dvRenderYourPoints() {
   const logEl = document.getElementById('your-points-log');
   if (!totalEl || !logEl) return;
 
-  // BUG FIXED: same root issue as the "You" row above — this panel
-  // rendered a real points total, tier badge, and event log for
-  // whoever was browsing even while signed out, since nothing here
-  // ever checked dvIsLoggedIn(). Guests now get a sign-in prompt
-  // instead of a fabricated 0-or-more point history that isn't
-  // actually tied to any account yet.
   if (!dvIsLoggedIn()) {
     totalEl.textContent = '—';
     logEl.innerHTML = `<p class="muted" style="font-size:13px;">Sign in to start earning points and see your rank here.</p>`;

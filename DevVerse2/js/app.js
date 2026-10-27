@@ -1775,7 +1775,7 @@ function dvPointsTotal(sinceMs) {
   if (sinceMs) {
     if (sum > 0) return sum;
     if (window.DVCurrentUser && typeof window.DVCurrentUser.points === 'number') {
-      return Math.round(window.DVCurrentUser.points * 0.18);
+      return window.DVCurrentUser.points;
     }
     return sum;
   }
