@@ -182,7 +182,51 @@ function dvRenderProfileContent(root) {
     </div>` : ''}
   `;
 
-  document.getElementById('profile-projects').innerHTML = myProjects.slice(0, 4).map(dvProjectCardHTML).join('') || (isSelf ? `<p class="muted">Loading projects...</p>` : `<p class="muted">No published projects yet.</p>`);
+  const projectsEl = document.getElementById('profile-projects');
+  if (projectsEl) {
+    projectsEl.innerHTML = myProjects.slice(0, 4).map(dvProjectCardHTML).join('') || (isSelf ? `<p class="muted">No published projects yet \u2014 <a href="submit-project.html" style="color:var(--accent);">submit one</a>.</p>` : `<p class="muted">No published projects yet.</p>`);
+  }
+
+  // Fetch projects uploaded to the site from backend API
+  if (window.DVApi && DVApi.projects && DVApi.projects.list) {
+    DVApi.projects.list({ limit: 100 }).then(function (res) {
+      const items = (res && res.data && (res.data.projects || (Array.isArray(res.data) ? res.data : []))) || [];
+      const targetHandle = isSelf ? (selfUsername || 'neelabh16') : data.handle;
+      const uploaded = items.filter(function (p) {
+        const u = (p.author && (p.author.username || p.author.name)) || p.author;
+        return u === targetHandle || (isSelf && (u === 'you' || (account && u === account.username)));
+      });
+
+      const listToShow = uploaded.length > 0 ? uploaded.map(function (p) {
+        return {
+          id: p.legacyId || p.slug || p.id || p._id,
+          title: p.title,
+          desc: p.desc || p.tagline,
+          tags: p.tags || [],
+          difficulty: p.difficulty || 'Intermediate',
+          category: p.category || 'General',
+          likes: p.likesCount || p.likes || 0,
+          views: p.viewsCount || p.views || 0,
+          author: targetHandle,
+          gradient: typeof p.gradient === 'number' ? p.gradient : 0,
+          art: p.art || null,
+        };
+      }) : myProjects;
+
+      const statProjectsEl = document.getElementById('profile-stat-projects');
+      if (statProjectsEl) {
+        statProjectsEl.setAttribute('data-count', listToShow.length);
+        statProjectsEl.textContent = listToShow.length;
+      }
+
+      if (projectsEl) {
+        projectsEl.innerHTML = listToShow.length > 0
+          ? listToShow.slice(0, 4).map(dvProjectCardHTML).join('')
+          : (isSelf ? `<p class="muted">No published projects yet \u2014 <a href="submit-project.html" style="color:var(--accent);">submit one</a>.</p>` : `<p class="muted">No published projects yet.</p>`);
+        dvReveal(projectsEl);
+      }
+    }).catch(function () {});
+  }
 
   const heat = document.getElementById('heatmap');
   // Render neutral placeholder squares while live data loads
@@ -194,7 +238,7 @@ function dvRenderProfileContent(root) {
   const timeline = document.getElementById('profile-timeline');
   timeline.innerHTML = `<div class="feed-item"><div class="feed-text muted" style="padding:8px 0;">Loading activity timeline...</div></div>`;
 
-  // Fetch real GitHub contributions, repository projects, and live activity feed
+  // Fetch real GitHub contributions and live activity feed
   const ghUsername = isSelf
     ? ((account && (account.github || account.username)) || selfUsername || 'neelabh16')
     : (data.github || data.handle || 'neelabh16');
@@ -204,19 +248,13 @@ function dvRenderProfileContent(root) {
       if (!res || !res.data) return;
       const gh = res.data;
 
-      // 1. Update stats with real counts
-      const statProjectsEl = document.getElementById('profile-stat-projects');
+      // 1. Update Followers and Following stats from real GitHub data
       const statFollowersEl = document.getElementById('profile-stat-followers');
       const statFollowingEl = document.getElementById('profile-stat-following');
 
-      const totalProjects = Math.max(gh.public_repos || 0, (gh.repos ? gh.repos.length : 0)) + myProjects.length;
       const totalFollowers = gh.followers !== undefined ? gh.followers : (isSelf ? 0 : data.followers);
       const totalFollowing = gh.following !== undefined ? gh.following : (isSelf ? DVStore.get('following', []).length : Math.floor(data.followers / 4));
 
-      if (statProjectsEl) {
-        statProjectsEl.setAttribute('data-count', totalProjects);
-        statProjectsEl.textContent = totalProjects;
-      }
       if (statFollowersEl) {
         statFollowersEl.setAttribute('data-count', totalFollowers);
         statFollowersEl.textContent = totalFollowers;
@@ -237,40 +275,7 @@ function dvRenderProfileContent(root) {
         });
       }
 
-      // 3. Render real repositories in Projects grid
-      const projectsEl = document.getElementById('profile-projects');
-      if (projectsEl && gh.repos && gh.repos.length > 0) {
-        const repoCardsHTML = gh.repos.slice(0, 4).map(function (repo) {
-          return `
-            <a href="${repo.url}" target="_blank" rel="noopener" class="glass card-lift reveal in" style="padding:20px; display:flex; flex-direction:column; justify-content:space-between; gap:12px; text-decoration:none;">
-              <div>
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                  <span class="chip chip-accent" style="font-size:11px;">${repo.language || 'Code'}</span>
-                  <span class="mono muted" style="font-size:12px;">★ ${repo.stars || 0}</span>
-                </div>
-                <div style="font-weight:600; font-size:15px; color:var(--text-primary); margin-bottom:6px;">${repo.name}</div>
-                <p style="font-size:12.5px; color:var(--text-secondary); line-height:1.4;">${repo.desc || 'Public repository on GitHub'}</p>
-              </div>
-              <div style="display:flex; justify-content:space-between; align-items:center; font-size:11.5px; color:var(--text-tertiary); font-family:var(--font-mono); border-top:1px solid var(--border); padding-top:10px;">
-                <span>GitHub Repository</span>
-                <span style="color:var(--accent);">View on GitHub ↗</span>
-              </div>
-            </a>`;
-        }).join('');
-
-        const platformCardsHTML = myProjects.slice(0, 2).map(dvProjectCardHTML).join('');
-        projectsEl.innerHTML = platformCardsHTML + repoCardsHTML;
-        dvReveal(projectsEl);
-      } else if (projectsEl && myProjects.length > 0) {
-        projectsEl.innerHTML = myProjects.slice(0, 4).map(dvProjectCardHTML).join('');
-        dvReveal(projectsEl);
-      } else if (projectsEl) {
-        projectsEl.innerHTML = isSelf
-          ? `<p class="muted">No published projects yet \u2014 <a href="submit-project.html" style="color:var(--accent);">submit one</a>.</p>`
-          : `<p class="muted">No published projects yet.</p>`;
-      }
-
-      // 4. Render real activity timeline
+      // 3. Render real activity timeline from GitHub public events
       if (timeline && gh.events && gh.events.length > 0) {
         timeline.innerHTML = gh.events.slice(0, 6).map(function (ev) {
           const diffMin = Math.max(1, Math.floor((Date.now() - new Date(ev.published).getTime()) / 60000));
