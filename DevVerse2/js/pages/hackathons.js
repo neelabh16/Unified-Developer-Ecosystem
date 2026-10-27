@@ -12,7 +12,7 @@ function dvRenderHackathonList(hackathons) {
       desc: h.desc || h.description || '',
       tags: h.tags || ['Web3'],
       end: h.end || (Date.now() + 86400000 * 7),
-      prize: h.prize || (h.prizePool ? `$${h.prizePool.toLocaleString()}` : '$10,000'),
+      prize: h.prize || (h.prizePool ? `₹${Number(h.prizePool).toLocaleString('en-IN')}` : '₹50,000'),
       participants: typeof h.participants === 'number' ? h.participants : (h.participantsCount || 0),
       devverseParticipants: h.devverseParticipants || null,
       difficulty: h.difficulty || 'All levels',

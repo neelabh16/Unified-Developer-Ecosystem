@@ -33,6 +33,29 @@ const DEFAULT_DEVVERSE_PARTICIPANTS = {
   'cyber-defense-crucible': ['marcus-k', 'elena-v'],
 };
 
+const REALISTIC_HACKATHON_PRIZES = {
+  h1: '₹1,00,000',
+  'aurora-hacks-2026': '₹1,00,000',
+  h2: '₹60,000',
+  'systems-underground': '₹60,000',
+  h3: '₹1,50,000',
+  'ai-for-builders': '₹1,50,000',
+  h4: '₹40,000',
+  'pixel-and-motion': '₹40,000',
+  h5: '₹75,000',
+  'edge-cloud-sprint': '₹75,000',
+  h6: '₹1,25,000',
+  'zero-knowledge-jam': '₹1,25,000',
+  h7: '₹50,000',
+  'open-source-revival': '₹50,000',
+  h8: '₹65,000',
+  'mobile-first-odyssey': '₹65,000',
+  h9: '₹35,000',
+  'browser-game-jam': '₹35,000',
+  h10: '₹80,000',
+  'cyber-defense-crucible': '₹80,000',
+};
+
 /**
  * List all hackathons with registration and bookmark flags for current user.
  * GET /api/v1/hackathons
@@ -67,6 +90,14 @@ const getHackathons = async (req, res, next) => {
           for (const su of seededUsers) {
             HackathonRegistration.create({ user: su._id, hackathon: h._id }).catch(() => {});
           }
+        }
+        if (hObj.prize && hObj.prize.includes('$')) {
+          const newPrize =
+            REALISTIC_HACKATHON_PRIZES[hObj.legacyId] ||
+            REALISTIC_HACKATHON_PRIZES[hObj.id] ||
+            '₹50,000';
+          hObj.prize = newPrize;
+          Hackathon.findByIdAndUpdate(h._id, { prize: newPrize }).catch(() => {});
         }
         hObj.devverseParticipants = regs;
         hObj.devverseCount = regs.length;
@@ -117,6 +148,15 @@ const getHackathon = async (req, res, next) => {
 
     if (!hackathon) {
       return next(new AppError('Hackathon not found', 404));
+    }
+
+    if (hackathon.prize && hackathon.prize.includes('$')) {
+      const newPrize =
+        REALISTIC_HACKATHON_PRIZES[hackathon.legacyId] ||
+        REALISTIC_HACKATHON_PRIZES[hackathon.id] ||
+        '₹50,000';
+      hackathon.prize = newPrize;
+      await Hackathon.findByIdAndUpdate(hackathon._id, { prize: newPrize });
     }
 
     let registrations = await HackathonRegistration.find({ hackathon: hackathon._id })
@@ -185,6 +225,15 @@ const toggleRegister = async (req, res, next) => {
       return next(new AppError('Hackathon not found', 404));
     }
 
+    if (hackathon.prize && hackathon.prize.includes('$')) {
+      const newPrize =
+        REALISTIC_HACKATHON_PRIZES[hackathon.legacyId] ||
+        REALISTIC_HACKATHON_PRIZES[hackathon.id] ||
+        '₹50,000';
+      hackathon.prize = newPrize;
+      await Hackathon.findByIdAndUpdate(hackathon._id, { prize: newPrize });
+    }
+
     const existingReg = await HackathonRegistration.findOne({
       user: req.user._id,
       hackathon: hackathon._id,
@@ -251,6 +300,15 @@ const toggleBookmark = async (req, res, next) => {
 
     if (!hackathon) {
       return next(new AppError('Hackathon not found', 404));
+    }
+
+    if (hackathon.prize && hackathon.prize.includes('$')) {
+      const newPrize =
+        REALISTIC_HACKATHON_PRIZES[hackathon.legacyId] ||
+        REALISTIC_HACKATHON_PRIZES[hackathon.id] ||
+        '₹50,000';
+      hackathon.prize = newPrize;
+      await Hackathon.findByIdAndUpdate(hackathon._id, { prize: newPrize });
     }
 
     const targetId = hackathon._id.toString();

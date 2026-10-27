@@ -1683,7 +1683,7 @@ function dvPageHeaderStats(page) {
     const totalParticipants = DV_HACKATHONS.reduce((sum, h) => sum + h.participants, 0);
     return [
       { value: DV_HACKATHONS.length, label: 'Running now' },
-      { value: '$' + dvFormatCount(totalPrize), label: 'Total prize pool' },
+      { value: '₹' + dvFormatRupees(totalPrize), label: 'Total prize pool' },
       { value: dvFormatCount(totalParticipants), label: 'Builders competing' },
     ];
   }

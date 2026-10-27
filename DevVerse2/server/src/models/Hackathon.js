@@ -27,7 +27,7 @@ const hackathonSchema = new mongoose.Schema(
     prize: {
       type: String,
       required: true,
-      default: '$10,000',
+      default: '₹50,000',
     },
     participantsCount: {
       type: Number,

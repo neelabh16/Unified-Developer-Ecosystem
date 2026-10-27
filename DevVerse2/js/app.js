@@ -1850,6 +1850,12 @@ function dvFormatCount(n) {
   if (n >= 1000) return (n / 1000).toFixed(1) + 'k';
   return String(n);
 }
+function dvFormatRupees(n) {
+  if (n >= 10000000) return (n / 10000000).toFixed(2).replace(/\.00$/, '') + ' Cr';
+  if (n >= 100000) return (n / 100000).toFixed(1).replace(/\.0$/, '') + ' Lakh';
+  if (n >= 1000) return (n / 1000).toFixed(0) + 'k';
+  return String(n);
+}
 /** Strips everything but digits out of a string like "$25,000",
  *  built with a for...of loop + string comparison instead of regex. */
 function dvDigitsOnly(str) {
@@ -1872,7 +1878,7 @@ function dvPageHeaderStats(page) {
     const totalParticipants = DV_HACKATHONS.reduce((sum, h) => sum + h.participants, 0);
     return [
       { value: DV_HACKATHONS.length, label: 'Running now' },
-      { value: '$' + dvFormatCount(totalPrize), label: 'Total prize pool' },
+      { value: '₹' + dvFormatRupees(totalPrize), label: 'Total prize pool' },
       { value: dvFormatCount(totalParticipants), label: 'Worldwide joined' },
       { value: '8 builders', label: 'From DevVerse' },
     ];
