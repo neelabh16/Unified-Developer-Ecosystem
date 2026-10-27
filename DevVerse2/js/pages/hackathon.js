@@ -52,7 +52,7 @@ function dvRenderDevVerseRoster(hackathonId, devList, isRegistered) {
   const chipEl = document.getElementById('roster-count-chip');
   if (chipEl) chipEl.textContent = totalCount;
   const detailEl = document.getElementById('detail-dv-count');
-  if (detailEl) detailEl.textContent = `${totalCount} joined`;
+  if (detailEl) detailEl.textContent = totalCount;
 }
 
 window.dvUpdateDetailRoster = function (hackathonId, active) {
@@ -64,9 +64,9 @@ function dvHackathonDetailInit() {
   const root = document.getElementById('hackathon-detail');
   if (!root) return;
   const id = dvGetQueryParam('id') || DV_HACKATHONS[0].id;
-  const h = DV_HACKATHONS.find((x) => x.id === id || x.legacyId === id) || DV_HACKATHONS[0];
+  const h = DV_HACKATHONS.find((x) => x.id === id || x.legacyId === id || (x._id && x._id.toString() === id.toString())) || DV_HACKATHONS[0];
   dvCurrentHackathon = h;
-  const registered = DVStore.has('hackathons', h.id);
+  const registered = DVStore.has('hackathons', h.id) || (h.legacyId && DVStore.has('hackathons', h.legacyId)) || (h._id && DVStore.has('hackathons', h._id));
   const bookmarked = DVStore.has('bookmarks', 'hack-' + h.id);
 
   let dvList = (h.devverseParticipants && h.devverseParticipants.slice()) || [];
@@ -178,10 +178,25 @@ function dvHackathonDetailInit() {
   if (window.DVApi && DVApi.hackathons && DVApi.hackathons.get) {
     DVApi.hackathons.get(h.id).then(function (res) {
       const data = res && res.data;
-      if (data && data.devverseParticipants && data.devverseParticipants.length) {
-        dvCurrentRosterList = data.devverseParticipants;
+      if (data) {
         const isReg = typeof data.isRegistered === 'boolean' ? data.isRegistered : registered;
-        dvRenderDevVerseRoster(h.id, data.devverseParticipants, isReg);
+        if (isReg) {
+          DVStore.addToSet('hackathons', h.id);
+          if (h.legacyId) DVStore.addToSet('hackathons', h.legacyId);
+          if (h._id) DVStore.addToSet('hackathons', h._id);
+          const regBtn = document.querySelector(`[data-register="${h.id}"]`);
+          if (regBtn) {
+            regBtn.textContent = 'Registered ✓';
+            regBtn.classList.remove('btn-primary');
+            regBtn.classList.add('btn-outline');
+          }
+        }
+        if (data.devverseParticipants && data.devverseParticipants.length) {
+          dvCurrentRosterList = data.devverseParticipants;
+          dvRenderDevVerseRoster(h.id, data.devverseParticipants, isReg);
+        } else if (isReg !== registered) {
+          dvRenderDevVerseRoster(h.id, dvList, isReg);
+        }
       }
     }).catch(function () {});
   }

@@ -33,8 +33,19 @@ function dvHackathonsInit() {
   // If backend is running, fetch live hackathons from Atlas
   if (window.DVApi && DVApi.hackathons && DVApi.hackathons.list) {
     DVApi.hackathons.list().then(function (res) {
+      if (res && res.data && Array.isArray(res.data.registeredIds)) {
+        res.data.registeredIds.forEach((rid) => {
+          DVStore.addToSet('hackathons', rid);
+        });
+      }
       const items = (res && res.data && (res.data.hackathons || res.data)) || null;
       if (items && items.length) {
+        items.forEach((h) => {
+          if (res.data && res.data.registeredIds && res.data.registeredIds.indexOf(h._id) !== -1) {
+            if (h.legacyId) DVStore.addToSet('hackathons', h.legacyId);
+            if (h.id) DVStore.addToSet('hackathons', h.id);
+          }
+        });
         dvRenderHackathonList(items);
       }
     }).catch(function () {});

@@ -85,7 +85,13 @@ const leaveSquad = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    const squad = await Squad.findById(id);
+    let squad = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      squad = await Squad.findById(id);
+    }
+    if (!squad) {
+      squad = await Squad.findOne({ members: req.user._id });
+    }
     if (!squad) {
       return next(new AppError('Squad not found', 404));
     }
@@ -126,7 +132,13 @@ const addSquadMember = async (req, res, next) => {
       return next(new AppError('Username is required to add member.', 400));
     }
 
-    const squad = await Squad.findById(id);
+    let squad = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      squad = await Squad.findById(id);
+    }
+    if (!squad) {
+      squad = await Squad.findOne({ members: req.user._id });
+    }
     if (!squad) {
       return next(new AppError('Squad not found', 404));
     }
@@ -167,13 +179,27 @@ const registerSquadHackathon = async (req, res, next) => {
   try {
     const { id, hackathonId } = req.params;
 
-    const squad = await Squad.findById(id);
+    let squad = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      squad = await Squad.findById(id);
+    }
+    if (!squad) {
+      squad = await Squad.findOne({ members: req.user._id });
+    }
     if (!squad) {
       return next(new AppError('Squad not found', 404));
     }
 
-    let hackathon = await Hackathon.findById(hackathonId);
-    if (!hackathon) hackathon = await Hackathon.findOne({ legacyId: hackathonId });
+    let hackathon = null;
+    if (mongoose.Types.ObjectId.isValid(hackathonId)) {
+      hackathon = await Hackathon.findById(hackathonId);
+    }
+    if (!hackathon) {
+      hackathon = await Hackathon.findOne({ legacyId: hackathonId });
+    }
+    if (!hackathon) {
+      hackathon = await Hackathon.findOne({ id: hackathonId });
+    }
 
     if (!hackathon) {
       return next(new AppError('Hackathon not found', 404));

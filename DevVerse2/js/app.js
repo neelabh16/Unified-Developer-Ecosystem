@@ -269,6 +269,52 @@ function dvInitAuth() {
               }
             } catch (likeErr) {}
           }
+
+          // Fetch user squads from backend API
+          if (DVApi.squads && DVApi.squads.mine) {
+            try {
+              const sqRes = await DVApi.squads.mine();
+              if (sqRes && sqRes.data && Array.isArray(sqRes.data.squads)) {
+                const normalized = sqRes.data.squads.map(dvNormalizeBackendSquad);
+                dvSaveSquads(normalized);
+                normalized.forEach((sq) => {
+                  (sq.registeredHackathons || []).forEach((hid) => {
+                    DVStore.addToSet('hackathons', hid);
+                  });
+                });
+                dvRefreshSquadDisplays();
+              }
+            } catch (sqErr) {}
+          }
+
+          // Fetch user hackathon registrations from backend API
+          if (DVApi.hackathons && DVApi.hackathons.list) {
+            try {
+              const hRes = await DVApi.hackathons.list();
+              if (hRes && hRes.data && Array.isArray(hRes.data.registeredIds)) {
+                const regIds = hRes.data.registeredIds;
+                const hackathons = hRes.data.hackathons || [];
+                regIds.forEach((rid) => {
+                  DVStore.addToSet('hackathons', rid);
+                  const match = hackathons.find((h) => (h._id && h._id.toString() === rid.toString()) || h.id === rid);
+                  if (match && match.legacyId) {
+                    DVStore.addToSet('hackathons', match.legacyId);
+                  }
+                  if (match && match.id) {
+                    DVStore.addToSet('hackathons', match.id);
+                  }
+                });
+                document.querySelectorAll('[data-register]').forEach((btn) => {
+                  const regId = btn.dataset.register;
+                  if (DVStore.has('hackathons', regId)) {
+                    btn.textContent = 'Registered ✓';
+                    btn.classList.add('btn-outline');
+                    btn.classList.remove('btn-primary');
+                  }
+                });
+              }
+            } catch (hErr) {}
+          }
         } else {
           window.DVCurrentUser = null;
           DVStore.set('auth.session', null);
@@ -1305,6 +1351,43 @@ function dvCmdkActivate(index) {
    simulated the same way following or messaging them is — but the
    squad itself, its description, and its registrations are real,
    persisted data. */
+function dvNormalizeBackendSquad(s) {
+  if (!s) return null;
+  const selfHandle = dvSelfHandle();
+  const currentUserId = window.DVCurrentUser ? (window.DVCurrentUser._id || window.DVCurrentUser.id) : null;
+  const members = (s.members || []).map((m) => {
+    if (typeof m === 'string') {
+      if (m === selfHandle || (currentUserId && m === currentUserId)) return 'you';
+      return m;
+    }
+    if (m && typeof m === 'object') {
+      const u = m.username || m.handle || m.name;
+      if (u === selfHandle || (currentUserId && (m._id === currentUserId || m.id === currentUserId))) {
+        return 'you';
+      }
+      return u || 'you';
+    }
+    return m;
+  });
+  if (members.indexOf('you') === -1) members.unshift('you');
+
+  const registeredHackathons = (s.registeredHackathons || []).map((h) => {
+    if (typeof h === 'string') return h;
+    return h.legacyId || h.id || h._id;
+  });
+
+  const sqId = (s._id ? s._id.toString() : s.id) || ('squad-' + Date.now());
+  return {
+    id: sqId,
+    _id: sqId,
+    name: s.name || 'Untitled Squad',
+    description: s.description || '',
+    createdAt: s.createdAt || Date.now(),
+    members: members,
+    registeredHackathons: registeredHackathons,
+  };
+}
+
 function dvSquads() {
   return DVStore.get('squads', []);
 }
@@ -1312,7 +1395,8 @@ function dvSaveSquads(squads) {
   DVStore.set('squads', squads);
 }
 function dvMySquads() {
-  return dvSquads().filter((s) => s.members.indexOf('you') !== -1);
+  const self = dvSelfHandle();
+  return dvSquads().filter((s) => s.members.indexOf('you') !== -1 || (self && s.members.indexOf(self) !== -1));
 }
 function dvCreateSquad(name, description, memberHandles) {
   const squads = dvSquads();
@@ -1332,12 +1416,20 @@ function dvCreateSquad(name, description, memberHandles) {
   dvSaveSquads(squads);
   dvAwardPoints(DV_POINT_VALUES.squadFormed, `Formed the ${name} squad`);
   if (window.DVApi && DVApi.squads && DVApi.squads.create) {
-    DVApi.squads.create({ name, description, memberHandles }).catch(function () {});
+    DVApi.squads.create({ name, description, memberHandles }).then(function (res) {
+      if (res && res.data && res.data.squad) {
+        const s = res.data.squad;
+        squad.id = s._id ? s._id.toString() : squad.id;
+        squad._id = squad.id;
+        dvSaveSquads(squads);
+        dvRefreshSquadDisplays();
+      }
+    }).catch(function () {});
   }
   return squad;
 }
 function dvLeaveSquad(squadId) {
-  const squads = dvSquads().filter((s) => s.id !== squadId);
+  const squads = dvSquads().filter((s) => s.id !== squadId && s._id !== squadId);
   dvSaveSquads(squads);
   if (window.DVApi && DVApi.squads && DVApi.squads.leave) {
     DVApi.squads.leave(squadId).catch(function () {});
@@ -1345,7 +1437,7 @@ function dvLeaveSquad(squadId) {
 }
 function dvRegisterSquadForHackathon(squadId, hackathonId) {
   const squads = dvSquads();
-  const squad = squads.find((s) => s.id === squadId);
+  const squad = squads.find((s) => s.id === squadId || s._id === squadId);
   if (!squad) return false;
   if (squad.registeredHackathons.indexOf(hackathonId) !== -1) return false;
   squad.registeredHackathons.push(hackathonId);
@@ -1362,7 +1454,8 @@ function dvRegisterSquadForHackathon(squadId, hackathonId) {
   }
   dvAwardOnce('squadHackathon', `${squadId}-${hackathonId}`, DV_POINT_VALUES.squadRegister, 'Registered a squad for a hackathon');
   if (window.DVApi && DVApi.squads && DVApi.squads.registerHackathon) {
-    DVApi.squads.registerHackathon(squadId, hackathonId).catch(function () {});
+    const apiSquadId = squad._id || squad.id;
+    DVApi.squads.registerHackathon(apiSquadId, hackathonId).catch(function () {});
   }
   return true;
 }
@@ -2107,7 +2200,7 @@ function dvWireInteractions(root = document) {
     if (regBtn) {
       const id = regBtn.dataset.register;
       const active = DVStore.toggleInSet('hackathons', id);
-      regBtn.textContent = active ? 'Registered ✓' : 'Register';
+      regBtn.textContent = active ? 'Registered ✓' : 'Register now';
       regBtn.classList.toggle('btn-outline', active);
 
       // Optimistic update of DevVerse counts and avatars on cards
@@ -2138,7 +2231,7 @@ function dvWireInteractions(root = document) {
       if (detailDvCount) {
         let cur = parseInt(detailDvCount.textContent.replace(/[^0-9]/g, ''), 10) || 2;
         cur = active ? cur + 1 : Math.max(1, cur - 1);
-        detailDvCount.textContent = `${cur} joined`;
+        detailDvCount.textContent = cur;
       }
 
       if (typeof dvUpdateDetailRoster === 'function') {
@@ -2154,7 +2247,7 @@ function dvWireInteractions(root = document) {
         DVApi.hackathons.toggleRegister(id).then(function (res) {
           if (res && res.data && typeof res.data.devverseCount === 'number') {
             countEls.forEach((el) => { el.textContent = res.data.devverseCount; });
-            if (detailDvCount) detailDvCount.textContent = `${res.data.devverseCount} joined`;
+            if (detailDvCount) detailDvCount.textContent = res.data.devverseCount;
           }
         }).catch(function () {});
       }
@@ -2221,13 +2314,16 @@ function dvWireInteractions(root = document) {
       const squadId = addToSquad.dataset.addToSquad;
       const memberHandle = addToSquad.dataset.addMember;
       const squads = dvSquads();
-      const squad = squads.find((s) => s.id === squadId);
+      const squad = squads.find((s) => s.id === squadId || s._id === squadId);
       if (squad) {
         if (squad.members.indexOf(memberHandle) === -1) {
           squad.members.push(memberHandle);
           dvSaveSquads(squads);
           dvToast(`Added to ${squad.name}`);
           dvRefreshSquadDisplays();
+          if (window.DVApi && DVApi.squads && DVApi.squads.addMember) {
+            DVApi.squads.addMember(squad._id || squad.id, memberHandle).catch(function () {});
+          }
         } else {
           dvToast('Already in that squad');
         }

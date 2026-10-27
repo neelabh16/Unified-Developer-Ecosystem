@@ -220,6 +220,23 @@ function dvSquadsInit() {
     }).catch(function () {});
   }
 
+  // Sync squads from backend API so live created squads persist
+  if (window.DVApi && DVApi.squads && DVApi.squads.mine) {
+    DVApi.squads.mine().then(function (res) {
+      const serverSquads = res && res.data && res.data.squads;
+      if (Array.isArray(serverSquads)) {
+        const normalized = serverSquads.map(dvNormalizeBackendSquad);
+        dvSaveSquads(normalized);
+        normalized.forEach((sq) => {
+          (sq.registeredHackathons || []).forEach((hid) => {
+            DVStore.addToSet('hackathons', hid);
+          });
+        });
+        dvRenderMySquads();
+      }
+    }).catch(function () {});
+  }
+
   if (pendingFromUrl) {
     const createForm = document.getElementById('squad-create-form');
     if (createForm) setTimeout(() => createForm.scrollIntoView({ behavior: 'smooth', block: 'center' }), 200);
@@ -374,8 +391,8 @@ function dvRenderMySquads() {
 
 function dvSquadCardHTML(squad) {
   const members = squad.members.map(dvSquadMemberInfo).filter(Boolean);
-  const registered = squad.registeredHackathons.map((id) => DV_HACKATHONS.find((h) => h.id === id)).filter(Boolean);
-  const availableHackathons = DV_HACKATHONS.filter((h) => squad.registeredHackathons.indexOf(h.id) === -1);
+  const registered = squad.registeredHackathons.map((id) => DV_HACKATHONS.find((h) => h.id === id || h.legacyId === id || (h._id && h._id.toString() === id.toString()))).filter(Boolean);
+  const availableHackathons = DV_HACKATHONS.filter((h) => squad.registeredHackathons.indexOf(h.id) === -1 && squad.registeredHackathons.indexOf(h.legacyId) === -1 && (!h._id || squad.registeredHackathons.indexOf(h._id.toString()) === -1));
 
   return `
   <div class="glass reveal in squad-card" style="padding:24px; margin-bottom:20px;">
