@@ -5,5 +5,46 @@
    ========================================================= */
 
 /* heatmap */
-.heatmap { display: grid; grid-template-columns: repeat(26, 1fr); gap: 3px; }
-.heatmap i { display: block; aspect-ratio: 1; border-radius: 2px; background: var(--surface); }
+.heatmap { 
+  display: grid; 
+  grid-template-columns: repeat(26, 1fr); 
+  gap: 3px; 
+  position: relative;
+}
+.heatmap i { 
+  display: block; 
+  aspect-ratio: 1; 
+  border-radius: 2px; 
+  background: var(--surface); 
+  cursor: pointer;
+  transition: transform 0.1s ease, outline 0.1s ease;
+}
+.heatmap i:hover {
+  transform: scale(1.35);
+  outline: 1.5px solid var(--accent);
+  z-index: 2;
+}
+
+/* Floating custom heatmap tooltip */
+.heatmap-tooltip {
+  position: fixed;
+  pointer-events: none;
+  background: var(--bg-elevated, #141724);
+  color: var(--text-primary, #f0f2f8);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: 6px;
+  padding: 5px 9px;
+  font-size: 11.5px;
+  font-family: var(--font-sans, system-ui, sans-serif);
+  font-weight: 500;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  z-index: 99999;
+  transform: translate(-50%, -100%);
+  margin-top: -6px;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.heatmap-tooltip.visible {
+  opacity: 1;
+}

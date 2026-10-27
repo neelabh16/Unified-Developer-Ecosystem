@@ -229,11 +229,80 @@ function dvRenderProfileContent(root) {
   }
 
   const heat = document.getElementById('heatmap');
-  // Render neutral placeholder squares while live data loads
   const colors = ['var(--surface)', 'var(--accent-soft, rgba(124,111,255,.25))', 'color-mix(in srgb, var(--accent) 55%, var(--surface))', 'color-mix(in srgb, var(--accent) 80%, var(--surface))', 'var(--accent)'];
-  for (let i = 0; i < 182; i++) {
-    heat.innerHTML += `<i style="background:var(--surface)" title="Loading contributions..."></i>`;
+
+  function dvFormatHeatmapDate(dateStr) {
+    if (!dateStr) return '';
+    try {
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+        const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      }
+      return dateStr;
+    } catch (e) {
+      return dateStr;
+    }
   }
+
+  function dvHeatmapTooltip(dateStr, level) {
+    const formatted = dvFormatHeatmapDate(dateStr);
+    if (level > 0) {
+      return `${level} contribution${level > 1 ? 's' : ''} on ${formatted}`;
+    }
+    return `No contributions on ${formatted}`;
+  }
+
+  function renderHeatmapDays(daysList) {
+    if (!heat) return;
+    heat.innerHTML = '';
+    daysList.forEach(function (d) {
+      const lvl = Math.min(4, Math.max(0, d.level || 0));
+      const tipText = dvHeatmapTooltip(d.date, lvl);
+      const el = document.createElement('i');
+      el.style.background = colors[lvl];
+      el.setAttribute('title', tipText);
+      el.setAttribute('data-date', d.date);
+      el.setAttribute('data-tooltip', tipText);
+      heat.appendChild(el);
+    });
+  }
+
+  // Pre-fill initial 182 days with real calendar dates
+  const now = new Date();
+  const initialDays = [];
+  for (let i = 181; i >= 0; i--) {
+    const dt = new Date(now.getTime() - i * 86400000);
+    const dateStr = dt.toISOString().slice(0, 10);
+    initialDays.push({ date: dateStr, level: 0 });
+  }
+  renderHeatmapDays(initialDays);
+
+  // Setup interactive instant tooltip
+  let tooltipEl = document.getElementById('dv-heatmap-tooltip');
+  if (!tooltipEl) {
+    tooltipEl = document.createElement('div');
+    tooltipEl.id = 'dv-heatmap-tooltip';
+    tooltipEl.className = 'heatmap-tooltip';
+    document.body.appendChild(tooltipEl);
+  }
+
+  heat.onmouseover = function (e) {
+    const target = e.target.closest('i');
+    if (target && target.dataset.tooltip) {
+      tooltipEl.textContent = target.dataset.tooltip;
+      tooltipEl.classList.add('visible');
+      const rect = target.getBoundingClientRect();
+      tooltipEl.style.left = (rect.left + rect.width / 2) + 'px';
+      tooltipEl.style.top = rect.top + 'px';
+    }
+  };
+
+  heat.onmouseout = function (e) {
+    if (e.target.closest('i')) {
+      tooltipEl.classList.remove('visible');
+    }
+  };
 
   const timeline = document.getElementById('profile-timeline');
   timeline.innerHTML = `<div class="feed-item"><div class="feed-text muted" style="padding:8px 0;">Loading activity timeline...</div></div>`;
@@ -266,13 +335,8 @@ function dvRenderProfileContent(root) {
 
       // 2. Render real contribution heatmap
       if (heat && gh.contributions && gh.contributions.length > 0) {
-        heat.innerHTML = '';
         const recentDays = gh.contributions.slice(-182);
-        recentDays.forEach(function (d) {
-          const lvl = Math.min(4, Math.max(0, d.level || 0));
-          const tooltip = lvl > 0 ? `${d.date}: ${lvl} contribution${lvl > 1 ? 's' : ''}` : `${d.date}: No contributions`;
-          heat.innerHTML += `<i style="background:${colors[lvl]}" title="${tooltip}"></i>`;
-        });
+        renderHeatmapDays(recentDays);
       }
 
       // 3. Render real activity timeline from GitHub public events
