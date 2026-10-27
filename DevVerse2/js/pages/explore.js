@@ -33,6 +33,7 @@ function dvExploreInit() {
             art: p.art || null,
             features: p.features || [],
             timeline: p.timeline || [],
+            images: p.images || [],
             githubUrl: p.githubUrl || ''
           };
         });

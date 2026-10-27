@@ -211,6 +211,7 @@ function dvRenderProfileContent(root) {
           author: targetHandle,
           gradient: typeof p.gradient === 'number' ? p.gradient : 0,
           art: p.art || null,
+          images: p.images || [],
         };
       }) : myProjects;
 

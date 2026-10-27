@@ -2,6 +2,218 @@
    PROJECT DETAILS
    ========================================================= */
 
+function dvOpenImageLightbox(imgSrc) {
+  let modal = document.getElementById('dv-image-lightbox');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'dv-image-lightbox';
+    modal.style.cssText = 'position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.88); backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; padding:20px; opacity:0; transition:opacity 0.25s ease; cursor:zoom-out;';
+    modal.innerHTML = `
+      <div style="position:relative; max-width:92vw; max-height:92vh; display:flex; align-items:center; justify-content:center;">
+        <img id="dv-lightbox-img" src="" style="max-width:100%; max-height:88vh; border-radius:var(--radius-md); box-shadow:0 12px 48px rgba(0,0,0,0.7); object-fit:contain; border:1px solid rgba(255,255,255,0.1);">
+        <button id="dv-lightbox-close" style="position:absolute; top:-36px; right:0; background:none; border:none; color:#fff; font-size:30px; cursor:pointer; line-height:1;" aria-label="Close">&times;</button>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    modal.addEventListener('click', (e) => {
+      if (e.target.id !== 'dv-lightbox-img') {
+        modal.style.opacity = '0';
+        setTimeout(() => { modal.style.display = 'none'; }, 250);
+      }
+    });
+  }
+
+  document.getElementById('dv-lightbox-img').src = imgSrc;
+  modal.style.display = 'flex';
+  requestAnimationFrame(() => {
+    modal.style.opacity = '1';
+  });
+}
+
+function dvRenderProjectGallery(p) {
+  const container = document.getElementById('project-gallery-container');
+  if (!container) return;
+
+  const images = Array.isArray(p.images) ? p.images : [];
+  const currentAccount = dvAuthAccount();
+  const authorHandle = (p.authorObj && (p.authorObj.username || p.authorObj.name)) || p.authorHandle || p.author;
+  const isOwn = p.author === 'you' || (currentAccount && (authorHandle === currentAccount.username || (p.authorObj && (p.authorObj._id === currentAccount.id || p.authorObj === currentAccount.id))));
+  const gradientIdx = typeof p.gradient === 'number' && !isNaN(p.gradient) ? p.gradient % 5 : 0;
+
+  let html = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <div class="eyebrow" style="margin-bottom:0;">Gallery</div>
+      ${isOwn ? `
+        <div>
+          <button class="btn btn-ghost btn-sm" id="gallery-upload-btn" type="button" style="padding:4px 12px; font-size:12.5px; display:inline-flex; align-items:center; gap:6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <span>Upload photos</span>
+          </button>
+          <input type="file" id="gallery-file-input" accept="image/png,image/jpeg,image/webp,image/gif" multiple style="display:none;">
+        </div>
+      ` : ''}
+    </div>
+  `;
+
+  if (images.length > 0) {
+    html += `<div class="grid grid-3" id="gallery-grid">`;
+    images.forEach((imgUrl, idx) => {
+      const fullSrc = dvResolveImageUrl(imgUrl);
+      html += `
+        <div class="glass gallery-thumb-card" style="height:150px; border-radius:var(--radius-md); overflow:hidden; position:relative; cursor:pointer;" data-preview-img="${fullSrc}">
+          <img src="${fullSrc}" alt="${p.title} screenshot" style="width:100%; height:100%; object-fit:cover; display:block; transition:transform 0.3s ease;">
+          ${isOwn ? `
+            <button class="btn btn-ghost btn-sm gallery-delete-btn" data-img-idx="${idx}" type="button" style="position:absolute; top:8px; right:8px; background:rgba(7,8,12,0.85); color:#ff5c5c; padding:4px 7px; border-radius:6px; z-index:3;" title="Delete screenshot">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            </button>
+          ` : ''}
+        </div>
+      `;
+    });
+    if (isOwn) {
+      html += `
+        <div class="glass gallery-upload-tile" id="gallery-add-tile" style="height:150px; border-radius:var(--radius-md); border:2px dashed var(--border); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; cursor:pointer; color:var(--text-tertiary); transition:var(--transition);" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-tertiary)'">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <span style="font-size:12.5px; font-weight:500;">Add screenshot</span>
+        </div>
+      `;
+    }
+    html += `</div>`;
+  } else {
+    if (isOwn) {
+      html += `
+        <div class="glass gallery-dropzone" id="gallery-dropzone-box" style="padding:32px 20px; border-radius:var(--radius-md); border:2px dashed var(--border); text-align:center; cursor:pointer; transition:var(--transition);" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" style="margin:0 auto 10px; display:block;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          <div style="font-size:14px; font-weight:600; margin-bottom:4px;">Upload screenshots & photos</div>
+          <div class="muted" style="font-size:12.5px;">Click to browse or drop project screenshots here (PNG, JPG, WebP up to 10MB)</div>
+        </div>
+      `;
+    } else {
+      html += `
+        <div class="grid grid-3">
+          ${[0, 1, 2].map(function (i) { return '<div class="glass" style="height:140px; border-radius:var(--radius-md); background:' + DV_TECH_GRADIENTS[(gradientIdx + i) % 5] + '; opacity:' + (0.85 - i * 0.1) + ';"></div>'; }).join('')}
+        </div>
+      `;
+    }
+  }
+
+  container.innerHTML = html;
+
+  if (isOwn) {
+    const fileInput = document.getElementById('gallery-file-input');
+    const uploadBtn = document.getElementById('gallery-upload-btn');
+    const addTile = document.getElementById('gallery-add-tile');
+    const dropzoneBox = document.getElementById('gallery-dropzone-box');
+
+    const triggerUpload = () => { if (fileInput) fileInput.click(); };
+    if (uploadBtn) uploadBtn.addEventListener('click', triggerUpload);
+    if (addTile) addTile.addEventListener('click', triggerUpload);
+    if (dropzoneBox) dropzoneBox.addEventListener('click', triggerUpload);
+
+    const dropTarget = dropzoneBox || container;
+    if (dropTarget) {
+      ['dragenter', 'dragover'].forEach((eventName) => {
+        dropTarget.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dropTarget.style.borderColor = 'var(--accent)';
+        });
+      });
+      ['dragleave', 'drop'].forEach((eventName) => {
+        dropTarget.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dropTarget.style.borderColor = 'var(--border)';
+        });
+      });
+      dropTarget.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        const files = dt && dt.files;
+        if (files && files.length) {
+          dvHandleGalleryUpload(p, files);
+        }
+      });
+    }
+
+    if (fileInput) {
+      fileInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files.length) {
+          dvHandleGalleryUpload(p, e.target.files);
+        }
+      });
+    }
+
+    container.querySelectorAll('.gallery-delete-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const idx = parseInt(btn.dataset.imgIdx, 10);
+        if (!isNaN(idx) && idx >= 0 && idx < p.images.length) {
+          p.images.splice(idx, 1);
+          dvSaveProjectGallery(p);
+          dvRenderProjectGallery(p);
+          dvToast('Photo removed from gallery');
+        }
+      });
+    });
+  }
+
+  container.querySelectorAll('[data-preview-img]').forEach((card) => {
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.gallery-delete-btn')) return;
+      dvOpenImageLightbox(card.dataset.previewImg);
+    });
+  });
+}
+
+async function dvHandleGalleryUpload(p, files) {
+  if (!files || !files.length) return;
+  if (!Array.isArray(p.images)) p.images = [];
+
+  dvToast('Uploading photos\u2026');
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    if (!file.type.startsWith('image/')) continue;
+
+    let uploaded = false;
+    try {
+      if (window.DVApi && DVApi.uploads && DVApi.uploads.image) {
+        const res = await DVApi.uploads.image(file);
+        if (res && res.data && res.data.url) {
+          p.images.push(res.data.url);
+          uploaded = true;
+        }
+      }
+    } catch (apiErr) {
+      console.warn('API upload error, using local data URL fallback:', apiErr);
+    }
+
+    if (!uploaded) {
+      const dataUrl = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.readAsDataURL(file);
+      });
+      p.images.push(dataUrl);
+    }
+  }
+
+  dvSaveProjectGallery(p);
+  dvRenderProjectGallery(p);
+  dvToast('Photos added to gallery');
+}
+
+function dvSaveProjectGallery(p) {
+  dvUpdateUserProject(p.id, { images: p.images });
+  if (p._id && p._id !== p.id) {
+    dvUpdateUserProject(p._id, { images: p.images });
+  }
+  if (window.DVApi && DVApi.projects && DVApi.projects.update) {
+    DVApi.projects.update(p.id, { images: p.images }).catch(function () {});
+  }
+}
+
 function dvRenderProjectDetail(p, root) {
   if (!root || !p) return;
 
@@ -10,30 +222,28 @@ function dvRenderProjectDetail(p, root) {
   const isOwn = p.author === 'you' || (currentAccount && (authorHandle === currentAccount.username || (p.authorObj && (p.authorObj._id === currentAccount.id || p.authorObj === currentAccount.id))));
   const isUserProject = (p.id && String(p.id).indexOf('user-') === 0) || Boolean(p._id) || isOwn;
 
+  p.images = Array.isArray(p.images) ? p.images : [];
+
   const authorInfo = dvProjectAuthorInfo(p.author, p.authorObj);
   const authorName = authorInfo.name;
   const authorAvatarSeed = authorInfo.avatarSeed;
   const liked = DVStore.has('likes', p.id);
   const bookmarked = DVStore.has('bookmarks', p.id);
 
-  // Count this as a view of the project — the Stats panel below reads
-  // it back via dvProjectViewCount() so it actually moves instead of
-  // sitting frozen at the seed number forever.
+  // Track project view
   dvTrackProjectView(p.id);
 
-  // Resolve the profile link — own projects link to own profile
+  // Resolve profile link
   const profileHref = isOwn ? 'profile.html' : 'profile.html?u=' + encodeURIComponent(authorHandle || p.author);
   const displayHandle = isOwn ? dvSelfHandle() : (authorHandle || p.author);
 
   document.title = `${p.title} — DevVerse`;
 
-  // --- Features: use project's own features array if available,
-  // otherwise fall back to demo placeholders for seeded projects ---
+  // Features
   const defaultFeatures = ['Realtime sync engine', 'Offline-first caching', 'Zero-config setup', 'Accessible by default'];
   const features = (p.features && p.features.length) ? p.features : (isUserProject ? [] : defaultFeatures);
 
-  // --- Timeline: use project's own timeline array if available,
-  // otherwise fall back to demo placeholders for seeded projects.
+  // Timeline
   const defaultTimeline = [
     { label: 'v1.0 released', when: '6 months ago' },
     { label: 'Core rewrite in ' + ((p.tags && p.tags[0]) || 'TypeScript'), when: '3 months ago' },
@@ -41,7 +251,6 @@ function dvRenderProjectDetail(p, root) {
   ];
   const timeline = (p.timeline && p.timeline.length) ? p.timeline : (isUserProject ? [] : defaultTimeline);
 
-  // Build features HTML
   let featuresHTML = '';
   if (features.length) {
     featuresHTML = `
@@ -57,7 +266,6 @@ function dvRenderProjectDetail(p, root) {
         </section>`;
   }
 
-  // Build timeline HTML
   let timelineHTML = '';
   if (timeline.length) {
     timelineHTML = `
@@ -70,7 +278,6 @@ function dvRenderProjectDetail(p, root) {
         </section>`;
   }
 
-  // Overview text — demo projects get an extra sentence
   const overviewExtra = isUserProject ? '' : ` This build focuses on real-world performance under load, a clean developer experience, and interface details most teams skip. It's actively maintained by ${authorName} and open for contributions.`;
   const gradientIdx = typeof p.gradient === 'number' && !isNaN(p.gradient) ? p.gradient % 5 : 0;
   const tagsList = Array.isArray(p.tags) ? p.tags : [];
@@ -118,12 +325,7 @@ function dvRenderProjectDetail(p, root) {
           <p class="lede" style="max-width:none; font-size:16px;">${p.desc}${overviewExtra}</p>
         </section>
 
-        <section class="reveal in">
-          <div class="eyebrow">Gallery</div>
-          <div class="grid grid-3">
-            ${[0, 1, 2].map(function (i) { return '<div class="glass" style="height:140px; border-radius:var(--radius-md); background:' + DV_TECH_GRADIENTS[(gradientIdx + i) % 5] + '; opacity:' + (0.85 - i * 0.1) + ';"></div>'; }).join('')}
-          </div>
-        </section>
+        <section class="reveal in" id="project-gallery-container"></section>
 
         ${featuresHTML}
 
@@ -168,6 +370,9 @@ function dvRenderProjectDetail(p, root) {
       <div class="grid grid-3" id="related-projects"></div>
     </section>
   `;
+
+  // Render the interactive Gallery
+  dvRenderProjectGallery(p);
 
   const allProjects = dvAllProjects();
   const sameCategory = allProjects.filter(function (x) { return x.category === p.category && x.id !== p.id && x._id !== p.id; });
@@ -263,6 +468,7 @@ function dvProjectDetailInit() {
       tags: Array.isArray(bp.tags) ? bp.tags : [],
       features: Array.isArray(bp.features) ? bp.features : [],
       timeline: Array.isArray(bp.timeline) ? bp.timeline : [],
+      images: Array.isArray(bp.images) ? bp.images : [],
       githubUrl: bp.githubUrl || null,
       likes: bp.likesCount || bp.likes || 0,
       views: bp.viewsCount || bp.views || 0,
@@ -445,8 +651,6 @@ function dvOpenCategoryEditor(p, allProjects, categories) {
     dvRestoreCategoryBadge(p, allProjects, categories);
     dvToast('Category updated');
 
-    // Related projects are picked by category, so refresh that
-    // section too instead of leaving it showing the old grouping.
     const sameCategory = allProjects.filter(function (x) { return x.category === chosen && x.id !== p.id; });
     let related = sameCategory.slice(0, 3);
     if (related.length < 3) {
@@ -464,8 +668,6 @@ function dvOpenCategoryEditor(p, allProjects, categories) {
   });
 }
 
-/** Swaps the category editor form back out for the plain badge +
- *  Edit button, showing whatever category is currently set. */
 function dvRestoreCategoryBadge(p, allProjects, categories) {
   const display = document.getElementById('category-display');
   display.innerHTML = `

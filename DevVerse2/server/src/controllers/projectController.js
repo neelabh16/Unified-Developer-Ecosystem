@@ -117,7 +117,7 @@ const getProject = async (req, res, next) => {
  */
 const createProject = async (req, res, next) => {
   try {
-    const { title, desc, category, difficulty, tags, githubUrl, features, timeline } = req.body;
+    const { title, desc, category, difficulty, tags, githubUrl, features, timeline, images } = req.body;
 
     if (!title || !desc || !category) {
       return next(new AppError('Title, description, and category are required.', 400));
@@ -148,6 +148,7 @@ const createProject = async (req, res, next) => {
       features: parsedFeatures,
       githubUrl: githubUrl || null,
       timeline: Array.isArray(timeline) ? timeline : [],
+      images: Array.isArray(images) ? images : [],
       author: req.user._id,
       authorHandle: req.user.username,
       art: chosenArt,
@@ -189,13 +190,14 @@ const updateProject = async (req, res, next) => {
       return next(new AppError('You are not authorized to update this project.', 403));
     }
 
-    const { category, title, desc, difficulty, tags, githubUrl } = req.body;
+    const { category, title, desc, difficulty, tags, githubUrl, images } = req.body;
     if (category) project.category = category.trim();
     if (title) project.title = title.trim();
     if (desc) project.desc = desc.trim();
     if (difficulty) project.difficulty = difficulty;
     if (githubUrl !== undefined) project.githubUrl = githubUrl;
     if (tags && Array.isArray(tags)) project.tags = tags;
+    if (images && Array.isArray(images)) project.images = images;
 
     await project.save();
 
@@ -459,6 +461,43 @@ const deleteComment = async (req, res, next) => {
   }
 };
 
+/**
+ * Upload an image directly into a project gallery — author only.
+ * POST /api/v1/projects/:id/images
+ */
+const uploadProjectImage = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const project = await findProjectByIdOrLegacy(id);
+
+    if (!project) {
+      return next(new AppError('Project not found', 404));
+    }
+
+    if (project.author.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      return next(new AppError('You are not authorized to edit this project.', 403));
+    }
+
+    if (!req.file) {
+      return next(new AppError('No image file provided.', 400));
+    }
+
+    const fileUrl = `/uploads/${req.file.filename}`;
+    if (!Array.isArray(project.images)) {
+      project.images = [];
+    }
+    project.images.push(fileUrl);
+    await project.save();
+
+    return sendSuccess(res, 201, 'Image added to project gallery', {
+      url: fileUrl,
+      images: project.images,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getProjects,
   getProject,
@@ -471,4 +510,5 @@ module.exports = {
   getComments,
   addComment,
   deleteComment,
+  uploadProjectImage,
 };

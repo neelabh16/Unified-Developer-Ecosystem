@@ -6,6 +6,7 @@ const router = express.Router();
 const projectController = require('../controllers/projectController');
 const { protect, optionalAuth } = require('../middleware/auth');
 const csrfProtection = require('../middleware/csrf');
+const upload = require('../middleware/upload');
 const { validateIdParams } = require('../middleware/validateObjectId');
 
 router.param('id', (req, res, next, val) => {
@@ -25,11 +26,12 @@ router.get('/:id/comments', projectController.getComments);
 router.post('/:id/comments', protect, csrfProtection, projectController.addComment);
 router.delete('/:id/comments/:commentId', protect, csrfProtection, projectController.deleteComment);
 
-// Protected actions (Create, Update, Delete, Like, Bookmark)
+// Protected actions (Create, Update, Delete, Like, Bookmark, Image Upload)
 router.post('/', protect, csrfProtection, projectController.createProject);
 router.put('/:id', protect, csrfProtection, projectController.updateProject);
 router.delete('/:id', protect, csrfProtection, projectController.deleteProject);
 router.post('/:id/like', protect, csrfProtection, projectController.toggleLike);
 router.post('/:id/bookmark', protect, csrfProtection, projectController.toggleBookmark);
+router.post('/:id/images', protect, upload.single('image'), projectController.uploadProjectImage);
 
 module.exports = router;

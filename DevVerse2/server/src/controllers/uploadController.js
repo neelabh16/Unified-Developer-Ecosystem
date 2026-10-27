@@ -35,6 +35,30 @@ const uploadAvatar = async (req, res, next) => {
   }
 };
 
+/**
+ * Upload a generic image (e.g. for project gallery/screenshots).
+ * POST /api/v1/uploads/image
+ */
+const uploadImage = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return next(new AppError('No image file provided.', 400));
+    }
+
+    const fileUrl = `/uploads/${req.file.filename}`;
+
+    return sendSuccess(res, 201, 'Image uploaded successfully', {
+      filename: req.file.filename,
+      url: fileUrl,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   uploadAvatar,
+  uploadImage,
 };

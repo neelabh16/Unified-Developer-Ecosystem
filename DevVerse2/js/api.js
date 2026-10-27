@@ -140,6 +140,11 @@ const DVApi = {
     getComments: (id) => DVApi.request(`/projects/${encodeURIComponent(id)}/comments`),
     addComment: (id, text) => DVApi.request(`/projects/${encodeURIComponent(id)}/comments`, { method: 'POST', body: { text } }),
     deleteComment: (id, commentId) => DVApi.request(`/projects/${encodeURIComponent(id)}/comments/${encodeURIComponent(commentId)}`, { method: 'DELETE' }),
+    uploadImage: (id, file) => {
+      const formData = new FormData();
+      formData.append('image', file);
+      return DVApi.request(`/projects/${encodeURIComponent(id)}/images`, { method: 'POST', body: formData });
+    },
   },
 
   // ---------------------------------------------------------
@@ -274,6 +279,14 @@ const DVApi = {
       const formData = new FormData();
       formData.append('avatar', file);
       return DVApi.request('/uploads/avatar', {
+        method: 'POST',
+        body: formData,
+      });
+    },
+    image: (file) => {
+      const formData = new FormData();
+      formData.append('image', file);
+      return DVApi.request('/uploads/image', {
         method: 'POST',
         body: formData,
       });

@@ -67,6 +67,10 @@ const projectSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    images: {
+      type: [String],
+      default: [],
+    },
     timeline: [
       {
         label: { type: String, required: true },

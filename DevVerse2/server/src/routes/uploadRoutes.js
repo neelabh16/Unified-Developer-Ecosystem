@@ -15,4 +15,12 @@ router.post(
   uploadController.uploadAvatar
 );
 
+// Protected general image upload route: POST /api/v1/uploads/image
+router.post(
+  '/image',
+  protect,
+  upload.single('image'),
+  uploadController.uploadImage
+);
+
 module.exports = router;

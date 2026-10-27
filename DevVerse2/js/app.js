@@ -1665,6 +1665,15 @@ function dvSaveUserProjects(list) {
 function dvAllProjects() {
   return dvUserProjects().concat(DV_PROJECTS);
 }
+function dvResolveImageUrl(url) {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:') || url.startsWith('blob:')) {
+    return url;
+  }
+  const baseHost = (window.DV_API_URL || (window.location.port === '5000' ? '' : 'http://localhost:5000')).replace(/\/api\/v1\/?$/, '');
+  return `${baseHost}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
 function dvFindProjectById(id) {
   if (!id) return null;
   return dvAllProjects().find((p) => p.id === id || p._id === id || p.legacyId === id);
@@ -1681,6 +1690,7 @@ function dvAddUserProject(project) {
     githubUrl: project.githubUrl || null,
     features: project.features || [],
     timeline: project.timeline || [],
+    images: Array.isArray(project.images) ? project.images : [],
     author: project.author || 'you',
     gradient: typeof project.gradient === 'number' ? project.gradient : Math.floor(Math.random() * 5),
     likes: project.likes || 0,
