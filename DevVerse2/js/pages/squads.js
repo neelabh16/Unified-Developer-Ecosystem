@@ -185,6 +185,41 @@ function dvSquadsInit() {
   dvRenderMySquads();
   dvRenderSquadMemberChips();
 
+  // Sync projects uploaded to DevVerse from backend API so squad cards reflect live user projects
+  if (window.DVApi && DVApi.projects && DVApi.projects.list) {
+    DVApi.projects.list({ limit: 100 }).then(function (res) {
+      const items = (res && res.data && (res.data.projects || (Array.isArray(res.data) ? res.data : []))) || [];
+      const account = dvAuthAccount();
+      const selfHandle = dvSelfHandle();
+      const myUploaded = items.filter(function (p) {
+        const u = (p.author && (p.author.username || p.author.name)) || p.author;
+        return u === selfHandle || u === 'you' || (account && (u === account.username || u === account.handle));
+      });
+      if (myUploaded.length > 0) {
+        const currentList = dvUserProjects();
+        let changed = false;
+        myUploaded.forEach((p) => {
+          const pid = p.legacyId || p.slug || p.id || p._id;
+          if (!currentList.some((e) => (e.id || e._id) === pid || e.title === p.title)) {
+            currentList.unshift({
+              id: pid,
+              title: p.title,
+              desc: p.desc || p.tagline || '',
+              tags: p.tags || [],
+              category: p.category || 'General',
+              author: selfHandle,
+            });
+            changed = true;
+          }
+        });
+        if (changed) {
+          dvSaveUserProjects(currentList);
+        }
+        dvRenderMySquads();
+      }
+    }).catch(function () {});
+  }
+
   if (pendingFromUrl) {
     const createForm = document.getElementById('squad-create-form');
     if (createForm) setTimeout(() => createForm.scrollIntoView({ behavior: 'smooth', block: 'center' }), 200);

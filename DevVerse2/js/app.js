@@ -1440,29 +1440,60 @@ function dvSquadMemberInfo(handle) {
     const overrides = DVStore.get('profile.overrides', {});
     const account = dvAuthAccount();
     const portfolio = DVStore.get('portfolio', null);
+    const selfHandle = dvSelfHandle();
+
+    // 1. Projects: Include portfolio projects and projects uploaded on the site
+    let userProjectsList = [];
+    if (portfolio && Array.isArray(portfolio.projects) && portfolio.projects.length) {
+      userProjectsList = portfolio.projects.slice();
+    }
+    const uploaded = dvUserProjects().concat(
+      dvAllProjects().filter((p) => {
+        const auth = p.author || p.authorHandle;
+        return auth === 'you' || auth === selfHandle || (account && (auth === account.username || auth === account.handle));
+      })
+    );
+    for (const up of uploaded) {
+      const upId = up.id || up._id;
+      const already = userProjectsList.some((p) => (p.id || p._id) === upId || p.title === up.title);
+      if (!already) {
+        userProjectsList.push({
+          id: upId,
+          title: up.title,
+          desc: up.desc || '',
+          tags: up.tags || [],
+        });
+      }
+    }
+
+    // 2. Skills: Read from portfolio, profile overrides, account, or squad finder profile
+    const squadProfile = typeof dvSquadFinderProfile === 'function' ? dvSquadFinderProfile() : null;
+    let userSkillsList = [];
+    if (portfolio && Array.isArray(portfolio.skills) && portfolio.skills.length) {
+      userSkillsList = portfolio.skills;
+    } else if (overrides && Array.isArray(overrides.skills) && overrides.skills.length) {
+      userSkillsList = overrides.skills;
+    } else if (account && Array.isArray(account.skills) && account.skills.length) {
+      userSkillsList = account.skills;
+    } else if (squadProfile && Array.isArray(squadProfile.skills) && squadProfile.skills.length) {
+      userSkillsList = squadProfile.skills;
+    } else if (userProjectsList.length) {
+      const tagSet = [];
+      userProjectsList.forEach((p) => {
+        if (Array.isArray(p.tags)) {
+          p.tags.forEach((t) => { if (!tagSet.includes(t)) tagSet.push(t); });
+        }
+      });
+      userSkillsList = tagSet;
+    }
+
     return {
-      handle: dvSelfHandle(),
-      // BUG FIXED: missing account.name fallback meant this showed "You"
-      // for a signed-up account until the profile was manually edited.
+      handle: selfHandle,
       name: overrides.name || (account && account.name) || 'You',
-      // BUG FIXED: avatarSeed and bio used to be read from `overrides`
-      // (the separate Profile/Settings page's data) instead of from
-      // `portfolio` (what the Portfolio Builder's Avatar seed and Bio
-      // fields actually save to). So typing a bio or changing your
-      // avatar seed in the Portfolio Builder had no effect here — this
-      // function was quietly reading a different, usually-empty field
-      // the whole time, showing "No bio yet" and a stale avatar no
-      // matter what you typed.
-      avatarSeed: (portfolio && portfolio.avatarSeed) || overrides.avatarSeed || 'you-builder',
-      bio: (portfolio && portfolio.bio) || overrides.bio || '',
-      skills: portfolio ? portfolio.skills : [],
-      // BUG FIXED: this used to also splice in every project you'd
-      // published from the Submit a Project page, even ones never
-      // added to the Portfolio Builder's own Projects section — so
-      // your portfolio preview (and squad cards) could show a project
-      // you never put there. It now shows exactly what's in the
-      // Portfolio Builder's Projects list, nothing more.
-      projects: portfolio ? portfolio.projects : [],
+      avatarSeed: (portfolio && portfolio.avatarSeed) || overrides.avatarSeed || (account && (account.avatarSeed || account.username)) || 'you-builder',
+      bio: (portfolio && portfolio.bio) || overrides.bio || (account && account.bio) || '',
+      skills: userSkillsList,
+      projects: userProjectsList,
       points: dvPointsTotal(),
       isYou: true,
     };
