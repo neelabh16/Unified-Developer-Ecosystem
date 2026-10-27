@@ -91,9 +91,32 @@ const getUserRepos = async (req, res, next) => {
   }
 };
 
+/**
+ * Get detailed repository data for project submission or exploration.
+ * GET /api/v1/github/repo/:owner/:repo
+ */
+const getRepoDetails = async (req, res, next) => {
+  try {
+    const { owner, repo } = req.params;
+    if (!owner || !repo) {
+      return next(new AppError('Please provide repository owner and name.', 400));
+    }
+
+    const data = await githubService.getRepoDetails(owner, repo);
+    if (!data) {
+      return next(new AppError('Repository not found or private.', 404));
+    }
+
+    return sendSuccess(res, 200, 'Repository details retrieved', data);
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getUserGitHubData,
   getUserContributions,
   getUserEvents,
   getUserRepos,
+  getRepoDetails,
 };

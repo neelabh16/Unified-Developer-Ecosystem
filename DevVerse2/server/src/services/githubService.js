@@ -244,8 +244,90 @@ async function getGitHubUserData(username) {
   return data;
 }
 
+/**
+ * Fetch detailed repository information with rate-limit fallback.
+ */
+async function getRepoDetails(owner, repo) {
+  if (!owner || !repo) return null;
+  const cleanRepo = repo.replace(/\.git$/, '');
+  const cacheKey = `repo:${owner.toLowerCase()}/${cleanRepo.toLowerCase()}`;
+  const cached = cache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    return cached.data;
+  }
+
+  let result = null;
+
+  try {
+    const pageRes = await fetchText(`https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(cleanRepo)}`);
+    if (pageRes.status === 200) {
+      let description = '';
+      const descJson = pageRes.body.match(/"description":"([^"]+)"/);
+      if (descJson) {
+        description = descJson[1];
+      } else {
+        const descP = pageRes.body.match(/<p class="[^"]*f4[^"]*">([\s\S]*?)<\/p>/);
+        if (descP) description = descP[1].replace(/<[^>]+>/g, '').trim();
+      }
+
+      const langMatch = pageRes.body.match(/href="\/[^/]+\/[^/]+\/search\?l=([^"&]+)"/);
+      const language = langMatch ? decodeURIComponent(langMatch[1]) : 'JavaScript';
+
+      const starMatch = pageRes.body.match(/id="repo-stars-counter-star"[^>]*title="([\d,]+)"/) ||
+                        pageRes.body.match(/id="repo-stars-counter-star"[^>]*>([\d,]+)<\/span>/);
+      const stars = starMatch ? parseInt(starMatch[1].replace(/,/g, ''), 10) : 0;
+
+      // Commits timeline via public Atom feed
+      const atomRes = await fetchText(`https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(cleanRepo)}/commits.atom`);
+      const timeline = [];
+      if (atomRes.status === 200) {
+        const entryRegex = /<entry>([\s\S]*?)<\/entry>/g;
+        let m;
+        while ((m = entryRegex.exec(atomRes.body)) !== null && timeline.length < 5) {
+          const entry = m[1];
+          const titleMatch = entry.match(/<title>([\s\S]*?)<\/title>/);
+          const dateMatch = entry.match(/<updated>([\s\S]*?)<\/updated>/);
+          if (titleMatch && dateMatch) {
+            const msAgo = Date.now() - new Date(dateMatch[1]).getTime();
+            const daysAgo = Math.floor(msAgo / 86400000);
+            let when = 'just now';
+            if (daysAgo > 365) when = Math.floor(daysAgo / 365) + ' year' + (Math.floor(daysAgo / 365) > 1 ? 's' : '') + ' ago';
+            else if (daysAgo > 30) when = Math.floor(daysAgo / 30) + ' month' + (Math.floor(daysAgo / 30) > 1 ? 's' : '') + ' ago';
+            else if (daysAgo > 7) when = Math.floor(daysAgo / 7) + ' week' + (Math.floor(daysAgo / 7) > 1 ? 's' : '') + ' ago';
+            else if (daysAgo > 0) when = daysAgo + ' day' + (daysAgo > 1 ? 's' : '') + ' ago';
+
+            timeline.push({
+              label: titleMatch[1].replace(/<[^>]*>/g, '').trim(),
+              when,
+            });
+          }
+        }
+      }
+
+      result = {
+        name: cleanRepo,
+        full_name: `${owner}/${cleanRepo}`,
+        description: description || 'Public repository on GitHub',
+        language: language || 'Code',
+        html_url: `https://github.com/${owner}/${cleanRepo}`,
+        stargazers_count: stars,
+        timeline,
+      };
+    }
+  } catch (err) {
+    console.warn(`[GitHubService] Public repo parse failed for ${owner}/${cleanRepo}:`, err.message);
+  }
+
+  if (result) {
+    cache.set(cacheKey, { timestamp: Date.now(), data: result });
+  }
+
+  return result;
+}
+
 module.exports = {
   getGitHubUserData,
+  getRepoDetails,
   fetchContributions,
   fetchActivityFeed,
   fetchRepositories,

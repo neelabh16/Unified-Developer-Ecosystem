@@ -93,6 +93,29 @@ function dvFetchGithubForSubmit() {
   status.textContent = 'Fetching from GitHub\u2026';
   dvGithubTimeline = [];
 
+  // Use backend proxy endpoint (which bypasses GitHub unauthenticated IP rate limits)
+  if (window.DVApi && DVApi.github && DVApi.github.getRepo) {
+    DVApi.github.getRepo(parsed.owner, parsed.repo)
+      .then(function (res) {
+        if (!res || !res.data) throw new Error('not found');
+        const repo = res.data;
+        document.getElementById('sp-title').value = repo.name || parsed.repo;
+        document.getElementById('sp-desc').value = repo.description || '';
+        document.getElementById('sp-tags').value = repo.language || 'Code';
+        document.getElementById('sp-github').value = repo.html_url || urlInput.value.trim();
+        dvGithubTimeline = repo.timeline || [];
+
+        status.textContent = `Pulled ${repo.full_name} \u2014 ${dvGithubTimeline.length} recent commits for timeline. Review the fields below before publishing.`;
+      })
+      .catch(function () {
+        fetchDirectGithub(parsed, urlInput, status);
+      });
+  } else {
+    fetchDirectGithub(parsed, urlInput, status);
+  }
+}
+
+function fetchDirectGithub(parsed, urlInput, status) {
   fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}`)
     .then(function (res) {
       if (!res.ok) throw new Error('not found or private');
