@@ -1,5 +1,5 @@
 // =============================================================================
-// Database Seeder — Populates MongoDB Atlas with initial platform catalog
+// Database Seeder — Populates MongoDB Atlas with 10 items per category
 // =============================================================================
 require('dotenv').config();
 const mongoose = require('mongoose');
@@ -12,6 +12,7 @@ const Discussion = require('../models/Discussion');
 const Hackathon = require('../models/Hackathon');
 const CodexEntry = require('../models/CodexEntry');
 
+// 1. Exactly 10 Developers / Users
 const DV_DEVS = [
   { handle: 'kmori', name: 'Kenji Mori', email: 'kmori@devverse.local', avatarSeed: 'kmori', points: 9840, bio: 'Systems engineer obsessed with latency. Building databases that refuse to fall over.', skills: ['Rust', 'Go', 'Distributed Systems'] },
   { handle: 'ari-devs', name: 'Ari Solano', email: 'ari@devverse.local', avatarSeed: 'arisolano', points: 7420, bio: 'Frontend architect. If it doesn\'t feel alive, it isn\'t shipping.', skills: ['React', 'TypeScript', 'Motion Design'] },
@@ -21,8 +22,11 @@ const DV_DEVS = [
   { handle: 'priya.dev', name: 'Priya Nair', email: 'priya@devverse.local', avatarSeed: 'priyanair', points: 4310, bio: 'Building calm software for busy teams.', skills: ['Vue', 'Node.js', 'Design Systems'] },
   { handle: 'dax', name: 'Dax Whitfield', email: 'dax@devverse.local', avatarSeed: 'daxwhitfield', points: 3020, bio: 'Tooling nerd. I build the things that build the things.', skills: ['Rust', 'CLI', 'DX'] },
   { handle: 'devon.codes', name: 'Devon Blake', email: 'devon@devverse.local', avatarSeed: 'devonblake', points: 5230, bio: 'Web app builder. I like turning a messy spreadsheet workflow into something people actually enjoy opening.', skills: ['JavaScript', 'DOM', 'REST API'] },
+  { handle: 'elena-v', name: 'Elena Vega', email: 'elena@devverse.local', avatarSeed: 'elenavega', points: 8750, bio: 'Cloud architect & Kubernetes wrangler. Automating infrastructure so engineers can sleep soundly.', skills: ['Kubernetes', 'Terraform', 'Go', 'AWS'] },
+  { handle: 'marcus-k', name: 'Marcus Kim', email: 'marcus@devverse.local', avatarSeed: 'marcuskim', points: 10420, bio: 'Security researcher & cryptographer. Auditing smart contracts and zero-knowledge primitives.', skills: ['Cryptography', 'Rust', 'Security', 'Solidity'] },
 ];
 
+// 2. Exactly 10 Featured Projects
 const DV_PROJECTS = [
   { legacyId: 'p1', art: 'project-7.png', title: 'Nebula UI Kit', desc: 'A glassmorphic component library for ambitious dashboards.', tags: ['React', 'TypeScript', 'Framer Motion'], difficulty: 'Intermediate', likesCount: 842, viewsCount: 12400, category: 'Frontend', authorHandle: 'ari-devs', gradient: 0 },
   { legacyId: 'p2', art: 'project-3.png', title: 'PulseDB', desc: 'A lightweight time-series database written for edge devices.', tags: ['Rust', 'WASM'], difficulty: 'Advanced', likesCount: 1290, viewsCount: 30100, category: 'Systems', authorHandle: 'kmori', gradient: 1 },
@@ -34,13 +38,9 @@ const DV_PROJECTS = [
   { legacyId: 'p8', art: 'project-13.png', title: 'Driftboard', desc: 'A realtime kanban board with offline-first sync.', tags: ['Svelte', 'CRDT'], difficulty: 'Intermediate', likesCount: 455, viewsCount: 9800, category: 'Frontend', authorHandle: 'ari-devs', gradient: 2 },
   { legacyId: 'p9', art: 'project-10.png', title: 'Kestrel CLI', desc: 'A blazing-fast scaffolding tool for monorepos.', tags: ['Rust', 'Clap'], difficulty: 'Beginner', likesCount: 210, viewsCount: 4300, category: 'Tools', authorHandle: 'dax', gradient: 3 },
   { legacyId: 'p10', art: 'project-2.png', title: 'Mural', desc: 'Collaborative infinite canvas for design critique.', tags: ['Canvas API', 'WebSockets'], difficulty: 'Advanced', likesCount: 1544, viewsCount: 38700, category: 'Frontend', authorHandle: 'sena.codes', gradient: 4 },
-  { legacyId: 'p11', art: 'project-5.png', title: 'Cortex Notes', desc: 'A local-first note app with AI-assisted linking.', tags: ['Next.js', 'SQLite'], difficulty: 'Intermediate', likesCount: 733, viewsCount: 16800, category: 'AI/ML', authorHandle: 'noa.ml', gradient: 0 },
-  { legacyId: 'p12', art: 'project-11.png', title: 'Halcyon', desc: 'A minimalist static site generator with island hydration.', tags: ['TypeScript', 'esbuild'], difficulty: 'Beginner', likesCount: 388, viewsCount: 7200, category: 'Tools', authorHandle: 'dax', gradient: 1 },
-  { legacyId: 'p13', art: 'project-14.png', title: 'TaskFlow', desc: 'A collaborative task manager with boards, due dates, and live status updates for small teams.', tags: ['JavaScript', 'DOM', 'REST API'], difficulty: 'Beginner', likesCount: 356, viewsCount: 7600, category: 'Web Application', authorHandle: 'devon.codes', gradient: 2 },
-  { legacyId: 'p14', art: 'project-12.png', title: 'Ledgerly', desc: 'A browser-based invoicing and expense tracker for freelancers, with data saved locally.', tags: ['JavaScript', 'LocalStorage', 'Fetch API'], difficulty: 'Beginner', likesCount: 214, viewsCount: 5100, category: 'Web Application', authorHandle: 'priya.dev', gradient: 4 },
-  { legacyId: 'p15', art: 'project-15.png', title: 'ScoutBoard', desc: 'A job-application tracker web app — log postings, follow-ups, and interview stages in one board.', tags: ['JavaScript', 'Forms', 'JSON'], difficulty: 'Intermediate', likesCount: 297, viewsCount: 6400, category: 'Web Application', authorHandle: 'devon.codes', gradient: 3 },
 ];
 
+// 3. Exactly 10 Communities
 const DV_COMMUNITIES = [
   { legacyId: 'c1', slug: 'rustaceans-guild', name: 'Rustaceans Guild', membersCount: 18200, desc: 'Everything Rust — from borrow-checker fights to production war stories.', gradient: 0, onlineCount: 412 },
   { legacyId: 'c2', slug: 'frontend-atelier', name: 'Frontend Atelier', membersCount: 24500, desc: 'A home for people who care about the pixel and the framework equally.', gradient: 2, onlineCount: 890 },
@@ -48,14 +48,19 @@ const DV_COMMUNITIES = [
   { legacyId: 'c4', slug: 'ml-practitioners', name: 'ML Practitioners', membersCount: 15300, desc: 'From fine-tuning to inference — practical machine learning talk.', gradient: 3, onlineCount: 560 },
   { legacyId: 'c5', slug: 'indie-hackers-dev', name: 'Indie Hackers Dev', membersCount: 31200, desc: 'Shipping solo projects and side quests into real products.', gradient: 4, onlineCount: 1240 },
   { legacyId: 'c6', slug: 'webgl-shaders', name: 'WebGL & Shaders', membersCount: 6700, desc: 'For people who think the GPU is the most fun part of the browser.', gradient: 0, onlineCount: 140 },
+  { legacyId: 'c7', slug: 'cloud-native-ops', name: 'Cloud Native & DevOps', membersCount: 21400, desc: 'Kubernetes architecture, CI/CD pipelines, and zero-downtime scaling.', gradient: 1, onlineCount: 630 },
+  { legacyId: 'c8', slug: 'security-and-crypto', name: 'Security & Cryptography', membersCount: 11800, desc: 'Penetration testing, threat modeling, zero-knowledge proofs, and secure code.', gradient: 2, onlineCount: 310 },
+  { legacyId: 'c9', slug: 'mobile-craft', name: 'Mobile Craft', membersCount: 14600, desc: 'High-performance iOS, Android, Flutter, and React Native engineering.', gradient: 3, onlineCount: 450 },
+  { legacyId: 'c10', slug: 'apis-and-protocols', name: 'APIs & Protocols', membersCount: 8900, desc: 'REST, GraphQL, gRPC, WebSockets, and designing durable developer interfaces.', gradient: 4, onlineCount: 280 },
 ];
 
+// 4. Exactly 10 Hackathons
 const DV_HACKATHONS = [
   {
     legacyId: 'h1',
     title: 'Aurora Hacks 2026',
     desc: 'A 48-hour sprint for tools that make developers faster.',
-    longDesc: 'Aurora Hacks is DevVerse\'s flagship open-track event — no theme, no restrictions, just 48 hours to build the developer tool you\'ve been meaning to make. Past winners have gone on to launch as real products.',
+    longDesc: 'Aurora Hacks is DevVerse\'s flagship open-track event — 48 hours to build the developer tool you\'ve been meaning to make. Past winners have launched as real commercial products.',
     prize: '$25,000',
     participantsCount: 3200,
     difficulty: 'All levels',
@@ -71,7 +76,7 @@ const DV_HACKATHONS = [
       { label: 'Submissions close', when: 'Sun, 9:00 AM UTC' },
       { label: 'Winners announced', when: 'Sun, 6:00 PM UTC' },
     ],
-    rules: ['Teams of up to 4 people', 'All code must be written during the event window', 'Any language or framework is allowed', 'Use of AI coding assistants is allowed and encouraged'],
+    rules: ['Teams of up to 4 people', 'Code must be written during the event window', 'Any language or framework allowed', 'AI coding tools welcomed'],
     judging: [
       { criteria: 'Technical execution', weight: '35%' },
       { criteria: 'Originality', weight: '25%' },
@@ -83,7 +88,7 @@ const DV_HACKATHONS = [
     legacyId: 'h2',
     title: 'Systems Underground',
     desc: 'Low-level, high-stakes. Build something the kernel would respect.',
-    longDesc: 'A hackathon for people who think in memory addresses. Systems Underground rewards raw performance and correctness over flashy UI — expect judges to actually read your benchmarks.',
+    longDesc: 'A hackathon for people who think in memory addresses. Rewards raw performance and correctness over flashy UI.',
     prize: '$18,000',
     participantsCount: 940,
     difficulty: 'Advanced',
@@ -99,7 +104,7 @@ const DV_HACKATHONS = [
       { label: 'Submissions close', when: 'in 12 days' },
       { label: 'Winners announced', when: 'in 13 days' },
     ],
-    rules: ['Solo or teams of up to 3', 'Benchmarks must be reproducible from a public repo', 'No proprietary or closed-source dependencies', 'Judges may ask to run your code live'],
+    rules: ['Solo or teams of up to 3', 'Reproducible benchmarks required', 'Open source dependencies only'],
     judging: [
       { criteria: 'Performance', weight: '40%' },
       { criteria: 'Correctness', weight: '30%' },
@@ -111,7 +116,7 @@ const DV_HACKATHONS = [
     legacyId: 'h3',
     title: 'AI for Builders',
     desc: 'Ship an AI-native dev tool in one weekend.',
-    longDesc: 'Not another chatbot wrapper — AI for Builders is judged specifically on tools that make other developers faster or better at their craft. Bring a model, an API, or just a clever prompt pipeline.',
+    longDesc: 'Judged specifically on tools that make engineers faster or smarter at their craft. Bring a model or clever prompt pipeline.',
     prize: '$30,000',
     participantsCount: 5100,
     difficulty: 'Intermediate',
@@ -127,9 +132,9 @@ const DV_HACKATHONS = [
       { label: 'Submissions close', when: 'in 23 days' },
       { label: 'Winners announced', when: 'in 24 days' },
     ],
-    rules: ['Teams of up to 5 people', 'Any model provider or open-weight model is allowed', 'You must disclose which parts were AI-generated vs hand-written', 'Projects must be usable by someone other than the author'],
+    rules: ['Teams up to 5', 'Disclose AI-assisted code segments', 'Must be usable by third parties'],
     judging: [
-      { criteria: 'Usefulness to developers', weight: '35%' },
+      { criteria: 'Utility to developers', weight: '35%' },
       { criteria: 'Technical execution', weight: '30%' },
       { criteria: 'Originality', weight: '20%' },
       { criteria: 'Presentation', weight: '15%' },
@@ -139,7 +144,7 @@ const DV_HACKATHONS = [
     legacyId: 'h4',
     title: 'Pixel & Motion',
     desc: 'A hackathon for interfaces that feel like magic.',
-    longDesc: 'Pixel & Motion is the friendliest hackathon on DevVerse — built for people who care about how software feels, not just what it does. Beginners are explicitly welcome and mentors are on standby all weekend.',
+    longDesc: 'Built for designers and developers who obsess over micro-interactions, spring physics, and keyboard accessibility.',
     prize: '$12,000',
     participantsCount: 1670,
     difficulty: 'Beginner friendly',
@@ -155,7 +160,7 @@ const DV_HACKATHONS = [
       { label: 'Submissions close', when: 'in 3 days' },
       { label: 'Winners announced', when: 'in 4 days' },
     ],
-    rules: ['Solo or teams of up to 4', 'Design tools + any frontend framework allowed', 'Must include a short Loom or video walkthrough', 'Mentorship sessions are optional but recommended'],
+    rules: ['Solo or teams up to 4', 'Video walkthrough required', 'Accessible navigation enforced'],
     judging: [
       { criteria: 'Craft & polish', weight: '35%' },
       { criteria: 'Accessibility', weight: '25%' },
@@ -163,8 +168,124 @@ const DV_HACKATHONS = [
       { criteria: 'Presentation', weight: '15%' },
     ],
   },
+  {
+    legacyId: 'h5',
+    title: 'Edge Cloud Sprint',
+    desc: 'Deploy ultra-fast computing at the border of the internet.',
+    longDesc: 'Optimize distributed compute on edge workers (Cloudflare, Vercel, Fly.io). The lowest latency wins.',
+    prize: '$20,000',
+    participantsCount: 1250,
+    difficulty: 'Intermediate',
+    end: new Date(Date.now() + 1000 * 60 * 60 * 120),
+    tags: ['Cloud', 'Edge'],
+    organizer: 'Cloud Native & DevOps',
+    mode: 'Online · Global',
+    gradient: 4,
+    tracks: ['Serverless WASM', 'Edge Databases', 'Global CDN Routing'],
+    timeline: [
+      { label: 'Registration opens', when: 'Now' },
+      { label: 'Hacking begins', when: 'in 3 days' },
+      { label: 'Submissions close', when: 'in 8 days' },
+    ],
+    rules: ['Teams up to 4', 'Edge runtime required'],
+    judging: [{ criteria: 'Global Latency', weight: '50%' }, { criteria: 'Architecture', weight: '50%' }],
+  },
+  {
+    legacyId: 'h6',
+    title: 'Zero-Knowledge Jam',
+    desc: 'Privacy-first cryptography and verifiable compute.',
+    longDesc: 'Construct verifiable computation circuits and privacy-preserving applications using zk-SNARKs and STARKs.',
+    prize: '$35,000',
+    participantsCount: 820,
+    difficulty: 'Advanced',
+    end: new Date(Date.now() + 1000 * 60 * 60 * 240),
+    tags: ['Security', 'Crypto'],
+    organizer: 'Security & Cryptography',
+    mode: 'Online · Global',
+    gradient: 0,
+    tracks: ['ZK Proofs', 'Verifiable ML', 'Anonymous Identity'],
+    timeline: [
+      { label: 'Registration opens', when: 'Now' },
+      { label: 'Hacking begins', when: 'in 6 days' },
+    ],
+    rules: ['Open source proofs', 'Mathematical correctness review'],
+    judging: [{ criteria: 'Cryptographic rigor', weight: '50%' }, { criteria: 'Real-world utility', weight: '50%' }],
+  },
+  {
+    legacyId: 'h7',
+    title: 'Open Source Revival',
+    desc: 'Adopt, refactor, and modernize forgotten open-source gems.',
+    longDesc: 'Take abandoned or legacy open source tools and bring modern TypeScript, Rust, or documentation to them.',
+    prize: '$15,000',
+    participantsCount: 2100,
+    difficulty: 'All levels',
+    end: new Date(Date.now() + 1000 * 60 * 60 * 168),
+    tags: ['Open Source'],
+    organizer: 'DevVerse Labs',
+    mode: 'Online · Global',
+    gradient: 1,
+    tracks: ['Maintainability', 'Modernization', 'Performance Upgrades'],
+    timeline: [{ label: 'Registration open', when: 'Now' }],
+    rules: ['Permissive OSS licenses only', 'Upstream pull requests required'],
+    judging: [{ criteria: 'Community impact', weight: '40%' }, { criteria: 'Refactoring quality', weight: '60%' }],
+  },
+  {
+    legacyId: 'h8',
+    title: 'Mobile First Odyssey',
+    desc: 'Buttery-smooth gestures and offline-first mobile apps.',
+    longDesc: 'Build fluid mobile experiences using Flutter, React Native, Swift, or Kotlin that work seamlessly in airplane mode.',
+    prize: '$22,000',
+    participantsCount: 1400,
+    difficulty: 'Intermediate',
+    end: new Date(Date.now() + 1000 * 60 * 60 * 210),
+    tags: ['Mobile'],
+    organizer: 'Mobile Craft',
+    mode: 'Online · Global',
+    gradient: 2,
+    tracks: ['Offline Synchronization', 'Gesture Physics', 'Cross-Platform'],
+    timeline: [{ label: 'Registration open', when: 'Now' }],
+    rules: ['Run on physical devices or emulators', 'Touch interaction focus'],
+    judging: [{ criteria: 'UX smoothness', weight: '50%' }, { criteria: 'Offline resilience', weight: '50%' }],
+  },
+  {
+    legacyId: 'h9',
+    title: 'Browser Game Jam',
+    desc: 'Craft lightweight games directly in WebGL and WebAudio.',
+    longDesc: 'Create instant-play games that load under 5MB in the browser with no app store downloads.',
+    prize: '$16,000',
+    participantsCount: 1950,
+    difficulty: 'Beginner friendly',
+    end: new Date(Date.now() + 1000 * 60 * 60 * 96),
+    tags: ['Graphics', 'GameDev'],
+    organizer: 'WebGL & Shaders',
+    mode: 'Online · Global',
+    gradient: 3,
+    tracks: ['2D Mechanics', '3D Environments', 'Procedural Audio'],
+    timeline: [{ label: 'Registration open', when: 'Now' }],
+    rules: ['Max 5MB bundle size', 'Runs in evergreen browsers'],
+    judging: [{ criteria: 'Fun factor', weight: '50%' }, { criteria: 'Technical execution', weight: '50%' }],
+  },
+  {
+    legacyId: 'h10',
+    title: 'Cyber Defense Crucible',
+    desc: 'Hardening modern web applications against automated attacks.',
+    longDesc: 'Build proactive defense shields, bot mitigation proxies, and automated vulnerability detection engines.',
+    prize: '$28,000',
+    participantsCount: 1100,
+    difficulty: 'Advanced',
+    end: new Date(Date.now() + 1000 * 60 * 60 * 300),
+    tags: ['Security', 'DevSecOps'],
+    organizer: 'Security & Cryptography',
+    mode: 'Online · Global',
+    gradient: 4,
+    tracks: ['API Protection', 'Supply Chain Security', 'DDoS Mitigation'],
+    timeline: [{ label: 'Registration open', when: 'Now' }],
+    rules: ['Defensive focus only', 'Live penetration test testbed provided'],
+    judging: [{ criteria: 'Resilience under attack', weight: '60%' }, { criteria: 'Zero false positives', weight: '40%' }],
+  },
 ];
 
+// 5. Exactly 10 Codex Entries
 const DV_CODEX_SEED = [
   {
     title: 'The bug wasn\u2019t the code — it was the assumption',
@@ -220,12 +341,48 @@ const DV_CODEX_SEED = [
     fix: 'Started posting rough, unfinished progress publicly every week, even when it was ugly. The accountability alone kept it alive.',
     lesson: 'Solo doesn\u2019t have to mean silent. Build some kind of audience — even a small one — before you need the motivation, not after.',
   },
+  {
+    title: 'The silent deadlock in our database connection pool',
+    category: 'Debugging',
+    authorHandle: 'elena-v',
+    problem: 'Under high traffic spikes, API latency climbed to 30 seconds before failing with 504 Gateway Timeouts. CPU and RAM were under 15%.',
+    tried: 'Doubled server instances and horizontally scaled pods. The timeouts immediately spread to the new pods.',
+    fix: 'Discovered an unawaited transaction branch holding a pool socket open indefinitely during third-party webhooks. Capped pool timeouts and placed all external calls outside transactions.',
+    lesson: 'Never hold a database transaction open while waiting for an external HTTP request. External network latency becomes your database bottleneck.',
+  },
+  {
+    title: 'Baking API secrets into public Docker image layers',
+    category: 'Security',
+    authorHandle: 'marcus-k',
+    problem: 'An internal deployment bot leaked a master Stripe key despite the `.env` file being removed in the final Dockerfile line.',
+    tried: 'Added `RUN rm .env` at the bottom of the Dockerfile thinking the image would be clean.',
+    fix: 'Understood that Docker stores every layer permanently. Anyone doing `docker history` could inspect the deleted file. Switched to multi-stage builds and Docker secrets mount.',
+    lesson: 'Deleting a secret in a later container layer does not remove it from previous layers. Secrets must never enter the build context without runtime secret mounts.',
+  },
+  {
+    title: 'The 200MB memory leak caused by a simple event listener',
+    category: 'Performance',
+    authorHandle: 'ari-devs',
+    problem: 'Single-page application crashed user tabs after approximately 45 minutes of active navigation.',
+    tried: 'Suspected large state management objects and tried clearing Redux stores on route changes.',
+    fix: 'Chrome Heap Snapshot showed 40,000 DOM nodes retained by window `resize` and `scroll` listeners that were never cleaned up inside disconnected components.',
+    lesson: 'Every event listener attached to a global target (`window` or `document`) must have an exact teardown counterpart on component destruction.',
+  },
+  {
+    title: 'How premature microservices crippled a three-person team',
+    category: 'Architecture',
+    authorHandle: 'devon.codes',
+    problem: 'Split an early-stage app into seven independent microservices before reaching product-market fit.',
+    tried: 'Added distributed tracing, Kafka queues, and service mesh to diagnose cross-service payload mismatches.',
+    fix: 'Consolidated all seven microservices back into a clean modular monolith with single-command deployment. Feature velocity tripled overnight.',
+    lesson: 'Microservices solve organizational scaling problems, not code architecture problems. Start with a modular monolith until team size demands service boundaries.',
+  },
 ];
 
 const seedDatabase = async () => {
   try {
     await connectDB();
-    console.log('Seeding initial DevVerse catalog into MongoDB Atlas...');
+    console.log('Seeding 10 items per category into MongoDB Atlas...');
 
     // 1. Seed Developers (Users)
     const devMap = {};
@@ -236,7 +393,7 @@ const seedDatabase = async () => {
           name: d.name,
           username: d.handle,
           email: d.email,
-          password: 'Password123!', // Standard initial password for demo personas
+          password: 'Password123!',
           avatarSeed: d.avatarSeed,
           points: d.points,
           bio: d.bio,
@@ -251,33 +408,92 @@ const seedDatabase = async () => {
     // 2. Seed Projects
     for (const p of DV_PROJECTS) {
       const author = devMap[p.authorHandle] || devMap['kmori'];
-      const existing = await Project.findOne({ legacyId: p.legacyId });
+      const existing = await Project.findOne({ title: p.title });
       if (!existing) {
         await Project.create({
-          ...p,
+          title: p.title,
+          desc: p.desc,
+          category: p.category,
+          difficulty: p.difficulty,
+          tags: p.tags,
           author: author._id,
-          isSeeded: true,
+          likesCount: p.likesCount,
+          viewsCount: p.viewsCount,
+          cover: p.art,
+          gradient: p.gradient,
+          githubUrl: `https://github.com/devverse/${p.title.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
+          demoUrl: `https://${p.title.toLowerCase().replace(/[^a-z0-9]/g, '-')}.devverse.app`,
+          features: ['Realtime sync engine', 'Offline-first caching', 'Zero-config setup', 'Accessible by default'],
+          timeline: [
+            { label: 'v1.0 released', when: '6 months ago' },
+            { label: 'Core rewrite in ' + p.tags[0], when: '3 months ago' },
+            { label: '1,000+ stars milestone', when: '3 weeks ago' },
+          ],
         });
       }
     }
     console.log(`✓ Seeded ${DV_PROJECTS.length} projects`);
 
-    // 3. Seed Communities
-    const commMap = {};
+    // 3. Seed Communities & Discussions
     for (const c of DV_COMMUNITIES) {
-      let community = await Community.findOne({ slug: c.slug });
-      if (!community) {
-        community = await Community.create(c);
+      let comm = await Community.findOne({ slug: c.slug });
+      if (!comm) {
+        comm = await Community.create({
+          id: c.slug,
+          slug: c.slug,
+          name: c.name,
+          desc: c.desc,
+          membersCount: c.membersCount,
+          onlineCount: c.onlineCount,
+          gradient: c.gradient,
+        });
+
+        // Add a sample starter discussion thread
+        const author = devMap['kmori'] || Object.values(devMap)[0];
+        await Discussion.create({
+          community: comm._id,
+          communitySlug: c.slug,
+          title: `Welcome to the ${c.name} Hub!`,
+          body: `This is the official forum for ${c.name}. Introduce yourself, share what you are building, and ask questions!`,
+          author: author._id,
+          authorName: author.name,
+          authorHandle: author.username,
+          replies: [
+            {
+              author: author._id,
+              authorName: author.name,
+              authorHandle: author.username,
+              text: 'Excited to have everyone here. Feel free to start a new thread anytime!',
+              createdAt: new Date(),
+            },
+          ],
+        });
       }
-      commMap[c.legacyId] = community;
     }
-    console.log(`✓ Seeded ${Object.keys(commMap).length} communities`);
+    console.log(`✓ Seeded ${DV_COMMUNITIES.length} communities`);
 
     // 4. Seed Hackathons
     for (const h of DV_HACKATHONS) {
-      const existing = await Hackathon.findOne({ legacyId: h.legacyId });
+      const existing = await Hackathon.findOne({ title: h.title });
       if (!existing) {
-        await Hackathon.create(h);
+        await Hackathon.create({
+          title: h.title,
+          desc: h.desc,
+          longDesc: h.longDesc,
+          prize: h.prize,
+          participantsCount: h.participantsCount,
+          difficulty: h.difficulty,
+          start: new Date(),
+          end: h.end,
+          tags: h.tags,
+          organizer: h.organizer,
+          mode: h.mode,
+          gradient: h.gradient,
+          tracks: h.tracks,
+          timeline: h.timeline,
+          rules: h.rules,
+          judging: h.judging,
+        });
       }
     }
     console.log(`✓ Seeded ${DV_HACKATHONS.length} hackathons`);
@@ -288,23 +504,25 @@ const seedDatabase = async () => {
       const existing = await CodexEntry.findOne({ title: ce.title });
       if (!existing) {
         await CodexEntry.create({
-          ...ce,
+          title: ce.title,
+          category: ce.category,
           author: author._id,
+          authorHandle: author.username,
+          problem: ce.problem,
+          tried: ce.tried,
+          fix: ce.fix,
+          lesson: ce.lesson,
         });
       }
     }
     console.log(`✓ Seeded ${DV_CODEX_SEED.length} codex entries`);
 
-    console.log('✅ Seeding completed successfully.');
+    console.log('✅ Seeding completed successfully with 10 items in every category.');
     process.exit(0);
-  } catch (error) {
-    console.error('❌ Seeding failed:', error);
+  } catch (err) {
+    console.error('❌ Seeding failed:', err);
     process.exit(1);
   }
 };
 
-if (require.main === module) {
-  seedDatabase();
-}
-
-module.exports = { seedDatabase };
+seedDatabase();

@@ -16,18 +16,19 @@ function dvExploreInit() {
 
   if (window.DVApi && DVApi.projects && DVApi.projects.list) {
     DVApi.projects.list({ limit: 100 }).then(function (res) {
-      if (res && res.data && res.data.length) {
-        dvExploreApiProjects = res.data.map(function (p) {
+      const items = (res && res.data && (res.data.projects || (Array.isArray(res.data) ? res.data : []))) || [];
+      if (items && items.length) {
+        dvExploreApiProjects = items.map(function (p) {
           return {
-            id: p.id || p._id,
+            id: p.legacyId || p.slug || p.id || p._id,
             title: p.title,
             desc: p.desc || p.tagline,
             tags: p.tags || [],
             difficulty: p.difficulty || 'Intermediate',
             category: p.category || 'General',
-            likes: p.likes || 0,
-            views: p.views || 0,
-            author: p.author || 'devverse',
+            likes: p.likesCount || p.likes || 0,
+            views: p.viewsCount || p.views || 0,
+            author: (p.author && (p.author.username || p.author.name)) || p.author || 'devverse',
             gradient: typeof p.gradient === 'number' ? p.gradient : 0,
             art: p.art || null,
             features: p.features || [],

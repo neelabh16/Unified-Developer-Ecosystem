@@ -39,6 +39,8 @@ const DV_DEVS = [
   { handle: 'priya.dev', name: 'Priya Nair', avatarSeed: 'priyanair', followers: 1980, projects: 8, points: 4310, bio: 'Building calm software for busy teams.', skills: ['Vue', 'Node.js', 'Design Systems'] },
   { handle: 'dax', name: 'Dax Whitfield', avatarSeed: 'daxwhitfield', followers: 1420, projects: 5, points: 3020, bio: 'Tooling nerd. I build the things that build the things.', skills: ['Rust', 'CLI', 'DX'] },
   { handle: 'devon.codes', name: 'Devon Blake', avatarSeed: 'devonblake', followers: 2210, projects: 7, points: 5230, bio: 'Web app builder. I like turning a messy spreadsheet workflow into something people actually enjoy opening.', skills: ['JavaScript', 'DOM', 'REST API'] },
+  { handle: 'elena-v', name: 'Elena Vega', avatarSeed: 'elenavega', followers: 3890, projects: 12, points: 8750, bio: 'Cloud architect & Kubernetes wrangler. Automating infrastructure so engineers can sleep soundly.', skills: ['Kubernetes', 'Terraform', 'Go', 'AWS'] },
+  { handle: 'marcus-k', name: 'Marcus Kim', avatarSeed: 'marcuskim', followers: 4950, projects: 15, points: 10420, bio: 'Security researcher & cryptographer. Auditing smart contracts and zero-knowledge primitives.', skills: ['Cryptography', 'Rust', 'Security', 'Solidity'] },
 ];
 
 const DV_HACKATHONS = [
@@ -62,6 +64,36 @@ const DV_HACKATHONS = [
     timeline: [ ['Registration opens', 'Now'], ['Hacking begins', 'tomorrow'], ['Submissions close', 'in 3 days'], ['Winners announced', 'in 4 days'] ],
     rules: ['Solo or teams of up to 4', 'Design tools + any frontend framework allowed', 'Must include a short Loom or video walkthrough', 'Mentorship sessions are optional but recommended'],
     judging: [ ['Craft & polish', '35%'], ['Accessibility', '25%'], ['Originality', '25%'], ['Presentation', '15%'] ] },
+  { id: 'h5', title: 'Edge Cloud Sprint', desc: 'Deploy ultra-fast computing at the border of the internet.', longDesc: 'Optimize distributed compute on edge workers (Cloudflare, Vercel, Fly.io). The lowest latency wins.', prize: '$20,000', participants: 1250, difficulty: 'Intermediate', end: Date.now() + 1000 * 60 * 60 * 120, tags: ['Cloud', 'Edge'], organizer: 'Cloud Native & DevOps', mode: 'Online · Global', gradient: 4,
+    tracks: ['Serverless WASM', 'Edge Databases', 'Global CDN Routing'],
+    timeline: [ ['Registration opens', 'Now'], ['Hacking begins', 'in 3 days'], ['Submissions close', 'in 8 days'] ],
+    rules: ['Teams up to 4', 'Edge runtime required'],
+    judging: [ ['Global Latency', '50%'], ['Architecture', '50%'] ] },
+  { id: 'h6', title: 'Zero-Knowledge Jam', desc: 'Privacy-first cryptography and verifiable compute.', longDesc: 'Construct verifiable computation circuits and privacy-preserving applications using zk-SNARKs and STARKs.', prize: '$35,000', participants: 820, difficulty: 'Advanced', end: Date.now() + 1000 * 60 * 60 * 240, tags: ['Security', 'Crypto'], organizer: 'Security & Cryptography', mode: 'Online · Global', gradient: 0,
+    tracks: ['ZK Proofs', 'Verifiable ML', 'Anonymous Identity'],
+    timeline: [ ['Registration opens', 'Now'], ['Hacking begins', 'in 6 days'] ],
+    rules: ['Open source proofs', 'Mathematical correctness review'],
+    judging: [ ['Cryptographic rigor', '50%'], ['Real-world utility', '50%'] ] },
+  { id: 'h7', title: 'Open Source Revival', desc: 'Adopt, refactor, and modernize forgotten open-source gems.', longDesc: 'Take abandoned or legacy open source tools and bring modern TypeScript, Rust, or documentation to them.', prize: '$15,000', participants: 2100, difficulty: 'All levels', end: Date.now() + 1000 * 60 * 60 * 168, tags: ['Open Source'], organizer: 'DevVerse Labs', mode: 'Online · Global', gradient: 1,
+    tracks: ['Maintainability', 'Modernization', 'Performance Upgrades'],
+    timeline: [ ['Registration open', 'Now'] ],
+    rules: ['Permissive OSS licenses only', 'Upstream pull requests required'],
+    judging: [ ['Community impact', '40%'], ['Refactoring quality', '60%'] ] },
+  { id: 'h8', title: 'Mobile First Odyssey', desc: 'Buttery-smooth gestures and offline-first mobile apps.', longDesc: 'Build fluid mobile experiences using Flutter, React Native, Swift, or Kotlin that work seamlessly in airplane mode.', prize: '$22,000', participants: 1400, difficulty: 'Intermediate', end: Date.now() + 1000 * 60 * 60 * 210, tags: ['Mobile'], organizer: 'Mobile Craft', mode: 'Online · Global', gradient: 2,
+    tracks: ['Offline Synchronization', 'Gesture Physics', 'Cross-Platform'],
+    timeline: [ ['Registration open', 'Now'] ],
+    rules: ['Run on physical devices or emulators', 'Touch interaction focus'],
+    judging: [ ['UX smoothness', '50%'], ['Offline resilience', '50%'] ] },
+  { id: 'h9', title: 'Browser Game Jam', desc: 'Craft lightweight games directly in WebGL and WebAudio.', longDesc: 'Create instant-play games that load under 5MB in the browser with no app store downloads.', prize: '$16,000', participants: 1950, difficulty: 'Beginner friendly', end: Date.now() + 1000 * 60 * 60 * 96, tags: ['Graphics', 'GameDev'], organizer: 'WebGL & Shaders', mode: 'Online · Global', gradient: 3,
+    tracks: ['2D Mechanics', '3D Environments', 'Procedural Audio'],
+    timeline: [ ['Registration open', 'Now'] ],
+    rules: ['Max 5MB bundle size', 'Runs in evergreen browsers'],
+    judging: [ ['Fun factor', '50%'], ['Technical execution', '50%'] ] },
+  { id: 'h10', title: 'Cyber Defense Crucible', desc: 'Hardening modern web applications against automated attacks.', longDesc: 'Build proactive defense shields, bot mitigation proxies, and automated vulnerability detection engines.', prize: '$28,000', participants: 1100, difficulty: 'Advanced', end: Date.now() + 1000 * 60 * 60 * 300, tags: ['Security', 'DevSecOps'], organizer: 'Security & Cryptography', mode: 'Online · Global', gradient: 4,
+    tracks: ['API Protection', 'Supply Chain Security', 'DDoS Mitigation'],
+    timeline: [ ['Registration open', 'Now'] ],
+    rules: ['Defensive focus only', 'Live penetration test testbed provided'],
+    judging: [ ['Resilience under attack', '60%'], ['Zero false positives', '40%'] ] },
 ];
 
 const DV_COMMUNITIES = [
@@ -71,6 +103,10 @@ const DV_COMMUNITIES = [
   { id: 'c4', name: 'ML Practitioners', members: 15300, desc: 'From fine-tuning to inference — practical machine learning talk.', gradient: 3, online: 560 },
   { id: 'c5', name: 'Indie Hackers Dev', members: 31200, desc: 'Shipping solo projects and side quests into real products.', gradient: 4, online: 1240 },
   { id: 'c6', name: 'WebGL & Shaders', members: 6700, desc: 'For people who think the GPU is the most fun part of the browser.', gradient: 0, online: 140 },
+  { id: 'c7', name: 'Cloud Native & DevOps', members: 21400, desc: 'Kubernetes architecture, CI/CD pipelines, and zero-downtime scaling.', gradient: 1, online: 630 },
+  { id: 'c8', name: 'Security & Cryptography', members: 11800, desc: 'Penetration testing, threat modeling, zero-knowledge proofs, and secure code.', gradient: 2, online: 310 },
+  { id: 'c9', name: 'Mobile Craft', members: 14600, desc: 'High-performance iOS, Android, Flutter, and React Native engineering.', gradient: 3, online: 450 },
+  { id: 'c10', name: 'APIs & Protocols', members: 8900, desc: 'REST, GraphQL, gRPC, WebSockets, and designing durable developer interfaces.', gradient: 4, online: 280 },
 ];
 
 const DV_TECHS = [
@@ -129,6 +165,22 @@ const DV_FORUM_SEED = {
       { author: 'ari-devs', text: 'Second this — most guides skip straight to the abstraction and skip the "why".', minutesAgo: 300 },
     ] },
   ],
+  c7: [
+    { title: 'Kubernetes ingress: Traefik vs Envoy Gateway', body: 'Evaluating gateway controllers for multi-cluster routing. Has anyone transitioned to Gateway API in production yet?', author: 'elena-v', minutesAgo: 140, replies: [
+      { author: 'kmori', text: 'Swapped to Envoy Gateway last month. The spec is much cleaner than old Ingress annotations.', minutesAgo: 80 }
+    ] },
+  ],
+  c8: [
+    { title: 'Auditing smart contracts with formal verification', body: 'Beyond slither and static analysis, what formal verification engines do you trust for invariant checks before mainnet deployment?', author: 'marcus-k', minutesAgo: 220, replies: [] },
+  ],
+  c9: [
+    { title: 'State management on mobile: signals vs reactive observables', body: 'Signals are taking over web frameworks, but how cleanly do they map to Flutter or React Native state trees in practice?', author: 'devon.codes', minutesAgo: 310, replies: [
+      { author: 'ari-devs', text: 'They work well if you avoid deep nested reactive objects and keep state flat.', minutesAgo: 190 }
+    ] },
+  ],
+  c10: [
+    { title: 'Contract-first API design with OpenAPI & Protobuf', body: 'Writing specs before code saved our team from months of endpoint drift. What tools do you use for automated mock generation?', author: 'kmori', minutesAgo: 160, replies: [] },
+  ],
 };
 
 function dvAvatar(seed, size = 80) {
@@ -177,4 +229,24 @@ const DV_CODEX_SEED = [
     tried: 'Tried to power through with willpower alone. Made it worse — every session felt like an obligation.',
     fix: 'Started posting rough, unfinished progress publicly every week, even when it was ugly. The accountability alone kept it alive.',
     lesson: 'Solo doesn\u2019t have to mean silent. Build some kind of audience — even a small one — before you need the motivation, not after.' },
+  { title: 'The silent deadlock in our database connection pool', category: 'Debugging', author: 'elena-v', minutesAgo: 480000,
+    problem: 'Under high traffic spikes, API latency climbed to 30 seconds before failing with 504 Gateway Timeouts. CPU and RAM were under 15%.',
+    tried: 'Doubled server instances and horizontally scaled pods. The timeouts immediately spread to the new pods.',
+    fix: 'Discovered an unawaited transaction branch holding a pool socket open indefinitely during third-party webhooks. Capped pool timeouts and placed all external calls outside transactions.',
+    lesson: 'Never hold a database transaction open while waiting on an external HTTP request. External network latency becomes your database bottleneck.' },
+  { title: 'Baking API secrets into public Docker image layers', category: 'Security', author: 'marcus-k', minutesAgo: 520000,
+    problem: 'An internal deployment bot leaked a master Stripe key despite the `.env` file being removed in the final Dockerfile line.',
+    tried: 'Added `RUN rm .env` at the bottom of the Dockerfile thinking the image would be clean.',
+    fix: 'Understood that Docker stores every layer permanently. Anyone doing `docker history` could inspect the deleted file. Switched to multi-stage builds and Docker secrets mount.',
+    lesson: 'Deleting a secret in a later container layer does not remove it from previous layers. Secrets must never enter the build context without runtime secret mounts.' },
+  { title: 'The 200MB memory leak caused by a simple event listener', category: 'Performance', author: 'ari-devs', minutesAgo: 590000,
+    problem: 'Single-page application crashed user tabs after approximately 45 minutes of active navigation.',
+    tried: 'Suspected large state management objects and tried clearing Redux stores on route changes.',
+    fix: 'Chrome Heap Snapshot showed 40,000 DOM nodes retained by window `resize` and `scroll` listeners that were never cleaned up inside disconnected components.',
+    lesson: 'Every event listener attached to a global target (`window` or `document`) must have an exact teardown counterpart on component destruction.' },
+  { title: 'How premature microservices crippled a three-person team', category: 'Architecture', author: 'devon.codes', minutesAgo: 650000,
+    problem: 'Split an early-stage app into seven independent microservices before reaching product-market fit.',
+    tried: 'Added distributed tracing, Kafka queues, and service mesh to diagnose cross-service payload mismatches.',
+    fix: 'Consolidated all seven microservices back into a clean modular monolith with single-command deployment. Feature velocity tripled overnight.',
+    lesson: 'Microservices solve organizational scaling problems, not code architecture problems. Start with a modular monolith until team size demands service boundaries.' },
 ];

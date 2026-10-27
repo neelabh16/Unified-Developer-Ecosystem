@@ -1498,15 +1498,17 @@ function dvCodexUnlocked() {
 }
 function dvCodexEntries() {
   let entries = DVStore.get('codex.entries', null);
-  if (entries === null) {
-    entries = DV_CODEX_SEED.map((e, i) => {
+  if (entries === null || !Array.isArray(entries) || entries.length < DV_CODEX_SEED.length) {
+    const seedEntries = DV_CODEX_SEED.map((e, i) => {
       const copy = {};
       for (const key in e) copy[key] = e[key];
       copy.id = 'codex-seed-' + i;
-      copy.createdAt = Date.now() - e.minutesAgo * 60000;
+      copy.createdAt = Date.now() - (e.minutesAgo || 10000) * 60000;
       delete copy.minutesAgo;
       return copy;
     });
+    const userEntries = Array.isArray(entries) ? entries.filter((x) => x.author === 'you') : [];
+    entries = [...userEntries, ...seedEntries];
     DVStore.set('codex.entries', entries);
   }
   return entries;

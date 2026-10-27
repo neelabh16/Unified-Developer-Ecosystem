@@ -1,16 +1,42 @@
 /* =========================================================
    HACKATHONS (listing)
-   Card rendering + the countdown ticker itself now live in
-   app.js since the Profile library and hackathon.html's
-   "Other hackathons" section need them too.
    ========================================================= */
+
+function dvRenderHackathonList(hackathons) {
+  const root = document.getElementById('hackathons-grid');
+  if (!root) return;
+  root.innerHTML = hackathons.map((h) => {
+    const item = {
+      id: h.legacyId || h.id || h._id,
+      title: h.title,
+      desc: h.desc || h.description || '',
+      tags: h.tags || ['Web3'],
+      end: h.end || (Date.now() + 86400000 * 7),
+      prize: h.prize || (h.prizePool ? `$${h.prizePool.toLocaleString()}` : '$10,000'),
+      participants: h.participants || h.participantsCount || 0
+    };
+    return dvHackathonCardHTML(item);
+  }).join('');
+  dvReveal(root);
+  dvTickCountdowns();
+}
 
 function dvHackathonsInit() {
   const root = document.getElementById('hackathons-grid');
   if (!root) return;
-  root.innerHTML = DV_HACKATHONS.map(dvHackathonCardHTML).join('');
-  dvReveal(root);
-  dvTickCountdowns();
+
+  // Render local data immediately
+  dvRenderHackathonList(DV_HACKATHONS);
+
+  // If backend is running, fetch live hackathons from Atlas
+  if (window.DVApi && DVApi.hackathons && DVApi.hackathons.list) {
+    DVApi.hackathons.list().then(function (res) {
+      const items = (res && res.data && (res.data.hackathons || res.data)) || null;
+      if (items && items.length) {
+        dvRenderHackathonList(items);
+      }
+    }).catch(function () {});
+  }
 }
 
 document.addEventListener('DOMContentLoaded', () => setTimeout(dvHackathonsInit, 30));

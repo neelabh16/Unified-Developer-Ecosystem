@@ -2,30 +2,53 @@
    COMMUNITIES
    ========================================================= */
 
-function dvCommunitiesInit() {
+function dvRenderCommunityList(communities) {
   const root = document.getElementById('communities-grid');
   if (!root) return;
-  root.innerHTML = DV_COMMUNITIES.map((c) => {
-    const joined = DVStore.has('communities', c.id);
+  root.innerHTML = communities.map((c) => {
+    const cid = c.legacyId || c.slug || c.id || c._id;
+    const joined = DVStore.has('communities', cid);
+    const grad = typeof c.gradient === 'number' ? c.gradient : 0;
+    const members = c.membersCount || c.members || 0;
+    const online = c.onlineCount || c.online || Math.max(12, Math.floor(members * 0.1));
     return `
     <div class="glass card-lift reveal" style="padding:22px; display:flex; flex-direction:column; gap:14px;">
       <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-        <div style="width:48px;height:48px;border-radius:14px;background:${DV_TECH_GRADIENTS[c.gradient]};"></div>
-        <span class="chip"><span class="mono">${c.online}</span> online</span>
+        <div style="width:48px;height:48px;border-radius:14px;background:${DV_TECH_GRADIENTS[grad] || DV_TECH_GRADIENTS[0]};"></div>
+        <span class="chip"><span class="mono">${online}</span> online</span>
       </div>
-      <a href="community.html?id=${c.id}" style="text-decoration:none;">
+      <a href="community.html?id=${cid}" style="text-decoration:none;">
         <h3>${c.name}</h3>
-        <p style="font-size:13.5px; margin-top:6px;">${c.desc}</p>
+        <p style="font-size:13.5px; margin-top:6px;">${c.desc || c.description || ''}</p>
       </a>
       <div style="display:flex; justify-content:space-between; align-items:center; padding-top:12px; border-top:1px solid var(--border);">
-        <span class="mono" style="font-size:12px; color:var(--text-tertiary);">${c.members.toLocaleString()} members</span>
+        <span class="mono" style="font-size:12px; color:var(--text-tertiary);">${members.toLocaleString()} members</span>
         <div style="display:flex; gap:8px;">
-          <a href="community.html?id=${c.id}" class="btn btn-sm btn-outline">Open forum</a>
-          <button class="btn btn-sm ${joined ? 'btn-ghost' : 'btn-primary'}" data-join="${c.id}">${joined ? 'Joined' : 'Join'}</button>
+          <a href="community.html?id=${cid}" class="btn btn-sm btn-outline">Open forum</a>
+          <button class="btn btn-sm ${joined ? 'btn-ghost' : 'btn-primary'}" data-join="${cid}">${joined ? 'Joined' : 'Join'}</button>
         </div>
       </div>
     </div>`;
   }).join('');
+  dvReveal(root);
+}
+
+function dvCommunitiesInit() {
+  const root = document.getElementById('communities-grid');
+  if (!root) return;
+
+  // Immediate render from local data
+  dvRenderCommunityList(DV_COMMUNITIES);
+
+  // If backend API is available, fetch live communities from Atlas
+  if (window.DVApi && DVApi.communities && DVApi.communities.list) {
+    DVApi.communities.list().then(function (res) {
+      const items = (res && res.data && (res.data.communities || res.data)) || null;
+      if (items && items.length) {
+        dvRenderCommunityList(items);
+      }
+    }).catch(function () {});
+  }
 
   const discussions = document.getElementById('discussion-previews');
   if (discussions) {
@@ -43,7 +66,6 @@ function dvCommunitiesInit() {
       : `<p class="muted">No threads yet.</p>`;
   }
 
-  dvReveal(root);
   if (discussions) dvReveal(discussions);
 }
 

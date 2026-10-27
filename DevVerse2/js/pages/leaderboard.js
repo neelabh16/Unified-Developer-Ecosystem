@@ -4,6 +4,40 @@
 
 let dvBoardMode = 'developers';
 let dvBoardRange = 'weekly';
+let dvLiveDevRankings = null;
+let dvLiveProjectRankings = null;
+
+function dvFetchLeaderboardApi() {
+  if (window.DVApi && DVApi.leaderboard && DVApi.leaderboard.get) {
+    DVApi.leaderboard.get({ mode: dvBoardMode === 'developers' ? 'devs' : 'projects', range: dvBoardRange })
+      .then(function (res) {
+        if (res && res.data && res.data.rankings && res.data.rankings.length) {
+          if (dvBoardMode === 'developers') {
+            dvLiveDevRankings = res.data.rankings.map(function (u) {
+              return {
+                handle: u.username || u.handle,
+                name: u.name,
+                avatarSeed: u.avatarSeed || u.username,
+                points: u.points || 0,
+                skills: u.skills || []
+              };
+            });
+          } else {
+            dvLiveProjectRankings = res.data.rankings.map(function (p) {
+              return {
+                id: p.id || p._id,
+                title: p.title,
+                likes: p.likesCount || p.likes || 0,
+                gradient: typeof p.gradient === 'number' ? p.gradient : 0
+              };
+            });
+          }
+          dvRenderLeaderboard();
+        }
+      })
+      .catch(function () {});
+  }
+}
 
 function dvLeaderboardInit() {
   const root = document.getElementById('leaderboard-list');
@@ -13,16 +47,19 @@ function dvLeaderboardInit() {
     document.querySelectorAll('[data-board]').forEach((b) => b.classList.remove('active'));
     btn.classList.add('active');
     dvBoardMode = btn.dataset.board;
+    dvFetchLeaderboardApi();
     dvRenderLeaderboard();
   }));
   document.querySelectorAll('[data-range]').forEach((btn) => btn.addEventListener('click', () => {
     document.querySelectorAll('[data-range]').forEach((b) => b.classList.remove('active'));
     btn.classList.add('active');
     dvBoardRange = btn.dataset.range;
+    dvFetchLeaderboardApi();
     dvRenderLeaderboard();
   }));
 
   dvRenderLeaderboard();
+  dvFetchLeaderboardApi();
 }
 
 function dvRenderLeaderboard() {
@@ -53,7 +90,8 @@ function dvRenderLeaderboard() {
       allTimePoints: dvPointsTotal(),
       isYou: true,
     } : null;
-    const list = [...DV_DEVS.map((d) => ({ ...d, points: Math.round(d.points * factor), allTimePoints: d.points })), ...(you ? [you] : [])].sort((a, b) => b.points - a.points);
+    const sourceDevs = dvLiveDevRankings || DV_DEVS;
+    const list = [...sourceDevs.map((d) => ({ ...d, points: Math.round(d.points * factor), allTimePoints: d.points })), ...(you ? [you] : [])].sort((a, b) => b.points - a.points);
     const max = Math.max(...list.map((d) => d.points), 1);
     root.innerHTML = list.map((d, i) => `
       <div class="rank-row ${i < 3 ? 'top' + (i + 1) : ''} ${d.isYou ? 'rank-row-you' : ''} reveal in">
@@ -69,7 +107,8 @@ function dvRenderLeaderboard() {
         <a href="profile.html${d.isYou ? '' : '?u=' + d.handle}" class="btn btn-sm btn-ghost">View</a>
       </div>`).join('');
   } else {
-    const list = [...DV_PROJECTS].sort((a, b) => b.likes - a.likes);
+    const sourceProjects = dvLiveProjectRankings || DV_PROJECTS;
+    const list = [...sourceProjects].sort((a, b) => b.likes - a.likes);
     const max = list[0].likes;
     root.innerHTML = list.map((p, i) => `
       <div class="rank-row ${i < 3 ? 'top' + (i + 1) : ''} reveal in">
