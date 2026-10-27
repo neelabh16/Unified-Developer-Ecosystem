@@ -10,6 +10,7 @@ const User = require('../models/User');
 const Activity = require('../models/Activity');
 const AppError = require('../utils/AppError');
 const { sendSuccess } = require('../utils/response');
+const { findHackathonByIdentifier, getCanonicalHackathonId } = require('../utils/hackathonLookup');
 
 const DEFAULT_DEVVERSE_PARTICIPANTS = {
   h1: ['sena.codes', 'ari-devs', 'kmori'],
@@ -120,8 +121,22 @@ const getHackathons = async (req, res, next) => {
           if (!registeredIds.includes(hidStr)) {
             registeredIds.push(hidStr);
           }
+          const canon = getCanonicalHackathonId(hid);
+          if (canon && !registeredIds.includes(canon)) {
+            registeredIds.push(canon);
+          }
         }
       }
+
+      // Also add canonical IDs for all registeredIds
+      const extraCanons = [];
+      for (const rid of registeredIds) {
+        const canon = getCanonicalHackathonId(rid);
+        if (canon && !registeredIds.includes(canon) && !extraCanons.includes(canon)) {
+          extraCanons.push(canon);
+        }
+      }
+      registeredIds.push(...extraCanons);
 
       const bookmarks = await Engagement.find({
         user: req.user._id,
@@ -149,14 +164,7 @@ const getHackathon = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    let hackathon = null;
-    if (mongoose.Types.ObjectId.isValid(id)) {
-      hackathon = await Hackathon.findById(id);
-    }
-    if (!hackathon) {
-      hackathon = await Hackathon.findOne({ legacyId: id });
-    }
-
+    const hackathon = await findHackathonByIdentifier(id);
     if (!hackathon) {
       return next(new AppError('Hackathon not found', 404));
     }
@@ -252,14 +260,7 @@ const toggleRegister = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    let hackathon = null;
-    if (mongoose.Types.ObjectId.isValid(id)) {
-      hackathon = await Hackathon.findById(id);
-    }
-    if (!hackathon) {
-      hackathon = await Hackathon.findOne({ legacyId: id });
-    }
-
+    const hackathon = await findHackathonByIdentifier(id);
     if (!hackathon) {
       return next(new AppError('Hackathon not found', 404));
     }
@@ -329,14 +330,7 @@ const toggleBookmark = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    let hackathon = null;
-    if (mongoose.Types.ObjectId.isValid(id)) {
-      hackathon = await Hackathon.findById(id);
-    }
-    if (!hackathon) {
-      hackathon = await Hackathon.findOne({ legacyId: id });
-    }
-
+    const hackathon = await findHackathonByIdentifier(id);
     if (!hackathon) {
       return next(new AppError('Hackathon not found', 404));
     }

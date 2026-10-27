@@ -8,6 +8,7 @@ const User = require('../models/User');
 const Activity = require('../models/Activity');
 const AppError = require('../utils/AppError');
 const { sendSuccess } = require('../utils/response');
+const { findHackathonByIdentifier, getCanonicalHackathonId } = require('../utils/hackathonLookup');
 
 /**
  * List squads that the current user belongs to.
@@ -190,17 +191,7 @@ const registerSquadHackathon = async (req, res, next) => {
       return next(new AppError('Squad not found', 404));
     }
 
-    let hackathon = null;
-    if (mongoose.Types.ObjectId.isValid(hackathonId)) {
-      hackathon = await Hackathon.findById(hackathonId);
-    }
-    if (!hackathon) {
-      hackathon = await Hackathon.findOne({ legacyId: hackathonId });
-    }
-    if (!hackathon) {
-      hackathon = await Hackathon.findOne({ id: hackathonId });
-    }
-
+    const hackathon = await findHackathonByIdentifier(hackathonId);
     if (!hackathon) {
       return next(new AppError('Hackathon not found', 404));
     }
@@ -248,7 +239,7 @@ const registerSquadHackathon = async (req, res, next) => {
 
     return sendSuccess(res, 200, `Registered squad for ${hackathon.title}`, {
       squad: updatedSquad,
-      hackathonId: hackathon.legacyId || hackathon._id.toString(),
+      hackathonId: getCanonicalHackathonId(hackathon),
     });
   } catch (error) {
     next(error);

@@ -11,6 +11,16 @@ try { localStorage.clear(); sessionStorage.clear(); } catch (e) {}
    All persistent state is stored and retrieved strictly through the
    backend REST API and MongoDB Atlas. LocalStorage has been removed
    completely per architecture requirements. */
+function dvGetCookie(name) {
+  const match = document.cookie.match(new RegExp('(?:^|;\\s*)' + name.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&') + '=([^;]+)'));
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+function dvSetCookie(name, value, days = 7) {
+  const maxAge = days * 24 * 60 * 60;
+  document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${maxAge}; SameSite=Lax`;
+}
+
 const DVStore = {
   _global: {},
   _user: {},
@@ -31,7 +41,24 @@ const DVStore = {
   },
   get(path, fallback) {
     const data = this._isAuthPath(path) ? this._read() : this._readUser();
-    const result = path.split('.').reduce((o, k) => (o && o[k] !== undefined ? o[k] : undefined), data);
+    let result = path.split('.').reduce((o, k) => (o && o[k] !== undefined ? o[k] : undefined), data);
+    if ((result === undefined || (Array.isArray(result) && !result.length)) && !this._isAuthPath(path)) {
+      if (path === 'hackathons') {
+        const c = dvGetCookie('dv_hackathons');
+        if (c) {
+          result = c.split(',').map((s) => s.trim()).filter(Boolean);
+          this._user.hackathons = result;
+        }
+      } else if (path === 'squads') {
+        const c = dvGetCookie('dv_squads');
+        if (c) {
+          try {
+            result = JSON.parse(c);
+            this._user.squads = result;
+          } catch (e) {}
+        }
+      }
+    }
     if (result !== undefined) return result;
     if (fallback === undefined || typeof fallback !== 'object') return fallback;
     return JSON.parse(JSON.stringify(fallback));
@@ -46,7 +73,26 @@ const DVStore = {
       obj = obj[keys[i]];
     }
     obj[keys[keys.length - 1]] = value;
+
+    // Persist key collections in cookie so they survive page reloads and localStorage.clear()
+    if (path === 'hackathons' && Array.isArray(value)) {
+      dvSetCookie('dv_hackathons', value.join(','));
+    } else if (path === 'squads' && Array.isArray(value)) {
+      try {
+        dvSetCookie('dv_squads', JSON.stringify(value));
+      } catch (e) {}
+    }
+
     return value;
+  },
+  addToSet(path, id) {
+    if (!id) return;
+    const arr = this.get(path, []);
+    if (!arr.includes(id)) {
+      arr.push(id);
+      this.set(path, arr);
+    }
+    return arr;
   },
   toggleInSet(path, id) {
     const arr = this.get(path, []);

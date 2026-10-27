@@ -65,9 +65,14 @@ function dvHackathonDetailInit() {
   const root = document.getElementById('hackathon-detail');
   if (!root) return;
   const id = dvGetQueryParam('id') || DV_HACKATHONS[0].id;
-  const h = DV_HACKATHONS.find((x) => x.id === id || x.legacyId === id || (x._id && x._id.toString() === id.toString())) || DV_HACKATHONS[0];
+  const h = DV_HACKATHONS.find((x) => x.id === id || x.legacyId === id || (x.title && x.title.toLowerCase() === id.toLowerCase()) || (x._id && x._id.toString() === id.toString())) || DV_HACKATHONS[0];
   dvCurrentHackathon = h;
-  const registered = DVStore.has('hackathons', h.id) || (h.legacyId && DVStore.has('hackathons', h.legacyId)) || (h._id && DVStore.has('hackathons', h._id));
+
+  const mySquads = typeof dvMySquads === 'function' ? dvMySquads() : [];
+  const squadRegistered = mySquads.find((sq) => {
+    return (sq.registeredHackathons || []).some((hid) => hid === h.id || hid === h.legacyId || (h.title && typeof hid === 'string' && hid.toLowerCase() === h.title.toLowerCase()));
+  });
+  const registered = DVStore.has('hackathons', h.id) || (h.legacyId && DVStore.has('hackathons', h.legacyId)) || (h._id && DVStore.has('hackathons', h._id)) || !!squadRegistered;
   const bookmarked = DVStore.has('bookmarks', 'hack-' + h.id);
 
   let dvList = (h.devverseParticipants && h.devverseParticipants.slice()) || [];
@@ -96,7 +101,7 @@ function dvHackathonDetailInit() {
             <span class="dv-bookmark-label">${bookmarked ? 'Saved' : 'Save'}</span>
           </button>
           <button class="btn btn-outline" data-share><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg> Share</button>
-          <button class="btn ${registered ? 'btn-outline' : 'btn-primary'}" data-register="${h.id}">${registered ? 'Registered ✓' : 'Register now'}</button>
+          <button class="btn ${registered ? 'btn-outline' : 'btn-primary'}" data-register="${h.id}">${registered ? (squadRegistered ? `Registered (${squadRegistered.name}) ✓` : 'Registered ✓') : 'Register now'}</button>
         </div>
       </div>
     </div>
