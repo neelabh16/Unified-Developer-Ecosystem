@@ -23,11 +23,6 @@ const DV_PROJECTS = [
   { id: 'p8', art: 'project-13.png', title: 'Driftboard', desc: 'A realtime kanban board with offline-first sync.', tags: ['Svelte', 'CRDT'], difficulty: 'Intermediate', likes: 455, views: 9800, category: 'Frontend', author: 'ari-devs', gradient: 2 },
   { id: 'p9', art: 'project-10.png', title: 'Kestrel CLI', desc: 'A blazing-fast scaffolding tool for monorepos.', tags: ['Rust', 'Clap'], difficulty: 'Beginner', likes: 210, views: 4300, category: 'Tools', author: 'dax', gradient: 3 },
   { id: 'p10', art: 'project-2.png', title: 'Mural', desc: 'Collaborative infinite canvas for design critique.', tags: ['Canvas API', 'WebSockets'], difficulty: 'Advanced', likes: 1544, views: 38700, category: 'Frontend', author: 'sena.codes', gradient: 4 },
-  { id: 'p11', art: 'project-5.png', title: 'Cortex Notes', desc: 'A local-first note app with AI-assisted linking.', tags: ['Next.js', 'SQLite'], difficulty: 'Intermediate', likes: 733, views: 16800, category: 'AI/ML', author: 'noa.ml', gradient: 0 },
-  { id: 'p12', art: 'project-11.png', title: 'Halcyon', desc: 'A minimalist static site generator with island hydration.', tags: ['TypeScript', 'esbuild'], difficulty: 'Beginner', likes: 388, views: 7200, category: 'Tools', author: 'dax', gradient: 1 },
-  { id: 'p13', art: 'project-14.png', title: 'TaskFlow', desc: 'A collaborative task manager with boards, due dates, and live status updates for small teams.', tags: ['JavaScript', 'DOM', 'REST API'], difficulty: 'Beginner', likes: 356, views: 7600, category: 'Web Application', author: 'devon.codes', gradient: 2 },
-  { id: 'p14', art: 'project-12.png', title: 'Ledgerly', desc: 'A browser-based invoicing and expense tracker for freelancers, with data saved locally.', tags: ['JavaScript', 'LocalStorage', 'Fetch API'], difficulty: 'Beginner', likes: 214, views: 5100, category: 'Web Application', author: 'priya.dev', gradient: 4 },
-  { id: 'p15', art: 'project-15.png', title: 'ScoutBoard', desc: 'A job-application tracker web app — log postings, follow-ups, and interview stages in one board.', tags: ['JavaScript', 'Forms', 'JSON'], difficulty: 'Intermediate', likes: 297, views: 6400, category: 'Web Application', author: 'devon.codes', gradient: 3 },
 ];
 
 const DV_DEVS = [
