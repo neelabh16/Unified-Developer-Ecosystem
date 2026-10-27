@@ -163,7 +163,7 @@
 .signup2-divider::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: var(--border); }
 .signup2-divider span { position: relative; background: var(--bg-panel); padding: 0 12px; font-size: 12px; color: var(--text-tertiary); font-family: var(--font-mono); }
 
-.signup2-social { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.signup2-social { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 .signup2-social-btn {
   display: flex; align-items: center; justify-content: center; gap: 7px;
   padding: 12px 6px;

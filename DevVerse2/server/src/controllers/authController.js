@@ -169,10 +169,78 @@ const changePassword = async (req, res, next) => {
   }
 };
 
+/**
+ * External OAuth login & signup for Google and GitHub.
+ * POST /api/v1/auth/oauth
+ */
+const oauthLogin = async (req, res, next) => {
+  try {
+    const { provider, email, name, username, providerId, github } = req.body;
+
+    if (!provider || !['google', 'github'].includes(provider)) {
+      return next(new AppError('Provider must be either "google" or "github".', 400));
+    }
+
+    if (!email) {
+      return next(new AppError('Email address is required for external authentication.', 400));
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    let user = await User.findOne({ email: cleanEmail });
+
+    if (!user) {
+      // Find or generate a clean unique username
+      let candidateUsername = (username || cleanEmail.split('@')[0] || (provider + '_' + Date.now()))
+        .toLowerCase()
+        .replace(/[^a-zA-Z0-9_.-]/g, '');
+      if (candidateUsername.length < 3) candidateUsername += '_user';
+      if (candidateUsername.length > 24) candidateUsername = candidateUsername.slice(0, 24);
+
+      let existing = await User.findOne({ username: candidateUsername });
+      let counter = 1;
+      while (existing) {
+        const suffix = `${counter}`;
+        candidateUsername = `${candidateUsername.slice(0, 20)}${suffix}`;
+        existing = await User.findOne({ username: candidateUsername });
+        counter++;
+      }
+
+      user = await User.create({
+        name: (name && name.trim()) || candidateUsername,
+        username: candidateUsername,
+        email: cleanEmail,
+        provider,
+        providerId: providerId || `${provider}_${Date.now()}`,
+        avatarSeed: candidateUsername,
+        github: provider === 'github' ? (github || username || candidateUsername) : (github || ''),
+        role: 'user',
+        points: 20, // Welcome milestone bonus
+      });
+    } else {
+      // If user signed in with GitHub and hasn't linked github handle yet, link it
+      if (provider === 'github' && !user.github) {
+        user.github = github || username || user.username;
+        await user.save();
+      }
+    }
+
+    const token = signToken(user._id, user.role);
+    setAuthCookie(res, token);
+
+    return sendSuccess(res, 200, `${provider === 'google' ? 'Google' : 'GitHub'} authentication successful`, {
+      user,
+      token,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   register,
   login,
   logout,
   getMe,
   changePassword,
+  oauthLogin,
 };

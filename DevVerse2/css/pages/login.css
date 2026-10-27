@@ -147,7 +147,7 @@
 .auth2-divider::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: var(--border); }
 .auth2-divider span { position: relative; background: var(--bg-panel); padding: 0 12px; font-size: 12px; color: var(--text-tertiary); font-family: var(--font-mono); }
 
-.auth2-social { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.auth2-social { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 .auth2-social-btn {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
   padding: 17px 8px;

@@ -95,6 +95,11 @@ const DVApi = {
       if (res && res.data && res.data.token) DVApi.setToken(res.data.token);
       return res;
     },
+    oauth: async (payload) => {
+      const res = await DVApi.request('/auth/oauth', { method: 'POST', body: payload });
+      if (res && res.data && res.data.token) DVApi.setToken(res.data.token);
+      return res;
+    },
     logout: async () => {
       try {
         await DVApi.request('/auth/logout', { method: 'POST' });

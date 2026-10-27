@@ -41,9 +41,21 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: [true, 'Please provide a password'],
+      required: function () {
+        return !this.provider || this.provider === 'local';
+      },
       minlength: [7, 'Password must be at least 7 characters long'],
       select: false, // Do not return password by default in queries
+    },
+    provider: {
+      type: String,
+      enum: ['local', 'google', 'github'],
+      default: 'local',
+    },
+    providerId: {
+      type: String,
+      default: '',
+      index: true,
     },
     role: {
       type: String,
@@ -124,7 +136,7 @@ userSchema.index({ points: -1 });
 
 // Password hashing hook before save
 userSchema.pre('save', async function (next) {
-  if (!this.isModified('password')) return next();
+  if (!this.password || !this.isModified('password')) return next();
 
   const salt = await bcrypt.genSalt(12);
   this.password = await bcrypt.hash(this.password, salt);
