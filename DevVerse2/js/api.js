@@ -5,10 +5,23 @@
    states, network degradation, and unified responses.
    ========================================================= */
 
-const DV_API_BASE = window.DV_API_URL || 'http://localhost:5000/api/v1';
+const DV_API_BASE = window.DV_API_URL || (window.location.port === '5000' ? '/api/v1' : 'http://localhost:5000/api/v1');
 
 const DVApi = {
   baseURL: DV_API_BASE,
+
+  getToken() {
+    const match = document.cookie.match(/(?:^|;\s*)dv_jwt=([^;]+)/);
+    return match ? decodeURIComponent(match[1]) : (window.__dvToken || null);
+  },
+  setToken(token) {
+    window.__dvToken = token;
+    if (token) {
+      document.cookie = `dv_jwt=${encodeURIComponent(token)}; path=/; max-age=604800; SameSite=Lax`;
+    } else {
+      document.cookie = 'dv_jwt=; path=/; max-age=0; SameSite=Lax';
+    }
+  },
 
   /**
    * Core HTTP request handler.
@@ -21,6 +34,11 @@ const DVApi = {
       'Content-Type': 'application/json',
       Accept: 'application/json',
     };
+
+    const token = this.getToken();
+    if (token) {
+      defaultHeaders['Authorization'] = `Bearer ${token}`;
+    }
 
     const config = {
       method: options.method || 'GET',
@@ -67,9 +85,23 @@ const DVApi = {
   // Auth API
   // ---------------------------------------------------------
   auth: {
-    register: (payload) => DVApi.request('/auth/register', { method: 'POST', body: payload }),
-    login: (payload) => DVApi.request('/auth/login', { method: 'POST', body: payload }),
-    logout: () => DVApi.request('/auth/logout', { method: 'POST' }),
+    register: async (payload) => {
+      const res = await DVApi.request('/auth/register', { method: 'POST', body: payload });
+      if (res && res.data && res.data.token) DVApi.setToken(res.data.token);
+      return res;
+    },
+    login: async (payload) => {
+      const res = await DVApi.request('/auth/login', { method: 'POST', body: payload });
+      if (res && res.data && res.data.token) DVApi.setToken(res.data.token);
+      return res;
+    },
+    logout: async () => {
+      try {
+        await DVApi.request('/auth/logout', { method: 'POST' });
+      } finally {
+        DVApi.setToken(null);
+      }
+    },
     me: () => DVApi.request('/auth/me'),
     changePassword: (payload) => DVApi.request('/auth/change-password', { method: 'PUT', body: payload }),
   },

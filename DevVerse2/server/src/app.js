@@ -123,6 +123,10 @@ app.use(`${API_PREFIX}/activity`, activityRoutes);
 app.use(`${API_PREFIX}/leaderboard`, leaderboardRoutes);
 app.use(`${API_PREFIX}/uploads`, uploadRoutes);
 
+// Serve static client frontend files from DevVerse2
+const clientPath = path.resolve(__dirname, '../../');
+app.use(express.static(clientPath));
+
 // Centralized 404 handler for unmatched routes
 app.all('*', (req, res, next) => {
   next(new AppError(`Cannot find endpoint ${req.method} ${req.originalUrl} on this server.`, 404));
