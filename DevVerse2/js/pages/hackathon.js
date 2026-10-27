@@ -2,13 +2,76 @@
    HACKATHON DETAILS
    ========================================================= */
 
+let dvCurrentHackathon = null;
+let dvCurrentRosterList = [];
+
+function dvRenderDevVerseRoster(hackathonId, devList, isRegistered) {
+  const container = document.getElementById('hackathon-devverse-roster');
+  if (!container) return;
+
+  const cards = [];
+
+  if (isRegistered) {
+    cards.push(`
+      <div class="glass" style="padding:16px; display:flex; gap:12px; align-items:center; border:1px solid var(--accent); background:rgba(124,111,255,0.06);">
+        <img src="${dvAvatar('you', 42)}" style="width:40px;height:40px;border-radius:50%;border:2px solid var(--accent);object-fit:cover;">
+        <div style="flex:1; min-width:0;">
+          <div style="font-size:14px; font-weight:600; display:flex; align-items:center; gap:6px;">
+            You <span class="chip chip-accent" style="font-size:10px; padding:2px 6px;">Competing</span>
+          </div>
+          <div class="mono muted" style="font-size:11.5px; margin-top:2px;">DevVerse Registered Builder</div>
+        </div>
+      </div>
+    `);
+  }
+
+  devList.forEach((item) => {
+    const handle = typeof item === 'string' ? item : (item.username || item.handle);
+    if (handle === 'you') return;
+
+    let dev = typeof DV_DEVS !== 'undefined' ? DV_DEVS.find((d) => d.handle === handle) : null;
+    const name = (typeof item === 'object' && item.name) || (dev ? dev.name : handle);
+    const avatar = (typeof item === 'object' && item.avatarUrl) || dvAvatar((dev && dev.avatarSeed) || handle, 42);
+    const points = (typeof item === 'object' && typeof item.points === 'number') ? item.points : (dev ? dev.points : 5000);
+    const skills = (typeof item === 'object' && item.skills && item.skills.join(', ')) || (dev ? dev.skills.join(', ') : 'Builder');
+
+    cards.push(`
+      <a href="profile.html?u=${encodeURIComponent(handle)}" class="glass card-lift" style="padding:16px; display:flex; gap:12px; align-items:center; text-decoration:none;">
+        <img src="${avatar}" style="width:40px;height:40px;border-radius:50%;border:1px solid var(--border);object-fit:cover;">
+        <div style="flex:1; min-width:0;">
+          <div style="font-size:14px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${name}</div>
+          <div class="mono muted" style="font-size:11.5px; margin-top:2px;">@${handle} · ${points.toLocaleString()} pts</div>
+          <div style="font-size:11px; color:var(--text-tertiary); margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${skills}</div>
+        </div>
+      </a>
+    `);
+  });
+
+  container.innerHTML = cards.join('');
+  const totalCount = devList.length + (isRegistered ? 1 : 0);
+  const chipEl = document.getElementById('roster-count-chip');
+  if (chipEl) chipEl.textContent = totalCount;
+  const detailEl = document.getElementById('detail-dv-count');
+  if (detailEl) detailEl.textContent = `${totalCount} joined`;
+}
+
+window.dvUpdateDetailRoster = function (hackathonId, active) {
+  if (!dvCurrentHackathon || dvCurrentHackathon.id !== hackathonId) return;
+  dvRenderDevVerseRoster(hackathonId, dvCurrentRosterList, active);
+};
+
 function dvHackathonDetailInit() {
   const root = document.getElementById('hackathon-detail');
   if (!root) return;
   const id = dvGetQueryParam('id') || DV_HACKATHONS[0].id;
-  const h = DV_HACKATHONS.find((x) => x.id === id) || DV_HACKATHONS[0];
+  const h = DV_HACKATHONS.find((x) => x.id === id || x.legacyId === id) || DV_HACKATHONS[0];
+  dvCurrentHackathon = h;
   const registered = DVStore.has('hackathons', h.id);
   const bookmarked = DVStore.has('bookmarks', 'hack-' + h.id);
+
+  let dvList = (h.devverseParticipants && h.devverseParticipants.slice()) || [];
+  dvCurrentRosterList = dvList;
+  const initialCount = dvList.length + (registered ? 1 : 0);
 
   document.title = `${h.title} — DevVerse`;
 
@@ -49,6 +112,16 @@ function dvHackathonDetailInit() {
           <div class="pc-tags">${h.tracks.map((t) => `<span class="chip chip-accent">${t}</span>`).join('')}</div>
         </section>
 
+        <!-- DevVerse Community Delegation Roster -->
+        <section class="reveal in">
+          <div class="eyebrow">DevVerse Delegation</div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+            <h3 style="font-size:18px;">Builders competing from DevVerse</h3>
+            <span class="chip"><span class="mono" id="roster-count-chip">${initialCount}</span> builders</span>
+          </div>
+          <div id="hackathon-devverse-roster" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:12px;"></div>
+        </section>
+
         <section class="reveal in">
           <div class="eyebrow">Timeline</div>
           <div class="glass" style="padding:22px;">
@@ -84,7 +157,8 @@ function dvHackathonDetailInit() {
         <div class="glass reveal in" style="padding:20px;">
           <div class="eyebrow">Details</div>
           <div style="display:flex; justify-content:space-between; padding:8px 0;"><span class="muted" style="font-size:13px;">Prize pool</span><span style="font-size:13px; font-weight:600;">${h.prize}</span></div>
-          <div style="display:flex; justify-content:space-between; padding:8px 0;"><span class="muted" style="font-size:13px;">Participants</span><span style="font-size:13px; font-weight:600;">${h.participants.toLocaleString()}</span></div>
+          <div style="display:flex; justify-content:space-between; padding:8px 0;"><span class="muted" style="font-size:13px;">Worldwide joined</span><span style="font-size:13px; font-weight:600;">🌍 ${Number(h.participants || 0).toLocaleString()} global</span></div>
+          <div style="display:flex; justify-content:space-between; padding:8px 0;"><span class="muted" style="font-size:13px;">DevVerse builders</span><span style="font-size:13px; font-weight:600; color:var(--accent);"><span id="detail-dv-count">${initialCount}</span> joined</span></div>
           <div style="display:flex; justify-content:space-between; padding:8px 0;"><span class="muted" style="font-size:13px;">Difficulty</span><span style="font-size:13px; font-weight:600;">${h.difficulty}</span></div>
           <div style="display:flex; justify-content:space-between; padding:8px 0;"><span class="muted" style="font-size:13px;">Mode</span><span style="font-size:13px; font-weight:600;">${h.mode}</span></div>
           <div style="display:flex; justify-content:space-between; padding:8px 0;"><span class="muted" style="font-size:13px;">Organized by</span><span style="font-size:13px; font-weight:600;">${h.organizer}</span></div>
@@ -97,6 +171,20 @@ function dvHackathonDetailInit() {
       <div class="grid grid-3" id="related-hackathons"></div>
     </section>
   `;
+
+  dvRenderDevVerseRoster(h.id, dvList, registered);
+
+  // If live backend API available, sync with database registrations
+  if (window.DVApi && DVApi.hackathons && DVApi.hackathons.get) {
+    DVApi.hackathons.get(h.id).then(function (res) {
+      const data = res && res.data;
+      if (data && data.devverseParticipants && data.devverseParticipants.length) {
+        dvCurrentRosterList = data.devverseParticipants;
+        const isReg = typeof data.isRegistered === 'boolean' ? data.isRegistered : registered;
+        dvRenderDevVerseRoster(h.id, data.devverseParticipants, isReg);
+      }
+    }).catch(function () {});
+  }
 
   document.getElementById('related-hackathons').innerHTML = DV_HACKATHONS.filter((x) => x.id !== h.id).slice(0, 3).map(dvHackathonCardHTML).join('');
 

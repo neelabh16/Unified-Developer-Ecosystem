@@ -10,6 +10,7 @@ const Project = require('../models/Project');
 const Community = require('../models/Community');
 const Discussion = require('../models/Discussion');
 const Hackathon = require('../models/Hackathon');
+const HackathonRegistration = require('../models/HackathonRegistration');
 const CodexEntry = require('../models/CodexEntry');
 
 // 1. Exactly 10 Developers / Users
@@ -58,6 +59,7 @@ const DV_COMMUNITIES = [
 const DV_HACKATHONS = [
   {
     legacyId: 'h1',
+    devverseParticipants: ['sena.codes', 'ari-devs', 'kmori'],
     title: 'Aurora Hacks 2026',
     desc: 'A 48-hour sprint for tools that make developers faster.',
     longDesc: 'Aurora Hacks is DevVerse\'s flagship open-track event — 48 hours to build the developer tool you\'ve been meaning to make. Past winners have launched as real commercial products.',
@@ -86,6 +88,7 @@ const DV_HACKATHONS = [
   },
   {
     legacyId: 'h2',
+    devverseParticipants: ['kmori', 'dax'],
     title: 'Systems Underground',
     desc: 'Low-level, high-stakes. Build something the kernel would respect.',
     longDesc: 'A hackathon for people who think in memory addresses. Rewards raw performance and correctness over flashy UI.',
@@ -114,6 +117,7 @@ const DV_HACKATHONS = [
   },
   {
     legacyId: 'h3',
+    devverseParticipants: ['noa.ml', 'sena.codes', 'devon.codes'],
     title: 'AI for Builders',
     desc: 'Ship an AI-native dev tool in one weekend.',
     longDesc: 'Judged specifically on tools that make engineers faster or smarter at their craft. Bring a model or clever prompt pipeline.',
@@ -142,6 +146,7 @@ const DV_HACKATHONS = [
   },
   {
     legacyId: 'h4',
+    devverseParticipants: ['lumen', 'ari-devs', 'priya.dev'],
     title: 'Pixel & Motion',
     desc: 'A hackathon for interfaces that feel like magic.',
     longDesc: 'Built for designers and developers who obsess over micro-interactions, spring physics, and keyboard accessibility.',
@@ -170,6 +175,7 @@ const DV_HACKATHONS = [
   },
   {
     legacyId: 'h5',
+    devverseParticipants: ['elena-v', 'kmori'],
     title: 'Edge Cloud Sprint',
     desc: 'Deploy ultra-fast computing at the border of the internet.',
     longDesc: 'Optimize distributed compute on edge workers (Cloudflare, Vercel, Fly.io). The lowest latency wins.',
@@ -192,6 +198,7 @@ const DV_HACKATHONS = [
   },
   {
     legacyId: 'h6',
+    devverseParticipants: ['marcus-k', 'dax'],
     title: 'Zero-Knowledge Jam',
     desc: 'Privacy-first cryptography and verifiable compute.',
     longDesc: 'Construct verifiable computation circuits and privacy-preserving applications using zk-SNARKs and STARKs.',
@@ -213,6 +220,7 @@ const DV_HACKATHONS = [
   },
   {
     legacyId: 'h7',
+    devverseParticipants: ['dax', 'devon.codes', 'priya.dev'],
     title: 'Open Source Revival',
     desc: 'Adopt, refactor, and modernize forgotten open-source gems.',
     longDesc: 'Take abandoned or legacy open source tools and bring modern TypeScript, Rust, or documentation to them.',
@@ -231,6 +239,7 @@ const DV_HACKATHONS = [
   },
   {
     legacyId: 'h8',
+    devverseParticipants: ['ari-devs', 'devon.codes'],
     title: 'Mobile First Odyssey',
     desc: 'Buttery-smooth gestures and offline-first mobile apps.',
     longDesc: 'Build fluid mobile experiences using Flutter, React Native, Swift, or Kotlin that work seamlessly in airplane mode.',
@@ -249,6 +258,7 @@ const DV_HACKATHONS = [
   },
   {
     legacyId: 'h9',
+    devverseParticipants: ['lumen', 'noa.ml'],
     title: 'Browser Game Jam',
     desc: 'Craft lightweight games directly in WebGL and WebAudio.',
     longDesc: 'Create instant-play games that load under 5MB in the browser with no app store downloads.',
@@ -267,6 +277,7 @@ const DV_HACKATHONS = [
   },
   {
     legacyId: 'h10',
+    devverseParticipants: ['marcus-k', 'elena-v'],
     title: 'Cyber Defense Crucible',
     desc: 'Hardening modern web applications against automated attacks.',
     longDesc: 'Build proactive defense shields, bot mitigation proxies, and automated vulnerability detection engines.',
@@ -474,9 +485,9 @@ const seedDatabase = async () => {
 
     // 4. Seed Hackathons
     for (const h of DV_HACKATHONS) {
-      const existing = await Hackathon.findOne({ title: h.title });
-      if (!existing) {
-        await Hackathon.create({
+      let hack = await Hackathon.findOne({ title: h.title });
+      if (!hack) {
+        hack = await Hackathon.create({
           title: h.title,
           desc: h.desc,
           longDesc: h.longDesc,
@@ -495,8 +506,19 @@ const seedDatabase = async () => {
           judging: h.judging,
         });
       }
+      if (h.devverseParticipants && h.devverseParticipants.length) {
+        for (const handle of h.devverseParticipants) {
+          const devUser = devMap[handle];
+          if (devUser) {
+            const exists = await HackathonRegistration.findOne({ user: devUser._id, hackathon: hack._id });
+            if (!exists) {
+              await HackathonRegistration.create({ user: devUser._id, hackathon: hack._id });
+            }
+          }
+        }
+      }
     }
-    console.log(`✓ Seeded ${DV_HACKATHONS.length} hackathons`);
+    console.log(`✓ Seeded ${DV_HACKATHONS.length} hackathons and DevVerse registrations`);
 
     // 5. Seed Codex Entries
     for (const ce of DV_CODEX_SEED) {

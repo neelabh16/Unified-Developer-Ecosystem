@@ -660,10 +660,34 @@ function dvProjectCardHTML(p) {
 function dvHackathonCardHTML(h) {
   const bookmarked = DVStore.has('bookmarks', 'hack-' + h.id);
   const registered = DVStore.has('hackathons', h.id);
+
+  // DevVerse participants list
+  let dvList = (h.devverseParticipants && h.devverseParticipants.slice()) || [];
+  if (!dvList.length && typeof DV_HACKATHONS !== 'undefined') {
+    const localH = DV_HACKATHONS.find((x) => x.id === h.id || x.legacyId === h.id);
+    if (localH && localH.devverseParticipants) dvList = localH.devverseParticipants.slice();
+  }
+  let devHandles = dvList.map((p) => (typeof p === 'string' ? p : (p.username || p.handle)));
+  if (registered && !devHandles.includes('you')) {
+    devHandles = ['you', ...devHandles];
+  }
+  const dvCount = devHandles.length;
+
+  const avatarsHtml = devHandles.slice(0, 3).map((handle, idx) => {
+    const isYou = handle === 'you';
+    const dev = !isYou && typeof DV_DEVS !== 'undefined' ? DV_DEVS.find((d) => d.handle === handle) : null;
+    const name = isYou ? 'You' : (dev ? dev.name : handle);
+    const seed = isYou ? 'you' : (dev ? (dev.avatarSeed || dev.handle) : handle);
+    const border = isYou ? '2px solid var(--accent)' : '2px solid var(--surface)';
+    const ml = idx === 0 ? '0' : '-8px';
+    const youAttr = isYou ? ' data-you-avatar="true"' : '';
+    return `<img src="${dvAvatar(seed, 26)}" title="${name}" alt="${name}"${youAttr} style="width:24px;height:24px;border-radius:50%;border:${border};margin-left:${ml};object-fit:cover;flex-shrink:0;">`;
+  }).join('');
+
   return `
   <a href="hackathon.html?id=${h.id}" class="glass card-lift reveal" style="padding:24px; display:flex; flex-direction:column; gap:16px;" data-end="${h.end}" data-hid="${h.id}">
     <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-      <span class="chip chip-accent">${h.tags[0]}</span>
+      <span class="chip chip-accent">${(h.tags && h.tags[0]) || 'Open Track'}</span>
       <button class="pc-stat dv-bookmark ${bookmarked ? 'bookmarked' : ''}" data-bookmark="hack-${h.id}" onclick="event.preventDefault()" aria-label="Bookmark ${h.title}">
         ${DV_ICON_BOOKMARK}
       </button>
@@ -675,10 +699,19 @@ function dvHackathonCardHTML(h) {
     <div class="mono countdown" style="font-size:22px; font-weight:700; color:var(--accent);">--:--:--</div>
     <div style="display:flex; justify-content:space-between; font-size:12.5px; color:var(--text-tertiary);">
       <span>${h.prize} prize pool</span>
-      <span>${h.participants.toLocaleString()} joined</span>
+      <span title="Worldwide registered competitors">🌍 ${Number(h.participants || 0).toLocaleString()} worldwide</span>
+    </div>
+    <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--text-secondary); background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:8px; padding:6px 10px;">
+      <span style="display:inline-flex; align-items:center; gap:6px;">
+        <span style="width:7px; height:7px; border-radius:50%; background:var(--accent); display:inline-block;"></span>
+        <span><strong data-dv-count="${h.id}">${dvCount}</strong> from DevVerse</span>
+      </span>
+      <div style="display:flex; align-items:center; padding-left:10px;" data-dv-avatars="${h.id}">
+        ${avatarsHtml}
+      </div>
     </div>
     <div style="display:flex; justify-content:space-between; align-items:center; padding-top:12px; border-top:1px solid var(--border);">
-      <span class="chip">${h.difficulty}</span>
+      <span class="chip">${h.difficulty || 'All levels'}</span>
       <button class="btn btn-sm ${registered ? 'btn-outline' : 'btn-primary'}" data-register="${h.id}" onclick="event.preventDefault()">${registered ? 'Registered ✓' : 'Register'}</button>
     </div>
   </a>`;
@@ -1840,7 +1873,8 @@ function dvPageHeaderStats(page) {
     return [
       { value: DV_HACKATHONS.length, label: 'Running now' },
       { value: '$' + dvFormatCount(totalPrize), label: 'Total prize pool' },
-      { value: dvFormatCount(totalParticipants), label: 'Builders competing' },
+      { value: dvFormatCount(totalParticipants), label: 'Worldwide joined' },
+      { value: '8 builders', label: 'From DevVerse' },
     ];
   }
   if (page === 'leaderboard') {
@@ -2038,13 +2072,54 @@ function dvWireInteractions(root = document) {
       const active = DVStore.toggleInSet('hackathons', id);
       regBtn.textContent = active ? 'Registered ✓' : 'Register';
       regBtn.classList.toggle('btn-outline', active);
+
+      // Optimistic update of DevVerse counts and avatars on cards
+      const countEls = document.querySelectorAll(`[data-dv-count="${id}"]`);
+      countEls.forEach((el) => {
+        let cur = parseInt(el.textContent.replace(/[^0-9]/g, ''), 10) || 2;
+        cur = active ? cur + 1 : Math.max(1, cur - 1);
+        el.textContent = cur;
+      });
+
+      const avatarContainers = document.querySelectorAll(`[data-dv-avatars="${id}"]`);
+      avatarContainers.forEach((container) => {
+        const youImg = container.querySelector('[data-you-avatar]');
+        if (active && !youImg) {
+          const newImg = document.createElement('img');
+          newImg.src = dvAvatar('you', 26);
+          newImg.title = 'You';
+          newImg.alt = 'You';
+          newImg.dataset.youAvatar = 'true';
+          newImg.style.cssText = 'width:24px;height:24px;border-radius:50%;border:2px solid var(--accent);margin-left:0;object-fit:cover;flex-shrink:0;';
+          container.insertBefore(newImg, container.firstChild);
+        } else if (!active && youImg) {
+          youImg.remove();
+        }
+      });
+
+      const detailDvCount = document.getElementById('detail-dv-count');
+      if (detailDvCount) {
+        let cur = parseInt(detailDvCount.textContent.replace(/[^0-9]/g, ''), 10) || 2;
+        cur = active ? cur + 1 : Math.max(1, cur - 1);
+        detailDvCount.textContent = `${cur} joined`;
+      }
+
+      if (typeof dvUpdateDetailRoster === 'function') {
+        dvUpdateDetailRoster(id, active);
+      }
+
       if (active && dvAwardOnce('hackathons', id, DV_POINT_VALUES.register, 'Registered for a hackathon')) {
         dvToast(`Registered for hackathon (+${DV_POINT_VALUES.register} pts)`);
       } else {
         dvToast(active ? 'Registered for hackathon' : 'Registration cancelled');
       }
       if (window.DVApi && DVApi.hackathons && DVApi.hackathons.toggleRegister) {
-        DVApi.hackathons.toggleRegister(id).catch(function () {});
+        DVApi.hackathons.toggleRegister(id).then(function (res) {
+          if (res && res.data && typeof res.data.devverseCount === 'number') {
+            countEls.forEach((el) => { el.textContent = res.data.devverseCount; });
+            if (detailDvCount) detailDvCount.textContent = `${res.data.devverseCount} joined`;
+          }
+        }).catch(function () {});
       }
     }
     const shareBtn = e.target.closest('[data-share]');

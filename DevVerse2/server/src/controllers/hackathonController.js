@@ -10,13 +10,69 @@ const Activity = require('../models/Activity');
 const AppError = require('../utils/AppError');
 const { sendSuccess } = require('../utils/response');
 
+const DEFAULT_DEVVERSE_PARTICIPANTS = {
+  h1: ['sena.codes', 'ari-devs', 'kmori'],
+  'aurora-hacks-2026': ['sena.codes', 'ari-devs', 'kmori'],
+  h2: ['kmori', 'dax'],
+  'systems-underground': ['kmori', 'dax'],
+  h3: ['noa.ml', 'sena.codes', 'devon.codes'],
+  'ai-for-builders': ['noa.ml', 'sena.codes', 'devon.codes'],
+  h4: ['lumen', 'ari-devs', 'priya.dev'],
+  'pixel-and-motion': ['lumen', 'ari-devs', 'priya.dev'],
+  h5: ['elena-v', 'kmori'],
+  'edge-cloud-sprint': ['elena-v', 'kmori'],
+  h6: ['marcus-k', 'dax'],
+  'zero-knowledge-jam': ['marcus-k', 'dax'],
+  h7: ['dax', 'devon.codes', 'priya.dev'],
+  'open-source-revival': ['dax', 'devon.codes', 'priya.dev'],
+  h8: ['ari-devs', 'devon.codes'],
+  'mobile-first-odyssey': ['ari-devs', 'devon.codes'],
+  h9: ['lumen', 'noa.ml'],
+  'browser-game-jam': ['lumen', 'noa.ml'],
+  h10: ['marcus-k', 'elena-v'],
+  'cyber-defense-crucible': ['marcus-k', 'elena-v'],
+};
+
 /**
  * List all hackathons with registration and bookmark flags for current user.
  * GET /api/v1/hackathons
  */
 const getHackathons = async (req, res, next) => {
   try {
-    const hackathons = await Hackathon.find().sort({ end: 1 });
+    const rawHackathons = await Hackathon.find().sort({ end: 1 });
+
+    const allRegistrations = await HackathonRegistration.find()
+      .populate('user', 'name username avatarSeed avatarUrl bio points skills');
+
+    const regByHackathon = {};
+    for (const r of allRegistrations) {
+      if (!r.user) continue;
+      const hid = r.hackathon.toString();
+      if (!regByHackathon[hid]) regByHackathon[hid] = [];
+      regByHackathon[hid].push(r.user);
+    }
+
+    const hackathons = await Promise.all(
+      rawHackathons.map(async (h) => {
+        const hObj = h.toObject ? h.toObject() : h;
+        let regs = regByHackathon[h._id.toString()] || [];
+        if (!regs.length) {
+          const handles =
+            DEFAULT_DEVVERSE_PARTICIPANTS[hObj.legacyId] ||
+            DEFAULT_DEVVERSE_PARTICIPANTS[hObj.id] || ['kmori', 'sena.codes'];
+          const seededUsers = await User.find({ username: { $in: handles } }).select(
+            'name username avatarSeed avatarUrl bio points skills'
+          );
+          regs = seededUsers;
+          for (const su of seededUsers) {
+            HackathonRegistration.create({ user: su._id, hackathon: h._id }).catch(() => {});
+          }
+        }
+        hObj.devverseParticipants = regs;
+        hObj.devverseCount = regs.length;
+        return hObj;
+      })
+    );
 
     let registeredIds = [];
     let bookmarkedIds = [];
@@ -63,6 +119,22 @@ const getHackathon = async (req, res, next) => {
       return next(new AppError('Hackathon not found', 404));
     }
 
+    let registrations = await HackathonRegistration.find({ hackathon: hackathon._id })
+      .populate('user', 'name username avatarSeed avatarUrl bio points skills');
+
+    let devverseParticipants = registrations.map((r) => r.user).filter(Boolean);
+    if (!devverseParticipants.length) {
+      const handles =
+        DEFAULT_DEVVERSE_PARTICIPANTS[hackathon.legacyId] || ['kmori', 'sena.codes'];
+      const seededUsers = await User.find({ username: { $in: handles } }).select(
+        'name username avatarSeed avatarUrl bio points skills'
+      );
+      devverseParticipants = seededUsers;
+      for (const su of seededUsers) {
+        HackathonRegistration.create({ user: su._id, hackathon: hackathon._id }).catch(() => {});
+      }
+    }
+
     let isRegistered = false;
     let isBookmarked = false;
 
@@ -84,6 +156,7 @@ const getHackathon = async (req, res, next) => {
 
     return sendSuccess(res, 200, 'Hackathon details retrieved', {
       hackathon,
+      devverseParticipants,
       isRegistered,
       isBookmarked,
     });
@@ -144,6 +217,7 @@ const toggleRegister = async (req, res, next) => {
     }
 
     const updated = await Hackathon.findById(hackathon._id);
+    const devverseCount = await HackathonRegistration.countDocuments({ hackathon: hackathon._id });
     return sendSuccess(
       res,
       200,
@@ -151,6 +225,7 @@ const toggleRegister = async (req, res, next) => {
       {
         registered,
         participantsCount: updated.participantsCount,
+        devverseCount,
       }
     );
   } catch (error) {

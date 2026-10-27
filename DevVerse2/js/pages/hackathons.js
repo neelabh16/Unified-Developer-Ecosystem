@@ -13,7 +13,9 @@ function dvRenderHackathonList(hackathons) {
       tags: h.tags || ['Web3'],
       end: h.end || (Date.now() + 86400000 * 7),
       prize: h.prize || (h.prizePool ? `$${h.prizePool.toLocaleString()}` : '$10,000'),
-      participants: h.participants || h.participantsCount || 0
+      participants: typeof h.participants === 'number' ? h.participants : (h.participantsCount || 0),
+      devverseParticipants: h.devverseParticipants || null,
+      difficulty: h.difficulty || 'All levels',
     };
     return dvHackathonCardHTML(item);
   }).join('');
