@@ -67,24 +67,40 @@ function dvPortfolioInit() {
   const root = document.getElementById('portfolio-root');
   if (!root) return;
 
-  if (!dvIsLoggedIn()) {
-    dvToast('Sign in to view portfolios');
-    window.location.href = 'login.html?redirect=' + encodeURIComponent(dvCurrentPageWithQuery());
-    return;
-  }
+  dvEnsureAuth().then(() => {
+    if (!dvIsLoggedIn()) {
+      dvToast('Sign in to view portfolios');
+      window.location.href = 'login.html?redirect=' + encodeURIComponent(dvCurrentPageWithQuery());
+      return;
+    }
 
-  const selfHandle = dvSelfHandle();
+    const selfHandle = dvSelfHandle();
 
-  const requestedHandle = dvGetQueryParam('u');
-  const forcePreview = dvGetQueryParam('view') === '1';
-  const isOwnHandle = !requestedHandle || requestedHandle === 'you' || requestedHandle === selfHandle;
+    const requestedHandle = dvGetQueryParam('u');
+    const forcePreview = dvGetQueryParam('view') === '1';
+    const isOwnHandle = !requestedHandle || requestedHandle === 'you' || requestedHandle === selfHandle;
 
-  if (!isOwnHandle || forcePreview) {
-    dvRenderPublicPortfolio(root, requestedHandle || selfHandle, selfHandle);
-    return;
-  }
+    // If own portfolio, fetch live portfolio from backend if available
+    if (isOwnHandle && window.DVApi && DVApi.portfolios && DVApi.portfolios.get) {
+      DVApi.portfolios.get(selfHandle).then((res) => {
+        if (res && res.data && res.data.portfolio) {
+          DVStore.set('portfolio', res.data.portfolio);
+          if (forcePreview) {
+            dvRenderPublicPortfolio(root, requestedHandle || selfHandle, selfHandle);
+          } else {
+            dvRenderPortfolioEditor(root, selfHandle);
+          }
+        }
+      }).catch(function () {});
+    }
 
-  dvRenderPortfolioEditor(root, selfHandle);
+    if (!isOwnHandle || forcePreview) {
+      dvRenderPublicPortfolio(root, requestedHandle || selfHandle, selfHandle);
+      return;
+    }
+
+    dvRenderPortfolioEditor(root, selfHandle);
+  });
 }
 
 /* ---------- Public, read-only view ----------

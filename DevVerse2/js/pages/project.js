@@ -195,6 +195,22 @@ function dvProjectDetailInit() {
   }
 
   dvRenderComments(p.id);
+
+  if (window.DVApi && DVApi.projects && DVApi.projects.getComments) {
+    DVApi.projects.getComments(p.id).then((res) => {
+      const items = (res && res.data && (res.data.comments || (Array.isArray(res.data) ? res.data : []))) || [];
+      if (items && items.length) {
+        const mapped = items.map((c) => ({
+          _id: c._id,
+          author: (c.author && (c.author.username || c.author.name)) || 'you',
+          text: c.text,
+          time: dvTimeAgo(Math.max(1, Math.floor((Date.now() - new Date(c.createdAt).getTime()) / 60000)))
+        }));
+        DVStore.set(`comments.${p.id}`, mapped);
+        dvRenderComments(p.id);
+      }
+    }).catch(function () {});
+  }
   document.getElementById('comment-form').addEventListener('submit', function (e) {
     e.preventDefault();
     dvPostComment(p.id);

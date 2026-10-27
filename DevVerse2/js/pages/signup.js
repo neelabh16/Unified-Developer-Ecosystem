@@ -13,11 +13,12 @@ function dvSignupInit() {
   const existingLoginLink = document.getElementById('signup-existing-login-link');
   if (existingLoginLink) existingLoginLink.href = 'login.html' + redirectQuery;
 
-  if (dvIsLoggedIn()) {
-    dvToast('You\u2019re already signed in');
-    window.location.href = redirectTarget;
-    return;
-  }
+  dvEnsureAuth().then(() => {
+    if (dvIsLoggedIn()) {
+      dvToast('You\u2019re already signed in');
+      window.location.href = redirectTarget;
+    }
+  });
 
   dvWirePasswordField('signup-password', 'signup-password-toggle', 'signup-capslock-warning');
   dvWirePasswordField('signup-confirm', 'signup-confirm-toggle', null);
@@ -95,22 +96,14 @@ function dvSignupInit() {
 
       const user = res.data.user;
 
-      // Sync local account array & session for seamless client rendering
-      const accounts = DVStore.get('auth.accounts', []);
-      const idx = accounts.findIndex((a) => a.email === user.email);
-      const accObj = {
+      // Set live user in session
+      window.DVCurrentUser = user;
+      DVStore.set('auth.session', user.email);
+      DVStore.set('auth.accounts', [{
         name: user.name,
         username: user.username,
         email: user.email,
-      };
-      if (idx !== -1) {
-        accounts[idx] = accObj;
-      } else {
-        accounts.push(accObj);
-      }
-      DVStore.set('auth.accounts', accounts);
-      DVStore.set('auth.session', user.email);
-
+      }]);
       DVStore.set('profile.overrides', {
         name: user.name,
         username: user.username,

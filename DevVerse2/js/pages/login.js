@@ -11,11 +11,12 @@ function dvLoginInit() {
     signupLink.href = 'signup.html?redirect=' + encodeURIComponent(redirectTarget);
   }
 
-  if (dvIsLoggedIn()) {
-    dvToast('You\u2019re already signed in');
-    window.location.href = redirectTarget;
-    return;
-  }
+  dvEnsureAuth().then(() => {
+    if (dvIsLoggedIn()) {
+      dvToast('You\u2019re already signed in');
+      window.location.href = redirectTarget;
+    }
+  });
 
   dvWirePasswordField('login-password', 'login-password-toggle', 'login-capslock-warning');
 
@@ -41,23 +42,14 @@ function dvLoginInit() {
       const res = await DVApi.auth.login({ email, password });
       const user = res.data.user;
 
-      // Sync active session and accounts array for client navigation
-      const accounts = DVStore.get('auth.accounts', []);
-      const idx = accounts.findIndex((a) => a.email === user.email);
-      const accObj = {
+      // Set live user in session
+      window.DVCurrentUser = user;
+      DVStore.set('auth.session', user.email);
+      DVStore.set('auth.accounts', [{
         name: user.name,
         username: user.username,
         email: user.email,
-      };
-      if (idx !== -1) {
-        accounts[idx] = accObj;
-      } else {
-        accounts.push(accObj);
-      }
-      DVStore.set('auth.accounts', accounts);
-      DVStore.set('auth.session', user.email);
-
-      // Sync user profile overrides
+      }]);
       DVStore.set('profile.overrides', {
         name: user.name,
         username: user.username,

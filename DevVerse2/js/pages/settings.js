@@ -26,7 +26,7 @@ function dvRenderAccountPanel() {
   if (loggedIn && account) {
     root.innerHTML = `
       <h3 style="margin-bottom:6px;">Account</h3>
-      <p style="font-size:13px; margin-bottom:16px;">Signed in as <b>${account.name}</b>${account.username ? ' (@' + account.username + ')' : ''} (${account.email}) — this is a simulated local account stored only in this browser.</p>
+      <p style="font-size:13px; margin-bottom:16px;">Signed in as <b>${account.name}</b>${account.username ? ' (@' + account.username + ')' : ''} (${account.email}) — authenticated live via MongoDB Atlas backend.</p>
       <button class="btn btn-outline" id="settings-signout-btn">Sign out</button>
     `;
     document.getElementById('settings-signout-btn').addEventListener('click', dvAuthSignOut);
@@ -46,7 +46,10 @@ function dvSettingsInit() {
   const root = document.getElementById('settings-root');
   if (!root) return;
 
-  dvRenderAccountPanel();
+  dvEnsureAuth().then(() => {
+    dvRenderAccountPanel();
+  });
+
   const accent = DVStore.get('settings.accent', 'violet');
   const motion = DVStore.get('settings.motion', 'on');
   const theme = DVStore.get('settings.theme', 'dark');

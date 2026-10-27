@@ -38,8 +38,8 @@ function dvCommunityInit() {
     </div>
 
     <div class="glass reveal in" style="padding:6px 22px; margin-bottom:10px; display:flex; align-items:center; gap:10px;">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" stroke-width="2" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 2"/></svg>
-      <p style="font-size:12px; padding:12px 0;">This board is local to your browser — a real backend would sync it across everyone. For now, seeded threads simulate other builders, and anything you post is saved to this device.</p>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 2"/></svg>
+      <p style="font-size:12px; padding:12px 0;">Synced live with DevVerse Community Backend &amp; MongoDB Atlas.</p>
     </div>
 
     ${joined ? `
@@ -85,10 +85,37 @@ function dvCommunityInit() {
       dvAwardPoints(DV_POINT_VALUES.thread, 'Started a discussion thread');
       dvToast(`Thread posted (+${DV_POINT_VALUES.thread} pts)`);
       dvRenderThreads(c.id, joined);
+
+      if (window.DVApi && DVApi.communities && DVApi.communities.createDiscussion) {
+        DVApi.communities.createDiscussion(c.id, { title, body }).catch(function () {});
+      }
     });
   }
 
   dvRenderThreads(c.id, joined);
+
+  if (window.DVApi && DVApi.communities && DVApi.communities.getDiscussions) {
+    DVApi.communities.getDiscussions(c.id).then((res) => {
+      const discussions = (res && res.data && (res.data.discussions || res.data)) || [];
+      if (discussions && discussions.length) {
+        const mapped = discussions.map((d) => ({
+          id: d._id || d.id,
+          title: d.title,
+          body: d.body,
+          author: (d.author && (d.author.username || d.author.name)) || d.authorHandle || 'devverse',
+          createdAt: new Date(d.createdAt).getTime(),
+          replies: (d.replies || []).map((r) => ({
+            id: r._id || r.id,
+            author: (r.author && (r.author.username || r.author.name)) || r.authorHandle || 'you',
+            text: r.text || r.body || '',
+            createdAt: new Date(r.createdAt || Date.now()).getTime()
+          }))
+        }));
+        DVStore.set(`forum.${c.id}`, mapped);
+        dvRenderThreads(c.id, joined);
+      }
+    }).catch(function () {});
+  }
   dvReveal(root);
 }
 

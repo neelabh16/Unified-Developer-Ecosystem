@@ -6,11 +6,17 @@ function dvProfileInit() {
   const root = document.getElementById('profile-root');
   if (!root) return;
 
-  if (!dvIsLoggedIn()) {
-    dvToast('Sign in to view profiles');
-    window.location.href = 'login.html?redirect=' + encodeURIComponent(dvCurrentPageWithQuery());
-    return;
-  }
+  dvEnsureAuth().then(() => {
+    if (!dvIsLoggedIn()) {
+      dvToast('Sign in to view profiles');
+      window.location.href = 'login.html?redirect=' + encodeURIComponent(dvCurrentPageWithQuery());
+      return;
+    }
+    dvRenderProfileContent(root);
+  });
+}
+
+function dvRenderProfileContent(root) {
 
   const handle = dvGetQueryParam('u');
   const base = DV_DEVS.find((d) => d.handle === handle) || DV_DEVS[0];

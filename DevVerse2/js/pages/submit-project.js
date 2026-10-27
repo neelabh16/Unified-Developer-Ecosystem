@@ -6,16 +6,20 @@ function dvSubmitProjectInit() {
   const root = document.getElementById('submit-project-root');
   if (!root) return;
 
-  if (!dvIsLoggedIn()) {
-    dvToast('Sign in to submit a project');
-    window.location.href = 'login.html?redirect=' + encodeURIComponent(dvCurrentPageWithQuery());
-    return;
-  }
+  dvEnsureAuth().then(() => {
+    if (!dvIsLoggedIn()) {
+      dvToast('Sign in to submit a project');
+      window.location.href = 'login.html?redirect=' + encodeURIComponent(dvCurrentPageWithQuery());
+      return;
+    }
 
+    dvRenderSubmitProjectForm(root);
+  });
+}
+
+function dvRenderSubmitProjectForm(root) {
   const categories = dvUniqueArray(DV_PROJECTS.map((p) => p.category));
-
   root.innerHTML = `
-    <div class="glass reveal in" style="padding:24px; margin-bottom:26px;">
       <h3 style="margin-bottom:6px;">Start from a GitHub repo (optional)</h3>
       <p style="font-size:13px; margin-bottom:16px;">Paste a public repo URL and we'll pull its name, description, and primary language from GitHub's real API to save you typing — you can still edit everything before publishing.</p>
       <div style="display:flex; gap:10px; flex-wrap:wrap;">

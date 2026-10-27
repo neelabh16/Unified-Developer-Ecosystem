@@ -10,18 +10,20 @@ function dvCodexInit() {
   const root = document.getElementById('codex-root');
   if (!root) return;
 
-  if (!dvIsLoggedIn()) {
-    dvToast('Sign in to view the Codex');
-    window.location.href = 'login.html?redirect=' + encodeURIComponent(dvCurrentPageWithQuery());
-    return;
-  }
+  dvEnsureAuth().then(() => {
+    if (!dvIsLoggedIn()) {
+      dvToast('Sign in to view the Codex');
+      window.location.href = 'login.html?redirect=' + encodeURIComponent(dvCurrentPageWithQuery());
+      return;
+    }
 
-  if (!dvCodexUnlocked()) {
-    dvRenderCodexLocked(root);
-    return;
-  }
+    if (!dvCodexUnlocked()) {
+      dvRenderCodexLocked(root);
+      return;
+    }
 
-  dvRenderCodexUnlocked(root);
+    dvRenderCodexUnlocked(root);
+  });
 }
 
 function dvRenderCodexLocked(root) {

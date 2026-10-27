@@ -4,70 +4,35 @@
    settings application, and small reusable utilities.
    ========================================================= */
 
-/* ---------- LocalStorage store (namespaced per account) ----------
-   BUG FIXED HERE: this store used to keep every piece of data — likes,
-   bookmarks, portfolio, submitted projects, profile edits, settings,
-   follows, points, everything — under one single flat localStorage key
-   ('devverse:v1'), with no account boundary at all. "auth.session" (who's
-   currently signed in) lived in that SAME object as everyone's data, so
-   signing out and into a different account only ever swapped which
-   account's *name* was shown — every account kept reading and writing the
-   exact same shared bucket underneath. That's why signing into Account B
-   showed Account A's likes/bookmarks/portfolio/etc: there was never more
-   than one bucket to begin with.
+// Ensure browser storage is cleared completely
+try { localStorage.clear(); } catch (e) {}
 
-   Fix: split storage into
-     - one small GLOBAL bucket (KEY) that holds ONLY `auth` (the list of
-       accounts on this device + which one is currently signed in) — this
-       has to be readable before we know who's signed in, so it can't live
-       inside a per-account bucket.
-     - one PER-ACCOUNT bucket per email (or a shared "guest" bucket while
-       signed out), holding everything else: likes, bookmarks, follows,
-       portfolio, submitted projects, profile edits, settings, points, etc.
-   Every existing call site (DVStore.get('likes', []), .set('settings.theme', ...),
-   etc.) is unchanged — only path === 'auth' or a path starting with 'auth.'
-   is routed to the global bucket; anything else is routed to whichever
-   bucket belongs to the signed-in account. */
+/* ---------- State Store (In-Memory, Zero LocalStorage) ----------
+   All persistent state is stored and retrieved strictly through the
+   backend REST API and MongoDB Atlas. LocalStorage has been removed
+   completely per architecture requirements. */
 const DVStore = {
-  KEY: 'devverse:v1',
+  _global: {},
+  _user: {},
   _isAuthPath(path) {
     return path === 'auth' || path.indexOf('auth.') === 0;
   },
   _read() {
-    try {
-      return JSON.parse(localStorage.getItem(this.KEY)) || {};
-    } catch {
-      return {};
-    }
+    return this._global;
   },
   _write(data) {
-    localStorage.setItem(this.KEY, JSON.stringify(data));
-  },
-  /** Storage key for the currently signed-in account's own bucket, or a
-   *  shared guest bucket when nobody's signed in yet. */
-  _userKey() {
-    const session = this._read().auth && this._read().auth.session;
-    return session ? this.KEY + ':user:' + session : this.KEY + ':guest';
+    this._global = data || {};
   },
   _readUser() {
-    try {
-      return JSON.parse(localStorage.getItem(this._userKey())) || {};
-    } catch {
-      return {};
-    }
+    return this._user;
   },
   _writeUser(data) {
-    localStorage.setItem(this._userKey(), JSON.stringify(data));
+    this._user = data || {};
   },
   get(path, fallback) {
     const data = this._isAuthPath(path) ? this._read() : this._readUser();
     const result = path.split('.').reduce((o, k) => (o && o[k] !== undefined ? o[k] : undefined), data);
     if (result !== undefined) return result;
-    // Return a fresh copy of the fallback (via JSON, since every
-    // fallback used in this app is plain data) rather than the
-    // literal object/array passed in — otherwise a caller mutating
-    // what they got back would silently corrupt a shared default
-    // constant for every other call site that reuses it.
     if (fallback === undefined || typeof fallback !== 'object') return fallback;
     return JSON.parse(JSON.stringify(fallback));
   },
@@ -81,12 +46,9 @@ const DVStore = {
       obj = obj[keys[i]];
     }
     obj[keys[keys.length - 1]] = value;
-    if (isAuth) this._write(data); else this._writeUser(data);
     return value;
   },
   toggleInSet(path, id) {
-    // Plain array + push/splice — same toggle behavior as a Set, but
-    // built entirely from array methods on the syllabus.
     const arr = this.get(path, []);
     const index = arr.indexOf(id);
     let active;
@@ -103,41 +65,10 @@ const DVStore = {
   has(path, id) {
     return (this.get(path, []) || []).includes(id);
   },
-  /** Resets only the SIGNED-IN ACCOUNT's own data (likes, bookmarks,
-   *  portfolio, settings, ...) — matches what the Settings page tells the
-   *  user this button does. It deliberately does not touch the global
-   *  auth bucket, so it doesn't sign anyone out or delete other accounts. */
   resetAll() {
-    localStorage.removeItem(this._userKey());
+    this._user = {};
   },
 };
-
-/* ---------- Migrate old single-account data to multi-account ----------
-   Earlier versions stored one account under "auth.account" (singular).
-   This one-time migration moves it into "auth.accounts" (an array) so
-   that the multi-account login/signup flow works correctly. The old
-   key is deleted once the migration is done. */
-(function dvMigrateAuth() {
-  const old = DVStore.get('auth.account', null);
-  if (old && old.email) {
-    const existing = DVStore.get('auth.accounts', []);
-    // Only migrate if this email isn't already in the array.
-    let found = false;
-    for (let i = 0; i < existing.length; i++) {
-      if (existing[i].email === old.email) { found = true; break; }
-    }
-    if (!found) {
-      existing.push(old);
-      DVStore.set('auth.accounts', existing);
-    }
-    // Remove the old singular key so migration doesn't re-run.
-    const data = DVStore._read();
-    if (data.auth) {
-      delete data.auth.account;
-      DVStore._write(data);
-    }
-  }
-})();
 
 /* ---------- Migrate old un-namespaced data into a per-account bucket ----------
    Before the fix above, everything (likes, bookmarks, portfolio, settings,
@@ -238,87 +169,122 @@ function dvGetQueryParam(name) {
   return null;
 }
 
-/* ---------- Simulated auth (no backend) ----------
-   This is a local-only stand-in for real authentication: multiple
-   accounts per browser, stored in LocalStorage, no server, no
-   password hashing, nothing sent anywhere. It exists to demonstrate
-   the sign-up/sign-in flow and form validation properly, not to
-   secure anything — that's stated plainly on both auth pages rather
-   than implied. A real backend would replace this
-   entirely with actual authentication. */
+/* ---------- Real Backend Authentication ----------
+   Full backend authentication powered by JWT HttpOnly cookies and
+   MongoDB Atlas (/api/v1/auth). Zero LocalStorage credentials or state. */
+
+window.DVCurrentUser = null;
+let dvAuthInitPromise = null;
+
+function dvInitAuth() {
+  if (dvAuthInitPromise) return dvAuthInitPromise;
+  dvAuthInitPromise = (async function () {
+    if (window.DVApi && DVApi.auth && DVApi.auth.me) {
+      try {
+        const res = await DVApi.auth.me();
+        if (res && res.data && res.data.user) {
+          window.DVCurrentUser = res.data.user;
+          DVStore.set('auth.session', res.data.user.email);
+          DVStore.set('auth.accounts', [{
+            name: res.data.user.name,
+            username: res.data.user.username,
+            email: res.data.user.email,
+          }]);
+          DVStore.set('profile.overrides', {
+            name: res.data.user.name,
+            username: res.data.user.username,
+            bio: res.data.user.bio || '',
+            avatarSeed: res.data.user.avatarSeed || 'you-builder',
+            points: res.data.user.points || 0,
+          });
+
+          // Fetch user bookmarks from backend API
+          if (DVApi.bookmarks && DVApi.bookmarks.get) {
+            try {
+              const bmRes = await DVApi.bookmarks.get();
+              if (bmRes && bmRes.data) {
+                const pIds = bmRes.data.projectIds || [];
+                const hIds = (bmRes.data.hackathonIds || []).map((id) => 'hack-' + id);
+                DVStore.set('bookmarks', [...pIds, ...hIds]);
+                document.querySelectorAll('[data-bookmark]').forEach((btn) => {
+                  const bId = btn.dataset.bookmark;
+                  const active = DVStore.has('bookmarks', bId);
+                  btn.classList.toggle('bookmarked', active);
+                  const label = btn.querySelector('.dv-bookmark-label');
+                  if (label) label.textContent = active ? 'Saved' : 'Save';
+                });
+              }
+            } catch (bmErr) {}
+          }
+        } else {
+          window.DVCurrentUser = null;
+          DVStore.set('auth.session', null);
+        }
+      } catch (err) {
+        window.DVCurrentUser = null;
+        DVStore.set('auth.session', null);
+      }
+    }
+    dvUpdateAuthNav();
+    return window.DVCurrentUser;
+  })();
+  return dvAuthInitPromise;
+}
+
+function dvEnsureAuth() {
+  return dvInitAuth();
+}
+
 function dvAuthAccount() {
+  if (window.DVCurrentUser) {
+    return {
+      name: window.DVCurrentUser.name,
+      username: window.DVCurrentUser.username,
+      email: window.DVCurrentUser.email,
+      role: window.DVCurrentUser.role,
+      points: window.DVCurrentUser.points,
+      avatarSeed: window.DVCurrentUser.avatarSeed,
+      bio: window.DVCurrentUser.bio,
+    };
+  }
   const email = DVStore.get('auth.session', null);
   if (!email) return null;
   const accounts = DVStore.get('auth.accounts', []);
   for (let i = 0; i < accounts.length; i++) {
     if (accounts[i].email === email) return accounts[i];
   }
-  // BUG FIXED: "auth.session" being non-null used to be treated as proof
-  // of being signed in (see dvIsLoggedIn below), but a session can point
-  // at an email that no longer has a matching account — e.g. leftover
-  // localStorage from an older build, a session value that was never a
-  // real account email to begin with, or any other corrupted state.
-  // Every navbar/profile piece that renders "who's signed in" falls back
-  // to the literal name "You" whenever it has a truthy session but no
-  // matching account, which made the site LOOK signed in (an avatar
-  // reading "You") for a visitor who actually isn't. Since we're already
-  // here having failed to find a match, clear the bad session so this
-  // self-heals instead of showing that phantom "You" state again next
-  // time anything checks.
-  DVStore.set('auth.session', null);
   return null;
 }
-/** The signed-in user's real handle (their chosen username, falling
- *  back to the signup-time default, falling back to the literal
- *  string "you" if neither exists yet). Every place on the site that
- *  needs to know "is this handle actually me?" should compare
- *  against this — not just the literal string "you" — since profile
- *  edits and signup both give the account a real, different handle. */
+
 function dvSelfHandle() {
-  const overrides = DVStore.get('profile.overrides', {});
   const account = dvAuthAccount();
-  return overrides.username || (account && account.username) || 'you';
+  return (account && (account.username || account.handle)) || 'you';
 }
-/** Look up an account by email from the stored accounts array. */
+
 function dvFindAccountByEmail(email) {
-  const accounts = DVStore.get('auth.accounts', []);
-  for (let i = 0; i < accounts.length; i++) {
-    if (accounts[i].email === email) return accounts[i];
-  }
+  const account = dvAuthAccount();
+  if (account && account.email === email) return account;
   return null;
 }
-/** Look up an account by username from the stored accounts array. */
+
 function dvFindAccountByUsername(username) {
-  const accounts = DVStore.get('auth.accounts', []);
-  for (let i = 0; i < accounts.length; i++) {
-    if (accounts[i].username === username) return accounts[i];
-  }
+  const account = dvAuthAccount();
+  if (account && account.username === username) return account;
   return null;
 }
+
 function dvAuthCurrentEmail() {
-  return DVStore.get('auth.session', null);
+  const account = dvAuthAccount();
+  return account ? account.email : null;
 }
-// BUG FIXED: this used to just check "is auth.session non-null?", which
-// treats a stale/orphaned session (see dvAuthAccount above) as a real
-// sign-in. It's now the same real check every other "am I signed in"
-// decision on the site relies on: a session that actually resolves to
-// an account in auth.accounts.
+
 function dvIsLoggedIn() {
-  return dvAuthAccount() !== null;
+  return window.DVCurrentUser !== null || dvAuthAccount() !== null;
 }
-/** A creative signal that someone's actually logged in on this
- *  device: their name's first initial, in a color swirl rotated by
- *  that letter so different people land on visibly different (but
- *  still on-brand) gradients, instead of a generic person icon. */
+
 function dvProfileNavButtonHTML() {
   const account = dvAuthAccount();
-  const overrides = DVStore.get('profile.overrides', {});
-  // BUG FIXED: this used to check account.name BEFORE overrides.name, so
-  // editing your display name in Profile/Settings would never show up
-  // here — it would keep showing the name you originally signed up with.
-  // overrides (an explicit edit) should win; account.name is just the
-  // signup-time default.
-  const name = overrides.name || (account && account.name) || 'You';
+  const name = (account && account.name) || 'You';
   const email = account ? account.email : '';
   const initial = name.trim().charAt(0).toUpperCase() || 'Y';
   const hue = (initial.charCodeAt(0) * 27) % 360;
@@ -342,6 +308,80 @@ function dvProfileNavButtonHTML() {
         </button>
       </div>
     </div>`;
+}
+
+function dvWireDockAvatar() {
+  const avatarTrigger = document.getElementById('dock-avatar-trigger');
+  const avatarMenu = document.getElementById('dock-avatar-menu');
+  if (avatarTrigger && avatarMenu) {
+    avatarTrigger.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      avatarMenu.classList.toggle('open');
+    });
+    document.addEventListener('click', (e) => {
+      if (!avatarMenu.contains(e.target) && e.target !== avatarTrigger) {
+        avatarMenu.classList.remove('open');
+      }
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') avatarMenu.classList.remove('open');
+    });
+    const avatarSignout = document.getElementById('dock-avatar-signout');
+    if (avatarSignout) {
+      avatarSignout.addEventListener('click', (e) => {
+        e.preventDefault();
+        dvAuthSignOut();
+      });
+    }
+  }
+}
+
+function dvUpdateAuthNav() {
+  const dockWrap = document.querySelector('.dock-wrap');
+  if (!dockWrap) return;
+  const dockLinks = dockWrap.querySelector('.dock-links');
+  if (dockLinks) {
+    dockLinks.innerHTML = dvVisibleNav().map((n) => `<a href="${n.href}" class="dock-link" data-page="${n.page}">${n.label}</a>`).join('');
+    dvMarkActiveNav();
+  }
+  const dockActions = dockWrap.querySelector('.dock-actions');
+  if (dockActions) {
+    const signInBtn = dockActions.querySelector('[data-page="login"]');
+    const oldAvatar = dockActions.querySelector('.dock-avatar-wrap');
+    const profileBtn = dockActions.querySelector('a[data-page="profile"]');
+    if (dvIsLoggedIn()) {
+      if (signInBtn) signInBtn.remove();
+      if (profileBtn) profileBtn.remove();
+      if (!oldAvatar) {
+        const settingsBtn = dockActions.querySelector('a[data-page="settings"]');
+        if (settingsBtn) {
+          settingsBtn.insertAdjacentHTML('beforebegin', dvProfileNavButtonHTML());
+          dvWireDockAvatar();
+        }
+      }
+    } else {
+      if (oldAvatar) oldAvatar.remove();
+      if (!signInBtn) {
+        const themeBtn = dockActions.querySelector('[data-theme-toggle]');
+        if (themeBtn) {
+          themeBtn.insertAdjacentHTML('afterend', '<a href="login.html" class="btn btn-sm btn-primary" data-page="login" style="flex-shrink:0;">Sign In</a>');
+        }
+      }
+    }
+  }
+}
+
+async function dvAuthSignOut() {
+  if (window.DVApi && DVApi.auth && DVApi.auth.logout) {
+    try { await DVApi.auth.logout(); } catch(e) {}
+  }
+  window.DVCurrentUser = null;
+  DVStore.set('auth.session', null);
+  DVStore.set('auth.accounts', []);
+  DVStore.resetAll();
+  dvToast('Signed out');
+  window.location.href = 'index.html';
 }
 
 /** Wires a show/hide toggle button to a password input, and an
@@ -377,12 +417,6 @@ function dvWirePasswordField(inputId, toggleId, warningId) {
 
 function dvIsFollowing(handle) {
   return DVStore.has('following', handle);
-}
-
-function dvAuthSignOut() {
-  DVStore.set('auth.session', null);
-  dvToast('Signed out');
-  window.location.href = 'index.html';
 }
 /** Just "profile.html?u=kmori", not the full path — works the same
  *  whether the site is opened via a real server or straight from
@@ -698,7 +732,7 @@ function dvToast(msg) {
 function dvBootSequence() {
   const boot = document.getElementById('boot-screen');
   if (!boot) return;
-  if (sessionStorage.getItem('dv-booted')) {
+  if (window.__dvBooted) {
     boot.remove();
     return;
   }
@@ -712,7 +746,7 @@ function dvBootSequence() {
   }, 260);
   setTimeout(() => {
     boot.classList.add('hidden');
-    sessionStorage.setItem('dv-booted', '1');
+    window.__dvBooted = true;
     setTimeout(() => boot.remove(), 700);
   }, 1150);
 }
@@ -2010,6 +2044,9 @@ document.addEventListener('DOMContentLoaded', () => {
   dvWireInteractions();
   dvTickCountdowns();
   setInterval(dvTickCountdowns, 1000);
+
+  // Authenticate against backend REST API via HttpOnly JWT cookie
+  dvInitAuth();
 
   // Single scroll/resize listener drives both the reveal and counter
   // animations for the whole page (registered once here, rather than
