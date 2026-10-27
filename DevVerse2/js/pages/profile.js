@@ -331,8 +331,8 @@ function dvRenderLibrary(kind) {
   // project-only for now, since there's no "like a hackathon" action.
   const projectIds = ids.filter((id) => !id.startsWith('hack-'));
   const hackathonIds = ids.filter((id) => id.startsWith('hack-')).map((id) => id.slice(5));
-  const projects = dvAllProjects().filter((p) => projectIds.includes(p.id));
-  const hackathons = kind === 'bookmarks' ? DV_HACKATHONS.filter((h) => hackathonIds.includes(h.id)) : [];
+  const projects = dvAllProjects().filter((p) => projectIds.includes(p.id) || (p.legacyId && projectIds.includes(p.legacyId)) || (p._id && projectIds.includes(p._id.toString())));
+  const hackathons = kind === 'bookmarks' ? DV_HACKATHONS.filter((h) => hackathonIds.includes(h.id) || (h.legacyId && hackathonIds.includes(h.legacyId)) || (h._id && hackathonIds.includes(h._id.toString()))) : [];
 
   if (!projects.length && !hackathons.length) {
     container.innerHTML = `<p class="muted">No ${kind === 'bookmarks' ? 'bookmarked' : 'liked'} projects yet — head to <a href="explore.html" style="color:var(--accent);">Explore</a> and save a few.</p>`;

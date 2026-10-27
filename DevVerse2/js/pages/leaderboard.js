@@ -80,21 +80,40 @@ function dvRenderLeaderboard() {
   const loggedIn = dvIsLoggedIn();
 
   if (dvBoardMode === 'developers') {
-    const since = dvBoardRange === 'weekly' ? Date.now() - 7 * 86400000 : Date.now() - 30 * 86400000;
     const overrides = DVStore.get('profile.overrides', {});
     const account = dvAuthAccount();
-    const you = loggedIn ? {
-      handle: 'you',
-      // BUG FIXED: missing account.name fallback showed "You" on the
-      // leaderboard even for a signed-up account.
-      name: overrides.name || (account && account.name) || 'You',
-      avatarSeed: overrides.avatarSeed || 'you-builder',
-      points: dvPointsTotal(since),
-      allTimePoints: dvPointsTotal(),
-      isYou: true,
-    } : null;
+    const selfHandle = dvSelfHandle();
+    const currentPoints = dvPointsTotal();
+
     const sourceDevs = dvLiveDevRankings || DV_DEVS;
-    const list = [...sourceDevs.map((d) => ({ ...d, points: Math.round(d.points * factor), allTimePoints: d.points })), ...(you ? [you] : [])].sort((a, b) => b.points - a.points);
+    let foundYou = false;
+
+    const mappedDevs = sourceDevs.map((d) => {
+      const isMe = loggedIn && (d.handle === selfHandle || d.handle === (account && account.username) || d.handle === 'you');
+      if (isMe) foundYou = true;
+      const pts = isMe ? currentPoints : d.points;
+      return {
+        ...d,
+        name: isMe ? (overrides.name || (account && account.name) || d.name || 'You') : d.name,
+        avatarSeed: isMe ? (overrides.avatarSeed || (account && account.avatarSeed) || d.avatarSeed || 'you-builder') : d.avatarSeed,
+        points: Math.round(pts * factor),
+        allTimePoints: pts,
+        isYou: isMe,
+      };
+    });
+
+    if (loggedIn && !foundYou) {
+      mappedDevs.push({
+        handle: selfHandle,
+        name: overrides.name || (account && account.name) || 'You',
+        avatarSeed: overrides.avatarSeed || (account && account.avatarSeed) || 'you-builder',
+        points: Math.round(currentPoints * factor),
+        allTimePoints: currentPoints,
+        isYou: true,
+      });
+    }
+
+    const list = mappedDevs.sort((a, b) => b.points - a.points);
     const max = Math.max(...list.map((d) => d.points), 1);
     root.innerHTML = list.map((d, i) => `
       <div class="rank-row ${i < 3 ? 'top' + (i + 1) : ''} ${d.isYou ? 'rank-row-you' : ''} reveal in">

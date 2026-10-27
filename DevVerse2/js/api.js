@@ -222,6 +222,7 @@ const DVApi = {
   // ---------------------------------------------------------
   bookmarks: {
     get: () => DVApi.request('/bookmarks'),
+    getLikes: () => DVApi.request('/bookmarks/likes'),
   },
 
   // ---------------------------------------------------------

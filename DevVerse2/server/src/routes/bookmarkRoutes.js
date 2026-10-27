@@ -8,5 +8,6 @@ const { protect } = require('../middleware/auth');
 
 router.use(protect);
 router.get('/', bookmarkController.getMyBookmarks);
+router.get('/likes', bookmarkController.getMyLikes);
 
 module.exports = router;

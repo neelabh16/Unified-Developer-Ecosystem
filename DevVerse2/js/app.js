@@ -243,6 +243,22 @@ function dvInitAuth() {
               }
             } catch (bmErr) {}
           }
+
+          // Fetch user likes from backend API
+          if (DVApi.bookmarks && DVApi.bookmarks.getLikes) {
+            try {
+              const likesRes = await DVApi.bookmarks.getLikes();
+              if (likesRes && likesRes.data) {
+                const likedProjectIds = likesRes.data.projectIds || [];
+                DVStore.set('likes', likedProjectIds);
+                document.querySelectorAll('[data-like]').forEach((btn) => {
+                  const pId = btn.dataset.like;
+                  const active = DVStore.has('likes', pId);
+                  btn.classList.toggle('liked', active);
+                });
+              }
+            } catch (likeErr) {}
+          }
         } else {
           window.DVCurrentUser = null;
           DVStore.set('auth.session', null);
@@ -1552,9 +1568,13 @@ function dvAwardPoints(amount, reason) {
   }
 
   // Update live DOM points displays if any are visible on current page
-  document.querySelectorAll('[data-user-points], #profile-points, #nav-user-points, .user-points-badge').forEach((el) => {
-    el.textContent = afterPoints;
+  document.querySelectorAll('[data-user-points], #profile-points, #nav-user-points, .user-points-badge, #your-points-total').forEach((el) => {
+    el.textContent = afterPoints.toLocaleString ? afterPoints.toLocaleString() : afterPoints;
   });
+
+  // Re-render leaderboard live if user is on the leaderboard page
+  if (typeof dvRenderLeaderboard === 'function') dvRenderLeaderboard();
+  if (typeof dvRenderYourPoints === 'function') dvRenderYourPoints();
   
   return amount;
 }
@@ -1729,7 +1749,13 @@ function dvParseGithubRepoUrl(url) {
 function dvPointsTotal(sinceMs) {
   const log = DVStore.get('points.log', []);
   const sum = log.reduce((s, entry) => (!sinceMs || entry.at >= sinceMs ? s + entry.amount : s), 0);
-  if (sinceMs) return sum;
+  if (sinceMs) {
+    if (sum > 0) return sum;
+    if (window.DVCurrentUser && typeof window.DVCurrentUser.points === 'number') {
+      return Math.round(window.DVCurrentUser.points * 0.18);
+    }
+    return sum;
+  }
   if (window.DVCurrentUser && typeof window.DVCurrentUser.points === 'number') {
     return Math.max(window.DVCurrentUser.points, sum);
   }
@@ -1894,7 +1920,13 @@ function dvWireInteractions(root = document) {
         dvToast(active ? 'Added to your likes' : 'Removed from your likes');
       }
       if (window.DVApi && DVApi.projects && DVApi.projects.toggleLike) {
-        DVApi.projects.toggleLike(id).catch(function () {});
+        DVApi.projects.toggleLike(id).then(function (res) {
+          if (res && res.data && typeof res.data.userPoints === 'number' && window.DVCurrentUser) {
+            window.DVCurrentUser.points = res.data.userPoints;
+          }
+          if (typeof dvRenderLeaderboard === 'function') dvRenderLeaderboard();
+          if (typeof dvRenderYourPoints === 'function') dvRenderYourPoints();
+        }).catch(function () {});
       }
     }
     const bmBtn = e.target.closest('[data-bookmark]');
@@ -1910,10 +1942,17 @@ function dvWireInteractions(root = document) {
         dvToast(active ? 'Saved to bookmarks' : 'Removed from bookmarks');
       }
       if (window.DVApi) {
-        if (id.indexOf('hack-') === 0 && DVApi.hackathons && DVApi.hackathons.toggleBookmark) {
-          DVApi.hackathons.toggleBookmark(id.replace('hack-', '')).catch(function () {});
-        } else if (DVApi.projects && DVApi.projects.toggleBookmark) {
-          DVApi.projects.toggleBookmark(id).catch(function () {});
+        const req = (id.indexOf('hack-') === 0 && DVApi.hackathons && DVApi.hackathons.toggleBookmark)
+          ? DVApi.hackathons.toggleBookmark(id.replace('hack-', ''))
+          : (DVApi.projects && DVApi.projects.toggleBookmark ? DVApi.projects.toggleBookmark(id) : null);
+        if (req && req.then) {
+          req.then(function (res) {
+            if (res && res.data && typeof res.data.userPoints === 'number' && window.DVCurrentUser) {
+              window.DVCurrentUser.points = res.data.userPoints;
+            }
+            if (typeof dvRenderLeaderboard === 'function') dvRenderLeaderboard();
+            if (typeof dvRenderYourPoints === 'function') dvRenderYourPoints();
+          }).catch(function () {});
         }
       }
     }

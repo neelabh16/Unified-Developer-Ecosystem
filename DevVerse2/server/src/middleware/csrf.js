@@ -18,18 +18,23 @@ const csrfProtection = (req, res, next) => {
     return next();
   }
 
-  const allowedOrigins = [process.env.CLIENT_ORIGIN].filter(Boolean);
-
-  // In development, also allow common local origins
-  if (process.env.NODE_ENV === 'development') {
-    allowedOrigins.push(
-      'http://localhost:5500',
-      'http://127.0.0.1:5500',
-      'http://localhost:3000',
-      'http://127.0.0.1:3000',
-      'http://localhost:5173'
-    );
+  // Header-based Bearer token authentication is inherently CSRF-immune
+  const authHeader = req.get('Authorization') || req.headers?.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return next();
   }
+
+  const allowedOrigins = [
+    process.env.CLIENT_ORIGIN,
+    'http://localhost:5000',
+    'http://127.0.0.1:5000',
+    'http://localhost:5500',
+    'http://127.0.0.1:5500',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://localhost:5173',
+    'http://localhost:8080',
+  ].filter(Boolean);
 
   const origin = req.get('Origin');
   const referer = req.get('Referer');

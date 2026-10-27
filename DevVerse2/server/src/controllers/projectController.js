@@ -11,6 +11,24 @@ const AppError = require('../utils/AppError');
 const { sendSuccess } = require('../utils/response');
 
 /**
+ * Safely look up a project by MongoDB ObjectId or legacyId (e.g. 'p1').
+ */
+const findProjectByIdOrLegacy = async (id, populateAuthor = false) => {
+  let project = null;
+  if (mongoose.Types.ObjectId.isValid(id)) {
+    project = populateAuthor
+      ? await Project.findById(id).populate('author', 'name username avatarSeed points')
+      : await Project.findById(id);
+  }
+  if (!project) {
+    project = populateAuthor
+      ? await Project.findOne({ legacyId: id }).populate('author', 'name username avatarSeed points')
+      : await Project.findOne({ legacyId: id });
+  }
+  return project;
+};
+
+/**
  * List projects with search, category/difficulty filtering, sorting, and pagination.
  * GET /api/v1/projects
  */
@@ -233,9 +251,7 @@ const deleteProject = async (req, res, next) => {
 const toggleLike = async (req, res, next) => {
   try {
     const { id } = req.params;
-
-    let project = await Project.findById(id);
-    if (!project) project = await Project.findOne({ legacyId: id });
+    const project = await findProjectByIdOrLegacy(id);
 
     if (!project) {
       return next(new AppError('Project not found', 404));
@@ -278,9 +294,11 @@ const toggleLike = async (req, res, next) => {
     }
 
     const updated = await Project.findById(project._id);
+    const updatedUser = await User.findById(req.user._id).select('points');
     return sendSuccess(res, 200, liked ? 'Project liked' : 'Project unliked', {
       liked,
       likesCount: updated.likesCount,
+      userPoints: updatedUser ? updatedUser.points : undefined,
     });
   } catch (error) {
     next(error);
@@ -294,9 +312,7 @@ const toggleLike = async (req, res, next) => {
 const toggleBookmark = async (req, res, next) => {
   try {
     const { id } = req.params;
-
-    let project = await Project.findById(id);
-    if (!project) project = await Project.findOne({ legacyId: id });
+    const project = await findProjectByIdOrLegacy(id);
 
     if (!project) {
       return next(new AppError('Project not found', 404));
@@ -333,8 +349,10 @@ const toggleBookmark = async (req, res, next) => {
       });
     }
 
+    const updatedUser = await User.findById(req.user._id).select('points');
     return sendSuccess(res, 200, bookmarked ? 'Project bookmarked' : 'Bookmark removed', {
       bookmarked,
+      userPoints: updatedUser ? updatedUser.points : undefined,
     });
   } catch (error) {
     next(error);
@@ -378,9 +396,7 @@ const trackView = async (req, res, next) => {
 const getComments = async (req, res, next) => {
   try {
     const { id } = req.params;
-
-    let project = await Project.findById(id);
-    if (!project) project = await Project.findOne({ legacyId: id });
+    const project = await findProjectByIdOrLegacy(id);
 
     if (!project) {
       return next(new AppError('Project not found', 404));
@@ -406,8 +422,7 @@ const addComment = async (req, res, next) => {
       return next(new AppError('Comment text is required.', 400));
     }
 
-    let project = await Project.findById(id);
-    if (!project) project = await Project.findOne({ legacyId: id });
+    const project = await findProjectByIdOrLegacy(id);
 
     if (!project) {
       return next(new AppError('Project not found', 404));
@@ -431,7 +446,11 @@ const addComment = async (req, res, next) => {
       entityId: comment._id.toString(),
     });
 
-    return sendSuccess(res, 201, 'Comment added successfully', { comment });
+    const updatedUser = await User.findById(req.user._id).select('points');
+    return sendSuccess(res, 201, 'Comment added successfully', {
+      comment,
+      userPoints: updatedUser ? updatedUser.points : undefined,
+    });
   } catch (error) {
     next(error);
   }
