@@ -35,6 +35,31 @@ function dvRenderTrendingProjects() {
   if (!root) return;
   const list = [...dvAllProjects()].sort((a, b) => b.likes - a.likes).slice(0, 6);
   root.innerHTML = list.map(dvProjectCardHTML).join('');
+
+  if (window.DVApi && DVApi.projects && DVApi.projects.list) {
+    DVApi.projects.list({ limit: 20 }).then(function (res) {
+      const items = (res && res.data && (res.data.projects || (Array.isArray(res.data) ? res.data : []))) || [];
+      if (items && items.length) {
+        const liveList = items.map(function (p) {
+          return {
+            id: p.legacyId || p.slug || p.id || p._id,
+            title: p.title,
+            desc: p.desc || p.tagline,
+            tags: p.tags || [],
+            difficulty: p.difficulty || 'Intermediate',
+            category: p.category || 'General',
+            likes: p.likesCount || p.likes || 0,
+            views: p.viewsCount || p.views || 0,
+            author: (p.author && (p.author.username || p.author.name)) || p.author || 'devverse',
+            gradient: typeof p.gradient === 'number' ? p.gradient : 0,
+            art: p.art || null
+          };
+        }).sort((a, b) => b.likes - a.likes).slice(0, 6);
+        root.innerHTML = liveList.map(dvProjectCardHTML).join('');
+        dvReveal(root);
+      }
+    }).catch(function () {});
+  }
 }
 
 function dvRenderTopDevs() {
@@ -111,6 +136,29 @@ function dvRenderCommunityHighlights() {
 function dvLiveActivity() {
   const root = document.getElementById('activity-feed');
   if (!root) return;
+
+  if (window.DVApi && DVApi.activity && DVApi.activity.feed) {
+    DVApi.activity.feed().then(function (res) {
+      const feedItems = (res && res.data && res.data.feed) || [];
+      if (feedItems && feedItems.length > 0) {
+        root.innerHTML = feedItems.slice(0, 7).map(function (item) {
+          const uName = (item.user && (item.user.name || item.user.username)) || 'Builder';
+          const uAvatar = (item.user && (item.user.avatarSeed || item.user.username)) || 'builder';
+          const desc = item.description || item.action || 'earned points';
+          const ago = typeof dvForumAgo === 'function' ? dvForumAgo(new Date(item.createdAt).getTime()) : 'recently';
+          return `
+            <div class="feed-item">
+              <img src="${dvAvatar(uAvatar, 40)}" alt="">
+              <div>
+                <div class="feed-text"><b>${uName}</b> ${desc}</div>
+                <div class="feed-time">${ago}</div>
+              </div>
+            </div>`;
+        }).join('');
+      }
+    }).catch(function () {});
+  }
+
   const devs = DV_DEVS.map((d) => d.handle);
   const projects = DV_PROJECTS.map((p) => p.title);
 

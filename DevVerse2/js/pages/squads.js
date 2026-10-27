@@ -103,11 +103,12 @@ function dvSquadsInit() {
   const root = document.getElementById('squads-root');
   if (!root) return;
 
-  if (!dvIsLoggedIn()) {
-    dvToast('Sign in to use Squads');
-    window.location.href = 'login.html?redirect=' + encodeURIComponent(dvCurrentPageWithQuery());
-    return;
-  }
+  dvEnsureAuth().then(() => {
+    if (!dvIsLoggedIn()) {
+      dvToast('Sign in to use Squads');
+      window.location.href = 'login.html?redirect=' + encodeURIComponent(dvCurrentPageWithQuery());
+      return;
+    }
 
   const profile = dvSquadFinderProfile();
   const allSkills = dvAllDevSkills();
@@ -204,6 +205,7 @@ function dvSquadsInit() {
   });
 
   dvReveal(root);
+  });
 }
 
 function dvRenderSquadSkillChips(allSkills, profile) {

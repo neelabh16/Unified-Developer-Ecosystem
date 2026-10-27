@@ -109,7 +109,15 @@ function dvSignupInit() {
         username: user.username,
         bio: user.bio || '',
         avatarSeed: user.avatarSeed || 'you-builder',
+        points: user.points || 0,
       });
+      if ((user.points || 0) > 0) {
+        DVStore.set('points.log', [{
+          amount: user.points,
+          reason: 'Signup welcome bonus',
+          at: Date.now()
+        }]);
+      }
 
       dvToast(`Welcome to DevVerse, ${user.name.split(' ')[0]}!`);
       setTimeout(() => {

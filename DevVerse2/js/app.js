@@ -198,6 +198,33 @@ function dvInitAuth() {
             points: res.data.user.points || 0,
           });
 
+          // Fetch user activity / points log from backend
+          if (DVApi.activity && DVApi.activity.mine) {
+            try {
+              const actRes = await DVApi.activity.mine();
+              if (actRes && actRes.data) {
+                if (typeof actRes.data.totalPoints === 'number') {
+                  window.DVCurrentUser.points = actRes.data.totalPoints;
+                }
+                if (Array.isArray(actRes.data.log) && actRes.data.log.length > 0) {
+                  const mappedLog = actRes.data.log.map((item) => ({
+                    amount: item.pointsEarned || item.amount || 0,
+                    reason: item.description || item.action || 'Activity',
+                    at: new Date(item.createdAt).getTime() || Date.now(),
+                  }));
+                  DVStore.set('points.log', mappedLog);
+                }
+              }
+            } catch (actErr) {}
+          }
+          if (!DVStore.get('points.log', []).length && (window.DVCurrentUser.points || 0) > 0) {
+            DVStore.set('points.log', [{
+              amount: window.DVCurrentUser.points,
+              reason: 'Initial account balance',
+              at: Date.now()
+            }]);
+          }
+
           // Fetch user bookmarks from backend API
           if (DVApi.bookmarks && DVApi.bookmarks.get) {
             try {
@@ -1500,6 +1527,11 @@ function dvTierIconHTML(handle) {
 function dvAwardPoints(amount, reason) {
   const beforePoints = dvPointsTotal();
   const beforeTier = dvCurrentTier(beforePoints);
+  
+  if (window.DVCurrentUser) {
+    window.DVCurrentUser.points = (window.DVCurrentUser.points || 0) + amount;
+  }
+  
   const log = DVStore.get('points.log', []);
   log.push({ amount, reason, at: Date.now() });
   DVStore.set('points.log', log);
@@ -1518,6 +1550,11 @@ function dvAwardPoints(amount, reason) {
   if (beforePoints < 200 && afterPoints >= 200) {
     dvToast(`📚 The Codex just unlocked!`);
   }
+
+  // Update live DOM points displays if any are visible on current page
+  document.querySelectorAll('[data-user-points], #profile-points, #nav-user-points, .user-points-badge').forEach((el) => {
+    el.textContent = afterPoints;
+  });
   
   return amount;
 }
@@ -1691,7 +1728,12 @@ function dvParseGithubRepoUrl(url) {
 /** Sums the points log, optionally only entries at/after `sinceMs`. */
 function dvPointsTotal(sinceMs) {
   const log = DVStore.get('points.log', []);
-  return log.reduce((sum, entry) => (!sinceMs || entry.at >= sinceMs ? sum + entry.amount : sum), 0);
+  const sum = log.reduce((s, entry) => (!sinceMs || entry.at >= sinceMs ? s + entry.amount : s), 0);
+  if (sinceMs) return sum;
+  if (window.DVCurrentUser && typeof window.DVCurrentUser.points === 'number') {
+    return Math.max(window.DVCurrentUser.points, sum);
+  }
+  return sum;
 }
 
 /** Awards points for a given id exactly once, ever, per bucket — so

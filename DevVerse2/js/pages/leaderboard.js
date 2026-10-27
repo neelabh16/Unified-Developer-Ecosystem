@@ -59,7 +59,10 @@ function dvLeaderboardInit() {
   }));
 
   dvRenderLeaderboard();
-  dvFetchLeaderboardApi();
+  dvEnsureAuth().then(() => {
+    dvRenderLeaderboard();
+    dvFetchLeaderboardApi();
+  });
 }
 
 function dvRenderLeaderboard() {

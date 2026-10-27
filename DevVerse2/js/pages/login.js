@@ -55,7 +55,15 @@ function dvLoginInit() {
         username: user.username,
         bio: user.bio || '',
         avatarSeed: user.avatarSeed || 'you-builder',
+        points: user.points || 0,
       });
+      if ((user.points || 0) > 0) {
+        DVStore.set('points.log', [{
+          amount: user.points,
+          reason: 'Account points balance',
+          at: Date.now()
+        }]);
+      }
 
       dvToast(`Welcome back, ${user.name.split(' ')[0]}!`);
       setTimeout(() => {
