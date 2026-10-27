@@ -25,9 +25,10 @@ function dvRenderDevVerseRoster(hackathonId, devList, isRegistered) {
     `);
   }
 
+  const selfHandle = typeof dvSelfHandle === 'function' ? dvSelfHandle() : 'you';
   devList.forEach((item) => {
     const handle = typeof item === 'string' ? item : (item.username || item.handle);
-    if (handle === 'you') return;
+    if (handle === 'you' || handle === selfHandle) return;
 
     let dev = typeof DV_DEVS !== 'undefined' ? DV_DEVS.find((d) => d.handle === handle) : null;
     const name = (typeof item === 'object' && item.name) || (dev ? dev.name : handle);
@@ -120,6 +121,7 @@ function dvHackathonDetailInit() {
             <span class="chip"><span class="mono" id="roster-count-chip">${initialCount}</span> builders</span>
           </div>
           <div id="hackathon-devverse-roster" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:12px;"></div>
+          <div id="hackathon-devverse-squads"></div>
         </section>
 
         <section class="reveal in">
@@ -186,7 +188,7 @@ function dvHackathonDetailInit() {
           if (h._id) DVStore.addToSet('hackathons', h._id);
           const regBtn = document.querySelector(`[data-register="${h.id}"]`);
           if (regBtn) {
-            regBtn.textContent = 'Registered ✓';
+            regBtn.textContent = data.registeredSquad ? `Registered (${data.registeredSquad.name}) ✓` : 'Registered ✓';
             regBtn.classList.remove('btn-primary');
             regBtn.classList.add('btn-outline');
           }
@@ -196,6 +198,27 @@ function dvHackathonDetailInit() {
           dvRenderDevVerseRoster(h.id, data.devverseParticipants, isReg);
         } else if (isReg !== registered) {
           dvRenderDevVerseRoster(h.id, dvList, isReg);
+        }
+
+        // Render competing squads if present
+        const squadsContainer = document.getElementById('hackathon-devverse-squads');
+        if (squadsContainer && data.registeredSquads && data.registeredSquads.length > 0) {
+          squadsContainer.innerHTML = `
+            <div class="glass" style="padding:16px 20px; border-left:3px solid var(--accent); margin-top:16px;">
+              <div class="eyebrow" style="margin-bottom:8px;">DevVerse Squads Competing</div>
+              <div style="display:flex; flex-direction:column; gap:10px;">
+                ${data.registeredSquads.map((sq) => `
+                  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                    <div>
+                      <span style="font-weight:600; font-size:14px;">${sq.name}</span>
+                      ${sq.description ? `<span class="muted" style="font-size:12px; margin-left:8px;">— ${sq.description}</span>` : ''}
+                    </div>
+                    <span class="chip">${sq.members ? sq.members.length : 1} builders</span>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `;
         }
       }
     }).catch(function () {});

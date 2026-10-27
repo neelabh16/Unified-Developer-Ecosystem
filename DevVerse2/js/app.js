@@ -1372,8 +1372,20 @@ function dvNormalizeBackendSquad(s) {
   if (members.indexOf('you') === -1) members.unshift('you');
 
   const registeredHackathons = (s.registeredHackathons || []).map((h) => {
-    if (typeof h === 'string') return h;
-    return h.legacyId || h.id || h._id;
+    if (typeof h === 'string') {
+      const match = typeof DV_HACKATHONS !== 'undefined' ? DV_HACKATHONS.find((dh) => dh.id === h || dh.legacyId === h || (dh._id && dh._id.toString() === h.toString())) : null;
+      return match ? match.id : h;
+    }
+    if (h && typeof h === 'object') {
+      const legacy = h.legacyId || h.id;
+      if (legacy) return legacy;
+      if (h.title && typeof DV_HACKATHONS !== 'undefined') {
+        const byTitle = DV_HACKATHONS.find((dh) => dh.title.toLowerCase() === h.title.toLowerCase());
+        if (byTitle) return byTitle.id;
+      }
+      return h._id ? h._id.toString() : (h.id || '');
+    }
+    return h;
   });
 
   const sqId = (s._id ? s._id.toString() : s.id) || ('squad-' + Date.now());
@@ -1439,6 +1451,7 @@ function dvRegisterSquadForHackathon(squadId, hackathonId) {
   const squads = dvSquads();
   const squad = squads.find((s) => s.id === squadId || s._id === squadId);
   if (!squad) return false;
+  if (!squad.registeredHackathons) squad.registeredHackathons = [];
   if (squad.registeredHackathons.indexOf(hackathonId) !== -1) return false;
   squad.registeredHackathons.push(hackathonId);
   dvSaveSquads(squads);
@@ -1447,15 +1460,26 @@ function dvRegisterSquadForHackathon(squadId, hackathonId) {
   // everywhere else on the site (hackathon cards, the detail page,
   // your profile library) so there's one source of truth instead of
   // two registration states that can drift apart.
-  const personal = DVStore.get('hackathons', []);
-  if (personal.indexOf(hackathonId) === -1) {
-    personal.push(hackathonId);
-    DVStore.set('hackathons', personal);
+  DVStore.addToSet('hackathons', hackathonId);
+  const matchH = typeof DV_HACKATHONS !== 'undefined' ? DV_HACKATHONS.find((h) => h.id === hackathonId || h.legacyId === hackathonId) : null;
+  if (matchH) {
+    DVStore.addToSet('hackathons', matchH.id);
+    if (matchH.legacyId) DVStore.addToSet('hackathons', matchH.legacyId);
   }
+
   dvAwardOnce('squadHackathon', `${squadId}-${hackathonId}`, DV_POINT_VALUES.squadRegister, 'Registered a squad for a hackathon');
   if (window.DVApi && DVApi.squads && DVApi.squads.registerHackathon) {
     const apiSquadId = squad._id || squad.id;
-    DVApi.squads.registerHackathon(apiSquadId, hackathonId).catch(function () {});
+    DVApi.squads.registerHackathon(apiSquadId, hackathonId).then(function (res) {
+      if (res && res.data && res.data.squad) {
+        const updated = dvNormalizeBackendSquad(res.data.squad);
+        const idx = squads.findIndex((s) => s.id === squad.id || s._id === squad.id);
+        if (idx !== -1) squads[idx] = updated;
+        else squads.push(updated);
+        dvSaveSquads(squads);
+        dvRefreshSquadDisplays();
+      }
+    }).catch(function () {});
   }
   return true;
 }

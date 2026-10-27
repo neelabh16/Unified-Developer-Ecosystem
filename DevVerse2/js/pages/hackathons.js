@@ -41,9 +41,11 @@ function dvHackathonsInit() {
       const items = (res && res.data && (res.data.hackathons || res.data)) || null;
       if (items && items.length) {
         items.forEach((h) => {
-          if (res.data && res.data.registeredIds && res.data.registeredIds.indexOf(h._id) !== -1) {
+          const isReg = res.data && res.data.registeredIds && res.data.registeredIds.some((rid) => rid.toString() === (h._id ? h._id.toString() : '') || rid.toString() === (h.id || '') || rid.toString() === (h.legacyId || ''));
+          if (isReg) {
             if (h.legacyId) DVStore.addToSet('hackathons', h.legacyId);
             if (h.id) DVStore.addToSet('hackathons', h.id);
+            if (h._id) DVStore.addToSet('hackathons', h._id.toString());
           }
         });
         dvRenderHackathonList(items);

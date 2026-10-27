@@ -391,8 +391,16 @@ function dvRenderMySquads() {
 
 function dvSquadCardHTML(squad) {
   const members = squad.members.map(dvSquadMemberInfo).filter(Boolean);
-  const registered = squad.registeredHackathons.map((id) => DV_HACKATHONS.find((h) => h.id === id || h.legacyId === id || (h._id && h._id.toString() === id.toString()))).filter(Boolean);
-  const availableHackathons = DV_HACKATHONS.filter((h) => squad.registeredHackathons.indexOf(h.id) === -1 && squad.registeredHackathons.indexOf(h.legacyId) === -1 && (!h._id || squad.registeredHackathons.indexOf(h._id.toString()) === -1));
+  const regList = squad.registeredHackathons || [];
+  const registered = regList.map((id) => {
+    return DV_HACKATHONS.find((h) =>
+      h.id === id ||
+      h.legacyId === id ||
+      (h.title && typeof id === 'string' && h.title.toLowerCase() === id.toLowerCase()) ||
+      (h._id && h._id.toString() === id.toString())
+    );
+  }).filter(Boolean);
+  const availableHackathons = DV_HACKATHONS.filter((h) => !registered.some((r) => r.id === h.id));
 
   return `
   <div class="glass reveal in squad-card" style="padding:24px; margin-bottom:20px;">

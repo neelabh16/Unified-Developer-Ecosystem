@@ -17,7 +17,7 @@ const getMySquads = async (req, res, next) => {
   try {
     const squads = await Squad.find({ members: req.user._id })
       .populate('members', 'name username avatarSeed bio skills points')
-      .populate('registeredHackathons', 'title prize difficulty end tags');
+      .populate('registeredHackathons', 'title prize difficulty end tags legacyId');
 
     return sendSuccess(res, 200, 'Squads retrieved', { squads });
   } catch (error) {
@@ -59,7 +59,7 @@ const createSquad = async (req, res, next) => {
 
     const populated = await Squad.findById(squad._id)
       .populate('members', 'name username avatarSeed bio skills points')
-      .populate('registeredHackathons', 'title prize difficulty end tags');
+      .populate('registeredHackathons', 'title prize difficulty end tags legacyId');
 
     // Award 20 points for forming a squad
     await User.findByIdAndUpdate(req.user._id, { $inc: { points: 20 } });
@@ -163,7 +163,7 @@ const addSquadMember = async (req, res, next) => {
 
     const populated = await Squad.findById(squad._id)
       .populate('members', 'name username avatarSeed bio skills points')
-      .populate('registeredHackathons', 'title prize difficulty end tags');
+      .populate('registeredHackathons', 'title prize difficulty end tags legacyId');
 
     return sendSuccess(res, 200, `Added @${username} to squad`, { squad: populated });
   } catch (error) {
@@ -205,12 +205,11 @@ const registerSquadHackathon = async (req, res, next) => {
       return next(new AppError('Hackathon not found', 404));
     }
 
-    if (squad.registeredHackathons.some((h) => h.toString() === hackathon._id.toString())) {
-      return next(new AppError('Squad is already registered for this hackathon.', 400));
+    const alreadyRegistered = squad.registeredHackathons.some((h) => h.toString() === hackathon._id.toString());
+    if (!alreadyRegistered) {
+      squad.registeredHackathons.push(hackathon._id);
+      await squad.save();
     }
-
-    squad.registeredHackathons.push(hackathon._id);
-    await squad.save();
 
     // Register all members for this hackathon
     for (const memberId of squad.members) {
@@ -225,20 +224,32 @@ const registerSquadHackathon = async (req, res, next) => {
           squad: squad._id,
         });
         await Hackathon.findByIdAndUpdate(hackathon._id, { $inc: { participantsCount: 1 } });
+      } else if (!existing.squad) {
+        existing.squad = squad._id;
+        await existing.save();
       }
     }
 
-    // Award 30 points for squad registration
-    await User.findByIdAndUpdate(req.user._id, { $inc: { points: 30 } });
-    await Activity.create({
-      user: req.user._id,
-      amount: 30,
-      reason: `Registered squad "${squad.name}" for "${hackathon.title}"`,
-      bucket: 'squadRegister',
-      entityId: `${squad._id}-${hackathon._id}`,
-    });
+    if (!alreadyRegistered) {
+      // Award 30 points for squad registration
+      await User.findByIdAndUpdate(req.user._id, { $inc: { points: 30 } });
+      await Activity.create({
+        user: req.user._id,
+        amount: 30,
+        reason: `Registered squad "${squad.name}" for "${hackathon.title}"`,
+        bucket: 'squadRegister',
+        entityId: `${squad._id}-${hackathon._id}`,
+      });
+    }
 
-    return sendSuccess(res, 200, `Registered squad for ${hackathon.title}`);
+    const updatedSquad = await Squad.findById(squad._id)
+      .populate('members', 'name username avatarSeed bio skills points')
+      .populate('registeredHackathons', 'title prize difficulty end tags legacyId');
+
+    return sendSuccess(res, 200, `Registered squad for ${hackathon.title}`, {
+      squad: updatedSquad,
+      hackathonId: hackathon.legacyId || hackathon._id.toString(),
+    });
   } catch (error) {
     next(error);
   }

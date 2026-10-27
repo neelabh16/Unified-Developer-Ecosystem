@@ -4,6 +4,7 @@
 const mongoose = require('mongoose');
 const Hackathon = require('../models/Hackathon');
 const HackathonRegistration = require('../models/HackathonRegistration');
+const Squad = require('../models/Squad');
 const Engagement = require('../models/Engagement');
 const User = require('../models/User');
 const Activity = require('../models/Activity');
@@ -112,6 +113,16 @@ const getHackathons = async (req, res, next) => {
       const registrations = await HackathonRegistration.find({ user: req.user._id });
       registeredIds = registrations.map((r) => r.hackathon.toString());
 
+      const userSquads = await Squad.find({ members: req.user._id });
+      for (const sq of userSquads) {
+        for (const hid of sq.registeredHackathons || []) {
+          const hidStr = hid.toString();
+          if (!registeredIds.includes(hidStr)) {
+            registeredIds.push(hidStr);
+          }
+        }
+      }
+
       const bookmarks = await Engagement.find({
         user: req.user._id,
         type: 'bookmark',
@@ -177,13 +188,35 @@ const getHackathon = async (req, res, next) => {
 
     let isRegistered = false;
     let isBookmarked = false;
+    let registeredSquad = null;
 
     if (req.user) {
       const reg = await HackathonRegistration.findOne({
         user: req.user._id,
         hackathon: hackathon._id,
       });
-      isRegistered = !!reg;
+
+      const squadReg = await Squad.findOne({
+        members: req.user._id,
+        registeredHackathons: hackathon._id,
+      }).select('name description members leader');
+
+      if (squadReg) {
+        registeredSquad = squadReg;
+      }
+
+      isRegistered = !!(reg || squadReg);
+
+      if (squadReg && !reg) {
+        await HackathonRegistration.create({
+          user: req.user._id,
+          hackathon: hackathon._id,
+          squad: squadReg._id,
+        }).catch(() => {});
+        if (!devverseParticipants.some((u) => u._id && u._id.toString() === req.user._id.toString())) {
+          devverseParticipants.unshift(req.user);
+        }
+      }
 
       const bm = await Engagement.findOne({
         user: req.user._id,
@@ -194,9 +227,15 @@ const getHackathon = async (req, res, next) => {
       isBookmarked = !!bm;
     }
 
+    const registeredSquads = await Squad.find({ registeredHackathons: hackathon._id })
+      .populate('members', 'name username avatarSeed bio skills points')
+      .select('name description members leader');
+
     return sendSuccess(res, 200, 'Hackathon details retrieved', {
       hackathon,
       devverseParticipants,
+      registeredSquad,
+      registeredSquads: registeredSquads || [],
       isRegistered,
       isBookmarked,
     });
