@@ -527,6 +527,9 @@ function dvTrackProjectView(id) {
   const views = DVStore.get('projectViews', {});
   views[id] = (views[id] || 0) + 1;
   DVStore.set('projectViews', views);
+  if (window.DVApi && DVApi.projects && DVApi.projects.trackView && id) {
+    DVApi.projects.trackView(id).catch(function () {});
+  }
   return views[id];
 }
 function dvProjectViewCount(p) {
@@ -1663,12 +1666,13 @@ function dvAllProjects() {
   return dvUserProjects().concat(DV_PROJECTS);
 }
 function dvFindProjectById(id) {
-  return dvAllProjects().find((p) => p.id === id);
+  if (!id) return null;
+  return dvAllProjects().find((p) => p.id === id || p._id === id || p.legacyId === id);
 }
 function dvAddUserProject(project) {
   const list = dvUserProjects();
   const entry = {
-    id: 'user-' + Date.now(),
+    id: project.id || project._id || ('user-' + Date.now()),
     title: project.title,
     desc: project.desc,
     tags: project.tags,
@@ -1677,13 +1681,13 @@ function dvAddUserProject(project) {
     githubUrl: project.githubUrl || null,
     features: project.features || [],
     timeline: project.timeline || [],
-    author: 'you',
-    gradient: Math.floor(Math.random() * 5),
-    likes: 0,
-    views: 0,
-    createdAt: Date.now(),
+    author: project.author || 'you',
+    gradient: typeof project.gradient === 'number' ? project.gradient : Math.floor(Math.random() * 5),
+    likes: project.likes || 0,
+    views: project.views || 0,
+    createdAt: project.createdAt || Date.now(),
   };
-  entry.art = dvPickProjectArt(entry);
+  entry.art = project.art || dvPickProjectArt(entry);
   list.unshift(entry);
   dvSaveUserProjects(list);
   dvAwardPoints(DV_POINT_VALUES.projectSubmit, `Published "${entry.title}" to Explore`);
@@ -1692,7 +1696,7 @@ function dvAddUserProject(project) {
 /** Remove a user-submitted project by id. */
 function dvDeleteUserProject(id) {
   const list = dvUserProjects();
-  const filtered = list.filter(function (p) { return p.id !== id; });
+  const filtered = list.filter(function (p) { return p.id !== id && p._id !== id; });
   dvSaveUserProjects(filtered);
   if (window.DVApi && DVApi.projects && DVApi.projects.delete) {
     DVApi.projects.delete(id).catch(function () {});
@@ -1704,7 +1708,7 @@ function dvDeleteUserProject(id) {
  *  actually own — seeded demo projects aren't in this list. */
 function dvUpdateUserProject(id, patch) {
   const list = dvUserProjects();
-  const index = list.findIndex(function (p) { return p.id === id; });
+  const index = list.findIndex(function (p) { return p.id === id || p._id === id; });
   if (index === -1) return null;
   list[index] = Object.assign({}, list[index], patch);
   dvSaveUserProjects(list);
@@ -1717,11 +1721,20 @@ function dvUpdateUserProject(id, patch) {
  *  project's author to a real, live name/avatar whether that's you
  *  or one of the seeded developers, instead of literally showing
  *  the handle string "you" as someone's display name. */
-function dvProjectAuthorInfo(handle) {
+function dvProjectAuthorInfo(handle, authorObj) {
+  if (authorObj && (authorObj.name || authorObj.username)) {
+    return {
+      name: authorObj.name || authorObj.username,
+      avatarSeed: authorObj.avatarSeed || authorObj.username || 'you-builder',
+    };
+  }
   if (handle === 'you') {
     const overrides = DVStore.get('profile.overrides', {});
     const account = dvAuthAccount();
-    return { name: overrides.name || (account && account.name) || 'You', avatarSeed: overrides.avatarSeed || 'you-builder' };
+    return {
+      name: overrides.name || (account && account.name) || 'You',
+      avatarSeed: overrides.avatarSeed || (account && account.avatarSeed) || 'you-builder',
+    };
   }
   const dev = DV_DEVS.find((d) => d.handle === handle);
   return dev ? { name: dev.name, avatarSeed: dev.avatarSeed } : { name: handle, avatarSeed: handle };

@@ -14,6 +14,7 @@ const { sendSuccess } = require('../utils/response');
  * Safely look up a project by MongoDB ObjectId or legacyId (e.g. 'p1').
  */
 const findProjectByIdOrLegacy = async (id, populateAuthor = false) => {
+  if (!id) return null;
   let project = null;
   if (mongoose.Types.ObjectId.isValid(id)) {
     project = populateAuthor
@@ -24,6 +25,14 @@ const findProjectByIdOrLegacy = async (id, populateAuthor = false) => {
     project = populateAuthor
       ? await Project.findOne({ legacyId: id }).populate('author', 'name username avatarSeed points')
       : await Project.findOne({ legacyId: id });
+  }
+  if (!project && typeof id === 'string') {
+    const normalized = id.replace(/-/g, ' ').trim();
+    if (normalized) {
+      project = populateAuthor
+        ? await Project.findOne({ title: new RegExp(`^${normalized}$`, 'i') }).populate('author', 'name username avatarSeed points')
+        : await Project.findOne({ title: new RegExp(`^${normalized}$`, 'i') });
+    }
   }
   return project;
 };
@@ -90,14 +99,7 @@ const getProjects = async (req, res, next) => {
 const getProject = async (req, res, next) => {
   try {
     const { id } = req.params;
-
-    let project = null;
-    if (mongoose.Types.ObjectId.isValid(id)) {
-      project = await Project.findById(id).populate('author', 'name username avatarSeed points');
-    }
-    if (!project) {
-      project = await Project.findOne({ legacyId: id }).populate('author', 'name username avatarSeed points');
-    }
+    const project = await findProjectByIdOrLegacy(id, true);
 
     if (!project) {
       return next(new AppError('Project not found', 404));
@@ -176,14 +178,7 @@ const createProject = async (req, res, next) => {
 const updateProject = async (req, res, next) => {
   try {
     const { id } = req.params;
-
-    let project = null;
-    if (mongoose.Types.ObjectId.isValid(id)) {
-      project = await Project.findById(id);
-    }
-    if (!project) {
-      project = await Project.findOne({ legacyId: id });
-    }
+    const project = await findProjectByIdOrLegacy(id);
 
     if (!project) {
       return next(new AppError('Project not found', 404));
@@ -217,14 +212,7 @@ const updateProject = async (req, res, next) => {
 const deleteProject = async (req, res, next) => {
   try {
     const { id } = req.params;
-
-    let project = null;
-    if (mongoose.Types.ObjectId.isValid(id)) {
-      project = await Project.findById(id);
-    }
-    if (!project) {
-      project = await Project.findOne({ legacyId: id });
-    }
+    const project = await findProjectByIdOrLegacy(id);
 
     if (!project) {
       return next(new AppError('Project not found', 404));
@@ -366,24 +354,15 @@ const toggleBookmark = async (req, res, next) => {
 const trackView = async (req, res, next) => {
   try {
     const { id } = req.params;
-
-    let project = null;
-    if (mongoose.Types.ObjectId.isValid(id)) {
-      project = await Project.findByIdAndUpdate(id, { $inc: { viewsCount: 1 } }, { new: true });
-    }
-    if (!project) {
-      project = await Project.findOneAndUpdate(
-        { legacyId: id },
-        { $inc: { viewsCount: 1 } },
-        { new: true }
-      );
-    }
+    const project = await findProjectByIdOrLegacy(id);
 
     if (!project) {
       return next(new AppError('Project not found', 404));
     }
 
-    return sendSuccess(res, 200, 'View tracked', { viewsCount: project.viewsCount });
+    const updated = await Project.findByIdAndUpdate(project._id, { $inc: { viewsCount: 1 } }, { new: true });
+
+    return sendSuccess(res, 200, 'View tracked', { viewsCount: updated ? updated.viewsCount : 1 });
   } catch (error) {
     next(error);
   }

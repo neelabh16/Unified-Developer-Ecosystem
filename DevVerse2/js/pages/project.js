@@ -2,19 +2,19 @@
    PROJECT DETAILS
    ========================================================= */
 
-function dvProjectDetailInit() {
-  const root = document.getElementById('project-detail');
-  if (!root) return;
-  const allProjects = dvAllProjects();
-  const id = dvGetQueryParam('id') || allProjects[0].id;
-  const p = dvFindProjectById(id) || allProjects[0];
-  const authorInfo = dvProjectAuthorInfo(p.author);
+function dvRenderProjectDetail(p, root) {
+  if (!root || !p) return;
+
+  const currentAccount = dvAuthAccount();
+  const authorHandle = (p.authorObj && (p.authorObj.username || p.authorObj.name)) || p.authorHandle || p.author;
+  const isOwn = p.author === 'you' || (currentAccount && (authorHandle === currentAccount.username || (p.authorObj && (p.authorObj._id === currentAccount.id || p.authorObj === currentAccount.id))));
+  const isUserProject = (p.id && String(p.id).indexOf('user-') === 0) || Boolean(p._id) || isOwn;
+
+  const authorInfo = dvProjectAuthorInfo(p.author, p.authorObj);
   const authorName = authorInfo.name;
   const authorAvatarSeed = authorInfo.avatarSeed;
   const liked = DVStore.has('likes', p.id);
   const bookmarked = DVStore.has('bookmarks', p.id);
-  const isOwn = p.author === 'you';
-  const isUserProject = p.id.indexOf('user-') === 0;
 
   // Count this as a view of the project — the Stats panel below reads
   // it back via dvProjectViewCount() so it actually moves instead of
@@ -22,8 +22,8 @@ function dvProjectDetailInit() {
   dvTrackProjectView(p.id);
 
   // Resolve the profile link — own projects link to own profile
-  const profileHref = isOwn ? 'profile.html' : 'profile.html?u=' + p.author;
-  const displayHandle = isOwn ? dvSelfHandle() : p.author;
+  const profileHref = isOwn ? 'profile.html' : 'profile.html?u=' + encodeURIComponent(authorHandle || p.author);
+  const displayHandle = isOwn ? dvSelfHandle() : (authorHandle || p.author);
 
   document.title = `${p.title} — DevVerse`;
 
@@ -34,11 +34,9 @@ function dvProjectDetailInit() {
 
   // --- Timeline: use project's own timeline array if available,
   // otherwise fall back to demo placeholders for seeded projects.
-  // For manually-typed user projects, timeline stays empty (it would
-  // be populated via GitHub API fetch in Phase 2). ---
   const defaultTimeline = [
     { label: 'v1.0 released', when: '6 months ago' },
-    { label: 'Core rewrite in ' + p.tags[0], when: '3 months ago' },
+    { label: 'Core rewrite in ' + ((p.tags && p.tags[0]) || 'TypeScript'), when: '3 months ago' },
     { label: '1,000+ stars milestone', when: '3 weeks ago' },
   ];
   const timeline = (p.timeline && p.timeline.length) ? p.timeline : (isUserProject ? [] : defaultTimeline);
@@ -74,14 +72,16 @@ function dvProjectDetailInit() {
 
   // Overview text — demo projects get an extra sentence
   const overviewExtra = isUserProject ? '' : ` This build focuses on real-world performance under load, a clean developer experience, and interface details most teams skip. It's actively maintained by ${authorName} and open for contributions.`;
+  const gradientIdx = typeof p.gradient === 'number' && !isNaN(p.gradient) ? p.gradient % 5 : 0;
+  const tagsList = Array.isArray(p.tags) ? p.tags : [];
 
   root.innerHTML = `
     <div class="glass reveal in" style="border-radius:var(--radius-xl); overflow:hidden; margin-bottom:36px;">
-      <div style="height:280px; background:${DV_TECH_GRADIENTS[p.gradient]}; position:relative; display:flex; align-items:flex-end; padding:32px;">
+      <div style="height:280px; background:${DV_TECH_GRADIENTS[gradientIdx]}; position:relative; display:flex; align-items:flex-end; padding:32px;">
         <div style="position:absolute; inset:0; background:linear-gradient(180deg, transparent 30%, rgba(7,8,12,0.75));"></div>
         <div style="position:relative; z-index:1;">
           <div id="category-display" style="display:flex; align-items:center; gap:8px;">
-            <span class="chip" id="category-chip" style="background:rgba(7,8,12,0.5); border-color:rgba(255,255,255,0.2);">${p.category}</span>
+            <span class="chip" id="category-chip" style="background:rgba(7,8,12,0.5); border-color:rgba(255,255,255,0.2);">${p.category || 'General'}</span>
             ${isOwn ? `<button class="btn btn-ghost btn-sm" id="edit-category-btn" type="button" style="padding:4px 10px; background:rgba(7,8,12,0.5);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Edit category</button>` : ''}
           </div>
           <h1 style="margin-top:12px; font-size:clamp(30px,4.4vw,52px);">${p.title}</h1>
@@ -121,7 +121,7 @@ function dvProjectDetailInit() {
         <section class="reveal in">
           <div class="eyebrow">Gallery</div>
           <div class="grid grid-3">
-            ${[0, 1, 2].map(function (i) { return '<div class="glass" style="height:140px; border-radius:var(--radius-md); background:' + DV_TECH_GRADIENTS[(p.gradient + i) % 5] + '; opacity:' + (0.85 - i * 0.1) + ';"></div>'; }).join('')}
+            ${[0, 1, 2].map(function (i) { return '<div class="glass" style="height:140px; border-radius:var(--radius-md); background:' + DV_TECH_GRADIENTS[(gradientIdx + i) % 5] + '; opacity:' + (0.85 - i * 0.1) + ';"></div>'; }).join('')}
           </div>
         </section>
 
@@ -144,11 +144,11 @@ function dvProjectDetailInit() {
       <aside class="sticky-panel" style="display:flex; flex-direction:column; gap:20px;">
         <div class="glass reveal in" style="padding:20px;">
           <div class="eyebrow">Tech stack</div>
-          <div class="pc-tags">${p.tags.map(function (t) { return '<span class="chip">' + t + '</span>'; }).join('')}</div>
+          <div class="pc-tags">${tagsList.map(function (t) { return '<span class="chip">' + t + '</span>'; }).join('')}</div>
         </div>
         <div class="glass reveal in" style="padding:20px;">
           <div class="eyebrow">Stats</div>
-          <div style="display:flex; justify-content:space-between; padding:8px 0;"><span class="muted" style="font-size:13px;">Difficulty</span><span style="font-size:13px; font-weight:600;">${p.difficulty}</span></div>
+          <div style="display:flex; justify-content:space-between; padding:8px 0;"><span class="muted" style="font-size:13px;">Difficulty</span><span style="font-size:13px; font-weight:600;">${p.difficulty || 'Intermediate'}</span></div>
           <div style="display:flex; justify-content:space-between; padding:8px 0;"><span class="muted" style="font-size:13px;">Views</span><span style="font-size:13px; font-weight:600;">${dvProjectViewCount(p).toLocaleString()}</span></div>
           <div style="display:flex; justify-content:space-between; padding:8px 0;"><span class="muted" style="font-size:13px;">Likes</span><span style="font-size:13px; font-weight:600;" data-like-count-for="${p.id}" data-base="${p.likes}">${(liked ? p.likes + 1 : p.likes).toLocaleString()}</span></div>
         </div>
@@ -169,28 +169,40 @@ function dvProjectDetailInit() {
     </section>
   `;
 
-  const sameCategory = allProjects.filter(function (x) { return x.category === p.category && x.id !== p.id; });
+  const allProjects = dvAllProjects();
+  const sameCategory = allProjects.filter(function (x) { return x.category === p.category && x.id !== p.id && x._id !== p.id; });
   let related = sameCategory.slice(0, 3);
   if (related.length < 3) {
-    const usedIds = [p.id];
+    const usedIds = [p.id, p._id];
     for (let i = 0; i < related.length; i++) { usedIds.push(related[i].id); }
     const backfill = allProjects
-      .filter(function (x) { return usedIds.indexOf(x.id) === -1; })
-      .sort(function (a, b) { return b.likes - a.likes; })
+      .filter(function (x) { return usedIds.indexOf(x.id) === -1 && (!x._id || usedIds.indexOf(x._id) === -1); })
+      .sort(function (a, b) { return (b.likes || 0) - (a.likes || 0); })
       .slice(0, 3 - related.length);
     related = related.concat(backfill);
   }
-  document.getElementById('related-projects').innerHTML = related.map(dvProjectCardHTML).join('');
+  const relatedEl = document.getElementById('related-projects');
+  if (relatedEl) {
+    relatedEl.innerHTML = related.map(dvProjectCardHTML).join('');
+  }
 
   // Delete project handler
   if (isOwn) {
-    document.getElementById('delete-project-btn').addEventListener('click', function () {
-      if (confirm('Delete "' + p.title + '"? This cannot be undone.')) {
-        dvDeleteUserProject(p.id);
-        dvToast('Project deleted');
-        window.location.href = 'explore.html';
-      }
-    });
+    const deleteBtn = document.getElementById('delete-project-btn');
+    if (deleteBtn) {
+      deleteBtn.addEventListener('click', function () {
+        if (confirm('Delete "' + p.title + '"? This cannot be undone.')) {
+          dvDeleteUserProject(p.id);
+          if (p._id && p._id !== p.id) {
+            dvDeleteUserProject(p._id);
+          }
+          dvToast('Project deleted');
+          setTimeout(() => {
+            window.location.href = 'explore.html';
+          }, 300);
+        }
+      });
+    }
     dvWireCategoryEditor(p, allProjects);
   }
 
@@ -211,18 +223,116 @@ function dvProjectDetailInit() {
       }
     }).catch(function () {});
   }
-  document.getElementById('comment-form').addEventListener('submit', function (e) {
-    e.preventDefault();
-    dvPostComment(p.id);
-  });
-  document.getElementById('comment-input').addEventListener('input', function () {
-    if (this.classList.contains('field-error')) dvClearFieldError(this);
-  });
+
+  const commentForm = document.getElementById('comment-form');
+  if (commentForm) {
+    commentForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      dvPostComment(p.id);
+    });
+  }
+
+  const commentInput = document.getElementById('comment-input');
+  if (commentInput) {
+    commentInput.addEventListener('input', function () {
+      if (this.classList.contains('field-error')) dvClearFieldError(this);
+    });
+  }
+
   dvReveal(root);
+}
+
+function dvProjectDetailInit() {
+  const root = document.getElementById('project-detail');
+  if (!root) return;
+  const id = dvGetQueryParam('id');
+  const allProjects = dvAllProjects();
+
+  function mapBackendProject(bp) {
+    const currentAccount = dvAuthAccount();
+    const authorHandle = (bp.author && (bp.author.username || bp.author.name)) || bp.authorHandle || bp.author || '';
+    const isOwn = (currentAccount && (authorHandle === currentAccount.username || (bp.author && (bp.author._id === currentAccount.id || bp.author === currentAccount.id)))) || bp.author === 'you';
+
+    return {
+      id: bp.legacyId || bp._id,
+      _id: bp._id,
+      title: bp.title,
+      desc: bp.desc || bp.tagline,
+      category: bp.category || 'General',
+      difficulty: bp.difficulty || 'Intermediate',
+      tags: Array.isArray(bp.tags) ? bp.tags : [],
+      features: Array.isArray(bp.features) ? bp.features : [],
+      timeline: Array.isArray(bp.timeline) ? bp.timeline : [],
+      githubUrl: bp.githubUrl || null,
+      likes: bp.likesCount || bp.likes || 0,
+      views: bp.viewsCount || bp.views || 0,
+      gradient: typeof bp.gradient === 'number' && !isNaN(bp.gradient) ? bp.gradient % 5 : 0,
+      art: bp.art || null,
+      author: isOwn ? 'you' : authorHandle,
+      authorHandle: authorHandle,
+      authorObj: bp.author,
+    };
+  }
+
+  if (!id) {
+    const fallback = allProjects[0];
+    if (fallback) dvRenderProjectDetail(fallback, root);
+    return;
+  }
+
+  // 1. Check local cache first for instant load
+  const localProject = dvFindProjectById(id);
+  if (localProject) {
+    dvRenderProjectDetail(localProject, root);
+  } else {
+    // Show polite loading UI instead of showing wrong project
+    root.innerHTML = `
+      <div class="glass reveal in" style="border-radius:var(--radius-xl); padding:60px 30px; text-align:center;">
+        <div class="spinner" style="margin:0 auto 16px;"></div>
+        <p class="muted" style="font-size:15px;">Loading project details\u2026</p>
+      </div>
+    `;
+    dvReveal(root);
+  }
+
+  // 2. Always fetch fresh data from backend API
+  if (window.DVApi && DVApi.projects && DVApi.projects.get) {
+    DVApi.projects.get(id).then(function (res) {
+      const bp = (res && res.data && (res.data.project || res.data)) || null;
+      if (bp && bp.title) {
+        const p = mapBackendProject(bp);
+        // Sync into local user projects if own
+        if (p.author === 'you') {
+          const userList = dvUserProjects();
+          const existingIdx = userList.findIndex((x) => x.id === p.id || x._id === p._id || (p.id && x.id === p.id));
+          if (existingIdx !== -1) {
+            userList[existingIdx] = Object.assign({}, userList[existingIdx], p);
+          } else {
+            userList.unshift(p);
+          }
+          dvSaveUserProjects(userList);
+        }
+        dvRenderProjectDetail(p, root);
+      }
+    }).catch(function (err) {
+      console.warn('Could not fetch project from API:', err);
+      if (!localProject) {
+        root.innerHTML = `
+          <div class="glass reveal in" style="border-radius:var(--radius-xl); padding:60px 30px; text-align:center;">
+            <h2 style="margin-bottom:12px;">Project Not Found</h2>
+            <p class="muted" style="margin-bottom:24px;">The project you are looking for does not exist or has been removed.</p>
+            <a href="explore.html" class="btn btn-primary">Browse Projects</a>
+          </div>
+        `;
+        dvReveal(root);
+      }
+    });
+  }
 }
 
 function dvRenderComments(projectId) {
   const listEl = document.getElementById('comment-list');
+  if (!listEl) return;
   const comments = DVStore.get(`comments.${projectId}`, []);
   if (!comments.length) {
     listEl.innerHTML = `<p class="muted" style="font-size:13px;">No comments yet \u2014 be the first to share feedback.</p>`;
@@ -328,6 +438,9 @@ function dvOpenCategoryEditor(p, allProjects, categories) {
 
     p.category = chosen;
     dvUpdateUserProject(p.id, { category: chosen });
+    if (p._id && p._id !== p.id) {
+      dvUpdateUserProject(p._id, { category: chosen });
+    }
     if (categories.indexOf(chosen) === -1) categories.push(chosen);
     dvRestoreCategoryBadge(p, allProjects, categories);
     dvToast('Category updated');
@@ -340,11 +453,14 @@ function dvOpenCategoryEditor(p, allProjects, categories) {
       const usedIds = [p.id].concat(related.map(function (r) { return r.id; }));
       const backfill = allProjects
         .filter(function (x) { return usedIds.indexOf(x.id) === -1; })
-        .sort(function (a, b) { return b.likes - a.likes; })
+        .sort(function (a, b) { return (b.likes || 0) - (a.likes || 0); })
         .slice(0, 3 - related.length);
       related = related.concat(backfill);
     }
-    document.getElementById('related-projects').innerHTML = related.map(dvProjectCardHTML).join('');
+    const relEl = document.getElementById('related-projects');
+    if (relEl) {
+      relEl.innerHTML = related.map(dvProjectCardHTML).join('');
+    }
   });
 }
 
