@@ -40,7 +40,7 @@ function dvRenderProfileContent(root) {
   const tier = dvCurrentTier(data.points);
   const next = dvNextTier(data.points);
 
-  const myProjects = isSelf ? dvAllProjects().filter(function (p) { return p.author === 'you'; }) : dvAllProjects().filter(function (p) { return p.author === data.handle; });
+  const myProjects = isSelf ? dvAllProjects().filter(function (p) { return p.author === 'you' || p.author === selfUsername; }) : dvAllProjects().filter(function (p) { return p.author === data.handle; });
   const statProjects = isSelf ? myProjects.length : data.projects;
   const statFollowers = isSelf ? 0 : data.followers;
   const statFollowing = isSelf ? DVStore.get('following', []).length : Math.floor(data.followers / 4);
@@ -121,10 +121,10 @@ function dvRenderProfileContent(root) {
     </div>` : ''}
 
     <div class="grid grid-4" style="margin-top:30px;">
-      <div class="glass" style="padding:18px; text-align:center;"><div class="stat-num" data-count="${statProjects}">0</div><div class="stat-label">Projects</div></div>
-      <div class="glass" style="padding:18px; text-align:center;"><div class="stat-num" data-count="${statFollowers}">0</div><div class="stat-label">Followers</div></div>
-      <div class="glass" style="padding:18px; text-align:center;"><div class="stat-num" data-count="${statFollowing}">0</div><div class="stat-label">Following</div></div>
-      <div class="glass" style="padding:18px; text-align:center;"><div class="stat-num" data-count="${data.points}">0</div><div class="stat-label">Points</div></div>
+      <div class="glass" style="padding:18px; text-align:center;"><div class="stat-num" id="profile-stat-projects" data-count="${statProjects}">0</div><div class="stat-label">Projects</div></div>
+      <div class="glass" style="padding:18px; text-align:center;"><div class="stat-num" id="profile-stat-followers" data-count="${statFollowers}">0</div><div class="stat-label">Followers</div></div>
+      <div class="glass" style="padding:18px; text-align:center;"><div class="stat-num" id="profile-stat-following" data-count="${statFollowing}">0</div><div class="stat-label">Following</div></div>
+      <div class="glass" style="padding:18px; text-align:center;"><div class="stat-num" id="profile-stat-points" data-count="${data.points}">0</div><div class="stat-label">Points</div></div>
     </div>
 
     <div class="section-tight" style="padding-left:0; padding-right:0;">
@@ -182,40 +182,121 @@ function dvRenderProfileContent(root) {
     </div>` : ''}
   `;
 
-  document.getElementById('profile-projects').innerHTML = myProjects.slice(0, 4).map(dvProjectCardHTML).join('') || (isSelf ? `<p class="muted">No published projects yet \u2014 <a href="submit-project.html" style="color:var(--accent);">submit one</a>.</p>` : `<p class="muted">No published projects yet.</p>`);
+  document.getElementById('profile-projects').innerHTML = myProjects.slice(0, 4).map(dvProjectCardHTML).join('') || (isSelf ? `<p class="muted">Loading projects...</p>` : `<p class="muted">No published projects yet.</p>`);
 
   const heat = document.getElementById('heatmap');
+  // Render neutral placeholder squares while live data loads
+  const colors = ['var(--surface)', 'var(--accent-soft, rgba(124,111,255,.25))', 'color-mix(in srgb, var(--accent) 55%, var(--surface))', 'color-mix(in srgb, var(--accent) 80%, var(--surface))', 'var(--accent)'];
   for (let i = 0; i < 182; i++) {
-    const v = Math.random();
-    const level = v > 0.85 ? 3 : v > 0.65 ? 2 : v > 0.4 ? 1 : 0;
-    const colors = ['var(--surface)', 'var(--accent-soft, rgba(124,111,255,.25))', 'color-mix(in srgb, var(--accent) 55%, var(--surface))', 'var(--accent)'];
-    heat.innerHTML += `<i style="background:${colors[level]}" title="${level} contributions"></i>`;
+    heat.innerHTML += `<i style="background:var(--surface)" title="Loading contributions..."></i>`;
   }
 
   const timeline = document.getElementById('profile-timeline');
-  let timelineHTML = '';
+  timeline.innerHTML = `<div class="feed-item"><div class="feed-text muted" style="padding:8px 0;">Loading activity timeline...</div></div>`;
 
-  const userCommits = [];
-  myProjects.forEach(function (p) {
-    if (p.timeline && p.timeline.length) {
-      p.timeline.forEach(function (t) {
-        userCommits.push({ project: p.title, label: t.label, when: t.when });
-      });
-    }
-  });
+  // Fetch real GitHub contributions, repository projects, and live activity feed
+  const ghUsername = isSelf
+    ? ((account && (account.github || account.username)) || selfUsername || 'neelabh16')
+    : (data.github || data.handle || 'neelabh16');
 
-  if (userCommits.length > 0) {
-    userCommits.slice(0, 5).forEach(function (c) {
-      timelineHTML += `<div class="feed-item"><img src="${dvAvatar(data.avatarSeed, 34)}"><div><div class="feed-text"><b>${data.name}</b> pushed a commit to <b>${c.project}</b>: ${c.label}</div><div class="feed-time">${c.when}</div></div></div>`;
+  if (window.DVApi && DVApi.github && DVApi.github.getUser) {
+    DVApi.github.getUser(ghUsername).then(function (res) {
+      if (!res || !res.data) return;
+      const gh = res.data;
+
+      // 1. Update stats with real counts
+      const statProjectsEl = document.getElementById('profile-stat-projects');
+      const statFollowersEl = document.getElementById('profile-stat-followers');
+      const statFollowingEl = document.getElementById('profile-stat-following');
+
+      const totalProjects = Math.max(gh.public_repos || 0, (gh.repos ? gh.repos.length : 0)) + myProjects.length;
+      const totalFollowers = gh.followers !== undefined ? gh.followers : (isSelf ? 0 : data.followers);
+      const totalFollowing = gh.following !== undefined ? gh.following : (isSelf ? DVStore.get('following', []).length : Math.floor(data.followers / 4));
+
+      if (statProjectsEl) {
+        statProjectsEl.setAttribute('data-count', totalProjects);
+        statProjectsEl.textContent = totalProjects;
+      }
+      if (statFollowersEl) {
+        statFollowersEl.setAttribute('data-count', totalFollowers);
+        statFollowersEl.textContent = totalFollowers;
+      }
+      if (statFollowingEl) {
+        statFollowingEl.setAttribute('data-count', totalFollowing);
+        statFollowingEl.textContent = totalFollowing;
+      }
+
+      // 2. Render real contribution heatmap
+      if (heat && gh.contributions && gh.contributions.length > 0) {
+        heat.innerHTML = '';
+        const recentDays = gh.contributions.slice(-182);
+        recentDays.forEach(function (d) {
+          const lvl = Math.min(4, Math.max(0, d.level || 0));
+          const tooltip = lvl > 0 ? `${d.date}: ${lvl} contribution${lvl > 1 ? 's' : ''}` : `${d.date}: No contributions`;
+          heat.innerHTML += `<i style="background:${colors[lvl]}" title="${tooltip}"></i>`;
+        });
+      }
+
+      // 3. Render real repositories in Projects grid
+      const projectsEl = document.getElementById('profile-projects');
+      if (projectsEl && gh.repos && gh.repos.length > 0) {
+        const repoCardsHTML = gh.repos.slice(0, 4).map(function (repo) {
+          return `
+            <a href="${repo.url}" target="_blank" rel="noopener" class="glass card-lift reveal in" style="padding:20px; display:flex; flex-direction:column; justify-content:space-between; gap:12px; text-decoration:none;">
+              <div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                  <span class="chip chip-accent" style="font-size:11px;">${repo.language || 'Code'}</span>
+                  <span class="mono muted" style="font-size:12px;">★ ${repo.stars || 0}</span>
+                </div>
+                <div style="font-weight:600; font-size:15px; color:var(--text-primary); margin-bottom:6px;">${repo.name}</div>
+                <p style="font-size:12.5px; color:var(--text-secondary); line-height:1.4;">${repo.desc || 'Public repository on GitHub'}</p>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; font-size:11.5px; color:var(--text-tertiary); font-family:var(--font-mono); border-top:1px solid var(--border); padding-top:10px;">
+                <span>GitHub Repository</span>
+                <span style="color:var(--accent);">View on GitHub ↗</span>
+              </div>
+            </a>`;
+        }).join('');
+
+        const platformCardsHTML = myProjects.slice(0, 2).map(dvProjectCardHTML).join('');
+        projectsEl.innerHTML = platformCardsHTML + repoCardsHTML;
+        dvReveal(projectsEl);
+      } else if (projectsEl && myProjects.length > 0) {
+        projectsEl.innerHTML = myProjects.slice(0, 4).map(dvProjectCardHTML).join('');
+        dvReveal(projectsEl);
+      } else if (projectsEl) {
+        projectsEl.innerHTML = isSelf
+          ? `<p class="muted">No published projects yet \u2014 <a href="submit-project.html" style="color:var(--accent);">submit one</a>.</p>`
+          : `<p class="muted">No published projects yet.</p>`;
+      }
+
+      // 4. Render real activity timeline
+      if (timeline && gh.events && gh.events.length > 0) {
+        timeline.innerHTML = gh.events.slice(0, 6).map(function (ev) {
+          const diffMin = Math.max(1, Math.floor((Date.now() - new Date(ev.published).getTime()) / 60000));
+          const timeAgo = dvTimeAgo(diffMin);
+          return `
+            <div class="feed-item">
+              <img src="${ev.avatarUrl || dvAvatar(data.avatarSeed, 34)}" alt="" style="width:34px; height:34px; border-radius:50%; object-fit:cover;">
+              <div>
+                <div class="feed-text">
+                  <a href="${ev.url}" target="_blank" rel="noopener" style="color:inherit; text-decoration:none;">
+                    <b>${data.name}</b> ${ev.description}
+                  </a>
+                </div>
+                <div class="feed-time">${timeAgo}</div>
+              </div>
+            </div>`;
+        }).join('');
+      } else if (timeline) {
+        timeline.innerHTML = `<div class="feed-item"><div class="feed-text muted">No recent public GitHub activity.</div></div>`;
+      }
+
+      dvAnimateCounters(root);
+    }).catch(function (err) {
+      console.warn('Could not fetch real GitHub profile data:', err);
     });
-  } else {
-    for (let i = 0; i < 5; i++) {
-      const tpl = DV_ACTIVITY_TEMPLATES[i % DV_ACTIVITY_TEMPLATES.length];
-      const proj = DV_PROJECTS[Math.floor(Math.random() * DV_PROJECTS.length)].title;
-      timelineHTML += `<div class="feed-item"><img src="${dvAvatar(data.avatarSeed, 34)}"><div><div class="feed-text">${tpl(data.name, proj)}</div><div class="feed-time">${dvTimeAgo((i + 1) * 190)}</div></div></div>`;
-    }
   }
-  timeline.innerHTML = timelineHTML;
 
   if (isSelf) {
     dvRenderProfileSquads();

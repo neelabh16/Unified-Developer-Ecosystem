@@ -244,6 +244,16 @@ const DVApi = {
   },
 
   // ---------------------------------------------------------
+  // GitHub API
+  // ---------------------------------------------------------
+  github: {
+    getUser: (username) => DVApi.request(`/github/user/${encodeURIComponent(username || 'you')}`),
+    getContributions: (username) => DVApi.request(`/github/user/${encodeURIComponent(username || 'you')}/contributions`),
+    getEvents: (username) => DVApi.request(`/github/user/${encodeURIComponent(username || 'you')}/events`),
+    getRepos: (username) => DVApi.request(`/github/user/${encodeURIComponent(username || 'you')}/repos`),
+  },
+
+  // ---------------------------------------------------------
   // Health API
   // ---------------------------------------------------------
   health: {

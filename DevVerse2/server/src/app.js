@@ -29,6 +29,7 @@ const bookmarkRoutes = require('./routes/bookmarkRoutes');
 const activityRoutes = require('./routes/activityRoutes');
 const leaderboardRoutes = require('./routes/leaderboardRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
+const githubRoutes = require('./routes/githubRoutes');
 
 const app = express();
 
@@ -124,6 +125,7 @@ app.use(`${API_PREFIX}/bookmarks`, bookmarkRoutes);
 app.use(`${API_PREFIX}/activity`, activityRoutes);
 app.use(`${API_PREFIX}/leaderboard`, leaderboardRoutes);
 app.use(`${API_PREFIX}/uploads`, uploadRoutes);
+app.use(`${API_PREFIX}/github`, githubRoutes);
 
 // Serve static client frontend files from DevVerse2
 const clientPath = path.resolve(__dirname, '../../');

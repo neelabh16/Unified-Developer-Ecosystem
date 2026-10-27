@@ -65,17 +65,42 @@ function dvRenderTrendingProjects() {
 function dvRenderTopDevs() {
   const root = document.getElementById('top-devs');
   if (!root) return;
-  const list = [...DV_DEVS].sort((a, b) => b.points - a.points).slice(0, 5);
-  root.innerHTML = list.map((d) => `
-    <a href="profile.html?u=${d.handle}" class="dev-card glass card-lift reveal">
-      <div class="dev-avatar-ring"><img src="${dvAvatar(d.avatarSeed)}" alt="${d.name}"></div>
-      <div class="dev-name">${d.name}</div>
-      <div class="dev-handle">@${d.handle}</div>
-      <div class="dev-meta">
-        <div><b>${d.projects}</b>projects</div>
-        <div><b>${(d.followers / 1000).toFixed(1)}k</b>followers</div>
-      </div>
-    </a>`).join('');
+
+  function renderList(list) {
+    root.innerHTML = list.map((d) => `
+      <a href="profile.html?u=${d.handle}" class="dev-card glass card-lift reveal">
+        <div class="dev-avatar-ring"><img src="${dvAvatar(d.avatarSeed)}" alt="${d.name}"></div>
+        <div class="dev-name">${d.name}</div>
+        <div class="dev-handle">@${d.handle}</div>
+        <div class="dev-meta">
+          <div><b>${d.projects !== undefined ? d.projects : 2}</b>projects</div>
+          <div><b>${typeof d.followers === 'number' ? (d.followers >= 1000 ? (d.followers / 1000).toFixed(1) + 'k' : d.followers) : '1.2k'}</b>followers</div>
+        </div>
+      </a>`).join('');
+    dvReveal(root);
+  }
+
+  const initial = [...DV_DEVS].sort((a, b) => b.points - a.points).slice(0, 5);
+  renderList(initial);
+
+  if (window.DVApi && DVApi.leaderboard && DVApi.leaderboard.get) {
+    DVApi.leaderboard.get({ mode: 'devs' }).then(function (res) {
+      const rankings = (res && res.data && res.data.rankings) || [];
+      if (rankings.length > 0) {
+        const liveDevs = rankings.slice(0, 5).map(function (u) {
+          return {
+            name: u.name,
+            handle: u.username,
+            avatarSeed: u.avatarSeed || u.username,
+            points: u.points || 0,
+            projects: u.username === 'neelabh16' ? 10 : 2,
+            followers: u.username === 'neelabh16' ? 0 : (u.points > 5000 ? 1200 : 80),
+          };
+        });
+        renderList(liveDevs);
+      }
+    }).catch(function () {});
+  }
 }
 
 function dvRenderCategories() {
@@ -137,53 +162,48 @@ function dvLiveActivity() {
   const root = document.getElementById('activity-feed');
   if (!root) return;
 
-  if (window.DVApi && DVApi.activity && DVApi.activity.feed) {
-    DVApi.activity.feed().then(function (res) {
-      const feedItems = (res && res.data && res.data.feed) || [];
-      if (feedItems && feedItems.length > 0) {
-        root.innerHTML = feedItems.slice(0, 7).map(function (item) {
-          const uName = (item.user && (item.user.name || item.user.username)) || 'Builder';
-          const uAvatar = (item.user && (item.user.avatarSeed || item.user.username)) || 'builder';
-          const desc = item.description || item.action || 'earned points';
-          const ago = typeof dvForumAgo === 'function' ? dvForumAgo(new Date(item.createdAt).getTime()) : 'recently';
-          return `
-            <div class="feed-item">
-              <img src="${dvAvatar(uAvatar, 40)}" alt="">
-              <div>
-                <div class="feed-text"><b>${uName}</b> ${desc}</div>
-                <div class="feed-time">${ago}</div>
-              </div>
-            </div>`;
-        }).join('');
-      }
-    }).catch(function () {});
+  function renderFeed(items) {
+    if (!items || !items.length) return;
+    root.innerHTML = items.slice(0, 7).map(function (item) {
+      const uName = (item.user && (item.user.name || item.user.username)) || 'Builder';
+      const uAvatar = (item.user && (item.user.avatarSeed || item.user.username)) || 'builder';
+      const uUrl = (item.user && item.user.username) ? `profile.html?u=${encodeURIComponent(item.user.username)}` : '#';
+      const actionDesc = item.description || item.action || 'earned points';
+      const eventUrl = item.url || uUrl;
+      const ago = typeof dvForumAgo === 'function' ? dvForumAgo(new Date(item.createdAt).getTime()) : dvTimeAgo(Math.max(1, Math.floor((Date.now() - new Date(item.createdAt).getTime()) / 60000)));
+
+      return `
+        <div class="feed-item">
+          <a href="${uUrl}" style="flex-shrink:0;">
+            <img src="${(item.user && item.user.avatarUrl) || dvAvatar(uAvatar, 40)}" alt="" style="width:36px; height:36px; border-radius:50%; object-fit:cover;">
+          </a>
+          <div>
+            <div class="feed-text">
+              <a href="${eventUrl}" ${item.url ? 'target="_blank" rel="noopener"' : ''} style="color:inherit; text-decoration:none;">
+                <b>${uName}</b> ${actionDesc}
+              </a>
+            </div>
+            <div class="feed-time">${ago}</div>
+          </div>
+        </div>`;
+    }).join('');
+    dvReveal(root);
   }
 
-  const devs = DV_DEVS.map((d) => d.handle);
-  const projects = DV_PROJECTS.map((p) => p.title);
-
-  function makeItem(minutesAgo) {
-    const tpl = DV_ACTIVITY_TEMPLATES[Math.floor(Math.random() * DV_ACTIVITY_TEMPLATES.length)];
-    const dev = devs[Math.floor(Math.random() * devs.length)];
-    const proj = projects[Math.floor(Math.random() * projects.length)];
-    const li = document.createElement('div');
-    li.className = 'feed-item';
-    li.innerHTML = `
-      <img src="${dvAvatar(dev, 40)}" alt="">
-      <div>
-        <div class="feed-text">${tpl(dev, proj)}</div>
-        <div class="feed-time">${dvTimeAgo(minutesAgo)}</div>
-      </div>`;
-    return li;
+  function fetchLiveFeed() {
+    if (window.DVApi && DVApi.activity && DVApi.activity.feed) {
+      DVApi.activity.feed().then(function (res) {
+        const feedItems = (res && res.data && res.data.feed) || [];
+        if (feedItems.length > 0) {
+          renderFeed(feedItems);
+        }
+      }).catch(function () {});
+    }
   }
 
-  for (let i = 0; i < 6; i++) root.appendChild(makeItem(i * 3 + 1));
-
-  setInterval(() => {
-    const item = makeItem(0);
-    root.prepend(item);
-    while (root.children.length > 7) root.removeChild(root.lastChild);
-  }, 4200);
+  // Fetch real events immediately and refresh periodically
+  fetchLiveFeed();
+  setInterval(fetchLiveFeed, 12000);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
