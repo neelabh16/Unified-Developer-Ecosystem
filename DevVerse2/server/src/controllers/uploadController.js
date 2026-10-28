@@ -1,9 +1,11 @@
 // =============================================================================
 // Upload Controller
 // =============================================================================
+const mongoose = require('mongoose');
 const { sendSuccess } = require('../utils/response');
 const AppError = require('../utils/AppError');
 const User = require('../models/User');
+const Portfolio = require('../models/Portfolio');
 
 /**
  * Upload an avatar or profile image.
@@ -17,11 +19,17 @@ const uploadAvatar = async (req, res, next) => {
 
     const fileUrl = `/uploads/${req.file.filename}`;
 
-    // Update user record if user is logged in
+    // Update user record and portfolio record if user is logged in
     if (req.user && req.user._id) {
       await User.findByIdAndUpdate(req.user._id, {
         avatarSeed: fileUrl,
       });
+      if (mongoose.connection && mongoose.connection.readyState === 1) {
+        await Portfolio.findOneAndUpdate(
+          { user: req.user._id },
+          { $set: { avatarSeed: fileUrl } }
+        ).catch(() => {});
+      }
     }
 
     return sendSuccess(res, 201, 'Avatar image uploaded successfully', {

@@ -78,6 +78,11 @@ const userSchema = new mongoose.Schema(
       trim: true,
       default: 'you-builder',
     },
+    avatarUrl: {
+      type: String,
+      trim: true,
+      default: '',
+    },
     points: {
       type: Number,
       default: 0,

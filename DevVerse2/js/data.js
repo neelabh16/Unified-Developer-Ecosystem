@@ -178,7 +178,27 @@ const DV_FORUM_SEED = {
   ],
 };
 
+function dvResolveUploadUrl(url) {
+  if (!url || typeof url !== 'string') return url;
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:') || url.startsWith('blob:')) {
+    return url;
+  }
+  const apiBase = (typeof DV_API_BASE === 'string' && DV_API_BASE)
+    ? DV_API_BASE.replace(/\/api\/v1\/?$/, '')
+    : (typeof window !== 'undefined' && window.location && window.location.port === '5000' ? '' : 'http://localhost:5000');
+  return `${apiBase}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
 function dvAvatar(seed, size = 80) {
+  if (!seed) seed = 'you-builder';
+  if (typeof seed === 'string') {
+    if (seed.startsWith('data:image/') || seed.startsWith('blob:') || seed.startsWith('http://') || seed.startsWith('https://')) {
+      return seed;
+    }
+    if (seed.startsWith('/uploads/') || seed.startsWith('uploads/')) {
+      return dvResolveUploadUrl(seed);
+    }
+  }
   return `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(seed)}&backgroundColor=transparent&size=${size}`;
 }
 

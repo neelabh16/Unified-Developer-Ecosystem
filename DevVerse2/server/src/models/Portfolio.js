@@ -54,7 +54,8 @@ const portfolioSchema = new mongoose.Schema(
     projects: [
       {
         title: { type: String, required: true },
-        desc: { type: String, required: true },
+        desc: { type: String, default: '' },
+        githubUrl: { type: String, trim: true, default: '' },
       },
     ],
   },

@@ -3,6 +3,7 @@
 // =============================================================================
 const Portfolio = require('../models/Portfolio');
 const User = require('../models/User');
+const Project = require('../models/Project');
 const Activity = require('../models/Activity');
 const AppError = require('../utils/AppError');
 const { sendSuccess } = require('../utils/response');
@@ -13,33 +14,73 @@ const { sendSuccess } = require('../utils/response');
  */
 const getPortfolio = async (req, res, next) => {
   try {
-    const { handle } = req.params;
+    let { handle } = req.params;
+
+    if ((handle === 'me' || handle === 'you') && req.user) {
+      handle = req.user.username;
+    }
 
     let portfolio = await Portfolio.findOne({ handle: handle.toLowerCase() });
+    let user = await User.findOne({ username: handle.toLowerCase() });
 
-    if (!portfolio) {
-      // Check if user exists
-      const user = await User.findOne({ username: handle.toLowerCase() });
-      if (user) {
-        portfolio = {
-          handle: user.username,
-          name: user.name,
-          title: '',
-          bio: user.bio,
-          avatarSeed: user.avatarSeed,
-          accent: '#7c6fff',
-          skills: user.skills || [],
-          links: [],
-          projects: [],
-        };
-      }
+    if (!portfolio && user) {
+      portfolio = await Portfolio.create({
+        user: user._id,
+        handle: user.username,
+        name: user.name,
+        title: '',
+        bio: user.bio || '',
+        avatarSeed: user.avatarUrl || user.avatarSeed || 'you-builder',
+        accent: '#7c6fff',
+        skills: user.skills || [],
+        links: [],
+        projects: [],
+      });
     }
 
     if (!portfolio) {
       return next(new AppError(`Portfolio for @${handle} not found`, 404));
     }
 
-    return sendSuccess(res, 200, 'Portfolio retrieved', { portfolio });
+    const portObj = portfolio.toObject ? portfolio.toObject() : { ...portfolio };
+
+    // Auto-populate / merge projects created by this user in Explore
+    const targetUserId = user ? user._id : portObj.user;
+    if (targetUserId) {
+      const uploadedProjects = await Project.find({
+        $or: [{ author: targetUserId }, { authorHandle: handle.toLowerCase() }],
+      }).select('title desc githubUrl category tags createdAt');
+
+      let currentProjects = Array.isArray(portObj.projects) ? [...portObj.projects] : [];
+      let changed = false;
+
+      uploadedProjects.forEach((up) => {
+        const existingIdx = currentProjects.findIndex(
+          (p) => p.title && p.title.toLowerCase() === up.title.toLowerCase()
+        );
+        if (existingIdx === -1) {
+          currentProjects.push({
+            title: up.title,
+            desc: up.desc || '',
+            githubUrl: up.githubUrl || '',
+          });
+          changed = true;
+        } else {
+          // If project exists in portfolio but missing githubUrl, merge it from Explore project
+          if (!currentProjects[existingIdx].githubUrl && up.githubUrl) {
+            currentProjects[existingIdx].githubUrl = up.githubUrl;
+            changed = true;
+          }
+        }
+      });
+
+      if (changed) {
+        portObj.projects = currentProjects;
+        await Portfolio.findByIdAndUpdate(portfolio._id, { $set: { projects: currentProjects } }).catch(() => {});
+      }
+    }
+
+    return sendSuccess(res, 200, 'Portfolio retrieved', { portfolio: portObj });
   } catch (error) {
     next(error);
   }
@@ -53,6 +94,12 @@ const updateMyPortfolio = async (req, res, next) => {
   try {
     const { name, title, bio, avatarSeed, accent, skills, links, projects } = req.body;
 
+    const sanitizedProjects = (Array.isArray(projects) ? projects : []).map((p) => ({
+      title: p.title ? p.title.trim() : 'Untitled Project',
+      desc: p.desc ? p.desc.trim() : '',
+      githubUrl: p.githubUrl ? p.githubUrl.trim() : (p.github || p.repo || ''),
+    }));
+
     const updates = {
       user: req.user._id,
       handle: req.user.username,
@@ -63,7 +110,7 @@ const updateMyPortfolio = async (req, res, next) => {
       accent: accent || '#7c6fff',
       skills: Array.isArray(skills) ? skills : [],
       links: Array.isArray(links) ? links : [],
-      projects: Array.isArray(projects) ? projects : [],
+      projects: sanitizedProjects,
     };
 
     const portfolio = await Portfolio.findOneAndUpdate(
@@ -78,6 +125,7 @@ const updateMyPortfolio = async (req, res, next) => {
         bio: portfolio.bio,
         skills: portfolio.skills,
         avatarSeed: portfolio.avatarSeed,
+        avatarUrl: portfolio.avatarSeed.startsWith('/uploads/') ? portfolio.avatarSeed : (req.user.avatarUrl || ''),
       },
     });
 
