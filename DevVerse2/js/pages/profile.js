@@ -435,10 +435,10 @@ function dvRenderProfileContent(root) {
         renderHeatmapDays(recentDays);
       }
 
-      // 3. Render real activity timeline from GitHub public events
+      // 3. Render real activity timeline from GitHub public events and workspace commits
       if (timeline && gh.events && gh.events.length > 0) {
-        timeline.innerHTML = gh.events.slice(0, 6).map(function (ev) {
-          const diffMin = Math.max(1, Math.floor((Date.now() - new Date(ev.published).getTime()) / 60000));
+        timeline.innerHTML = gh.events.slice(0, 8).map(function (ev) {
+          const diffMin = Math.max(0, Math.floor((Date.now() - new Date(ev.published).getTime()) / 60000));
           const timeAgo = dvTimeAgo(diffMin);
           return `
             <div class="feed-item">
@@ -446,7 +446,7 @@ function dvRenderProfileContent(root) {
               <div>
                 <div class="feed-text">
                   <a href="${ev.url}" target="_blank" rel="noopener" style="color:inherit; text-decoration:none;">
-                    <b>${data.name}</b> ${ev.description}
+                    <b>${ev.username || data.name}</b> ${ev.description}
                   </a>
                 </div>
                 <div class="feed-time">${timeAgo}</div>

@@ -203,6 +203,7 @@ function dvAvatar(seed, size = 80) {
 }
 
 function dvTimeAgo(min) {
+  if (min <= 1) return 'just now';
   if (min < 60) return `${min}m ago`;
   const h = Math.floor(min / 60);
   if (h < 24) return `${h}h ago`;
