@@ -186,7 +186,7 @@ function dvRenderPublicPortfolio(root, handle, selfHandle) {
             </div>
           </div>
           <div style="margin-top:14px;">${dvTierBadgeHTML(info.points)}</div>
-          <p style="margin-top:16px; font-size:13.5px;">${bioText || 'No bio yet.'}</p>
+          <p style="margin-top:16px; font-size:14.5px; line-height:1.68; color:var(--text-secondary, #b4bcd0); word-break:break-word;">${bioText || 'No bio yet.'}</p>
           <div class="pc-tags" style="margin-top:14px;">${skillsList.length
             ? skillsList.map((s) => `<span class="chip" style="border-color:${accent}55;">${s}</span>`).join('')
             : `<span class="muted" style="font-size:12.5px;">No skills listed yet.</span>`}</div>
@@ -591,7 +591,7 @@ function dvRenderPortfolioPreview() {
           <div class="mono" style="font-size:12.5px; color:${d.accent};">${d.title}</div>
         </div>
       </div>
-      <p style="margin-top:16px; font-size:13.5px;">${d.bio || '<span class="muted">Add a short bio so visitors know what you build.</span>'}</p>
+      <p style="margin-top:16px; font-size:14px; line-height:1.65; color:var(--text-secondary, #b4bcd0); word-break:break-word;">${d.bio || '<span class="muted">Add a short bio so visitors know what you build.</span>'}</p>
       <div class="pc-tags" style="margin-top:14px;">${d.skills.length ? d.skills.map((s) => `<span class="chip" style="border-color:${d.accent}55;">${s}</span>`).join('') : '<span class="muted" style="font-size:12.5px;">No skills yet — add your first one on the left.</span>'}</div>
       <div style="display:flex; gap:10px; margin-top:16px; flex-wrap:wrap;">
         ${d.links.map((l) => `<a href="${l.url}" target="_blank" rel="noopener noreferrer" class="chip chip-link mono">${l.label} ↗</a>`).join('')}

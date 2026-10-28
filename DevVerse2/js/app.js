@@ -177,6 +177,16 @@ function dvRegisteredHackathons() {
   if (Array.isArray(storeArr)) {
     storeArr.forEach((id) => set.add(id));
   }
+  if (typeof dvMySquads === 'function') {
+    const squads = dvMySquads();
+    if (Array.isArray(squads)) {
+      squads.forEach((sq) => {
+        if (Array.isArray(sq.registeredHackathons)) {
+          sq.registeredHackathons.forEach((hid) => set.add(hid));
+        }
+      });
+    }
+  }
   return Array.from(set);
 }
 
@@ -1749,7 +1759,7 @@ function dvSquadMemberInfo(handle) {
 
     return {
       handle: selfHandle,
-      name: (portfolio && portfolio.name) || overrides.name || (account && account.name) || 'You',
+      name: (portfolio && portfolio.name && portfolio.name !== 'Your Name') ? portfolio.name : (overrides.name || (account && account.name) || 'You'),
       title: (portfolio && portfolio.title) || 'Full-stack Developer',
       avatarSeed: (portfolio && portfolio.avatarSeed) || overrides.avatarSeed || (account && (account.avatarSeed || account.username)) || 'you-builder',
       bio: (portfolio && portfolio.bio) || overrides.bio || (account && account.bio) || '',

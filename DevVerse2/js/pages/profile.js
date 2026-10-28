@@ -50,7 +50,7 @@ function dvRenderProfileContent(root) {
     ? {
         ...base,
         handle: selfUsername,
-        name: (portfolioData && portfolioData.name && portfolioData.name !== 'Your Name') || overrides.name || (account && account.name) || 'You',
+        name: ((portfolioData && portfolioData.name && portfolioData.name !== 'Your Name') ? portfolioData.name : null) || overrides.name || (account && account.name) || 'You',
         github: overrides.github || (account && account.github) || selfUsername,
         bio: overrides.bio || (portfolioData && portfolioData.bio) || base.bio,
         avatarSeed: (portfolioData && (portfolioData.avatarUrl || portfolioData.avatarSeed)) || overrides.avatarSeed || (account && (account.avatarUrl || account.avatarSeed)) || 'you-builder',
@@ -134,7 +134,7 @@ function dvRenderProfileContent(root) {
       <button class="btn btn-primary btn-sm" id="save-profile-btn">Save changes</button>
     </div>
 
-    <p style="max-width:560px; margin:24px 0 0;" id="profile-bio">${data.bio}</p>
+    <p style="max-width:960px; line-height:1.72; font-size:15px; color:var(--text-secondary, #b4bcd0); margin:24px 0 0; word-break:break-word;" id="profile-bio">${data.bio}</p>
 
     <div class="glass reveal in" style="padding:16px 20px; margin-top:20px; display:inline-flex; gap:10px; flex-wrap:wrap; width:fit-content;">
       ${!isSelf ? dvSquadAndMessageActionsHTML(data.handle, data.name) : `<button class="btn btn-primary btn-sm" disabled title="Others can click this to follow you">Follow</button>`}
@@ -437,6 +437,53 @@ function dvRenderProfileContent(root) {
       });
     });
 
+    // Sync live squads from backend so squad hackathon registrations reflect immediately
+    if (window.DVApi && DVApi.squads && DVApi.squads.mine) {
+      DVApi.squads.mine().then(function (res) {
+        const serverSquads = res && res.data && res.data.squads;
+        if (Array.isArray(serverSquads)) {
+          const normalized = serverSquads.map(dvNormalizeBackendSquad).filter(Boolean);
+          const localSquads = dvSquads();
+          normalized.forEach((serverSq) => {
+            const idx = localSquads.findIndex((ls) => ls.id === serverSq.id || ls._id === serverSq._id || ls.name === serverSq.name);
+            if (idx !== -1) {
+              const mergedReg = new Set([
+                ...(localSquads[idx].registeredHackathons || []),
+                ...(serverSq.registeredHackathons || [])
+              ]);
+              serverSq.registeredHackathons = Array.from(mergedReg);
+              localSquads[idx] = serverSq;
+            } else {
+              localSquads.push(serverSq);
+            }
+            (serverSq.registeredHackathons || []).forEach((hid) => {
+              DVStore.addToSet('hackathons', hid);
+              const found = typeof dvFindHackathon === 'function' ? dvFindHackathon(hid) : null;
+              if (found) DVStore.addToSet('hackathons', found.id);
+            });
+          });
+          dvSaveSquads(localSquads);
+          dvRenderProfileSquads();
+          dvRenderLibrary('bookmarks');
+        }
+      }).catch(function () {});
+    }
+
+    // Sync live registered hackathons from backend
+    if (window.DVApi && DVApi.hackathons && DVApi.hackathons.list) {
+      DVApi.hackathons.list().then(function (res) {
+        if (res && res.data && Array.isArray(res.data.registeredIds)) {
+          res.data.registeredIds.forEach((rid) => {
+            DVStore.addToSet('hackathons', rid);
+            const found = typeof dvFindHackathon === 'function' ? dvFindHackathon(rid) : null;
+            if (found) DVStore.addToSet('hackathons', found.id);
+          });
+          dvRenderProfileSquads();
+          dvRenderLibrary('bookmarks');
+        }
+      }).catch(function () {});
+    }
+
     document.getElementById('edit-profile-btn').addEventListener('click', () => {
       document.getElementById('edit-panel').style.display = 'block';
     });
@@ -512,7 +559,18 @@ function dvRenderProfileSquads() {
   }
   root.innerHTML = squads.map((squad) => {
     const members = squad.members.map(dvSquadMemberInfo).filter(Boolean);
-    const registered = squad.registeredHackathons.map((id) => DV_HACKATHONS.find((h) => h.id === id)).filter(Boolean);
+    const regList = Array.isArray(squad.registeredHackathons) ? squad.registeredHackathons : [];
+    const registered = regList.map((id) => {
+      const found = typeof dvFindHackathon === 'function' ? dvFindHackathon(id) : null;
+      if (found) return found;
+      return DV_HACKATHONS.find((h) =>
+        h.id === id ||
+        h.legacyId === id ||
+        (h._id && h._id.toString() === id.toString()) ||
+        (h.title && typeof id === 'string' && h.title.toLowerCase() === id.toLowerCase())
+      );
+    }).filter(Boolean);
+
     return `
     <div class="glass reveal in" style="padding:20px; margin-bottom:16px;">
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
@@ -541,11 +599,25 @@ function dvRenderLibrary(kind) {
   // project-only for now, since there's no "like a hackathon" action.
   const projectIds = ids.filter((id) => !id.startsWith('hack-'));
   const hackathonIds = ids.filter((id) => id.startsWith('hack-')).map((id) => id.slice(5));
+
+  // Also include hackathons registered directly or through squads
+  const registeredHackathonIds = typeof dvRegisteredHackathons === 'function' ? dvRegisteredHackathons() : [];
+  registeredHackathonIds.forEach((hid) => {
+    if (!hackathonIds.includes(hid)) hackathonIds.push(hid);
+  });
+
   const projects = dvAllProjects().filter((p) => projectIds.includes(p.id) || (p.legacyId && projectIds.includes(p.legacyId)) || (p._id && projectIds.includes(p._id.toString())));
-  const hackathons = kind === 'bookmarks' ? DV_HACKATHONS.filter((h) => hackathonIds.includes(h.id) || (h.legacyId && hackathonIds.includes(h.legacyId)) || (h._id && hackathonIds.includes(h._id.toString()))) : [];
+  const hackathons = (kind === 'bookmarks' || kind === 'registered') ? DV_HACKATHONS.filter((h) => {
+    return hackathonIds.some((hid) =>
+      hid === h.id ||
+      hid === h.legacyId ||
+      (h._id && hid === h._id.toString()) ||
+      (h.title && typeof hid === 'string' && h.title.toLowerCase() === hid.toLowerCase())
+    );
+  }) : [];
 
   if (!projects.length && !hackathons.length) {
-    container.innerHTML = `<p class="muted">No ${kind === 'bookmarks' ? 'bookmarked' : 'liked'} projects yet — head to <a href="explore.html" style="color:var(--accent);">Explore</a> and save a few.</p>`;
+    container.innerHTML = `<p class="muted">No ${kind === 'bookmarks' ? 'bookmarked or registered' : 'liked'} projects or hackathons yet — head to <a href="explore.html" style="color:var(--accent);">Explore</a> or <a href="hackathons.html" style="color:var(--accent);">Hackathons</a> to discover more.</p>`;
     return;
   }
 

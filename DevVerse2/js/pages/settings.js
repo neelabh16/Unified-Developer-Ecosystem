@@ -111,7 +111,7 @@ function dvSettingsInit() {
     <div style="display:flex; justify-content:space-between; padding:8px 0;"><span class="muted" style="font-size:13px;">Likes saved</span><span class="mono">${DVStore.get('likes', []).length}</span></div>
     <div style="display:flex; justify-content:space-between; padding:8px 0;"><span class="muted" style="font-size:13px;">Bookmarks saved</span><span class="mono">${DVStore.get('bookmarks', []).length}</span></div>
     <div style="display:flex; justify-content:space-between; padding:8px 0;"><span class="muted" style="font-size:13px;">Communities joined</span><span class="mono">${DVStore.get('communities', []).length}</span></div>
-    <div style="display:flex; justify-content:space-between; padding:8px 0;"><span class="muted" style="font-size:13px;">Hackathons registered</span><span class="mono">${DVStore.get('hackathons', []).length}</span></div>
+    <div style="display:flex; justify-content:space-between; padding:8px 0;"><span class="muted" style="font-size:13px;">Hackathons registered</span><span class="mono">${(typeof dvRegisteredHackathons === 'function' ? dvRegisteredHackathons() : DVStore.get('hackathons', [])).length}</span></div>
   `;
 }
 
