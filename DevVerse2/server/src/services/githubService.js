@@ -143,7 +143,7 @@ async function fetchActivityFeed(username) {
     const events = [];
     const seen = new Set();
 
-    // 1. Extract local workspace git commits for real-time immediate updates
+    // 1. Extract local workspace git commits strictly for the requested logged-in user
     const localCommits = await getLocalGitCommits(25);
     for (const commit of localCommits) {
       const author = (commit.username || '').toLowerCase();
@@ -152,11 +152,8 @@ async function fetchActivityFeed(username) {
         author === cleanUser ||
         author.includes(cleanUser) ||
         cleanUser.includes(author) ||
-        email.includes(cleanUser) ||
-        cleanUser.replace(/[-_]/g, '') === author.replace(/[-_]/g, '') ||
-        cleanUser === 'you' ||
-        cleanUser === 'aryan-verma-ai' ||
-        cleanUser === 'neelabh16';
+        (cleanUser.length > 2 && email.includes(cleanUser)) ||
+        cleanUser.replace(/[-_]/g, '') === author.replace(/[-_]/g, '');
 
       if (isMatch && !seen.has(commit.id) && !seen.has(commit.url)) {
         seen.add(commit.id);
@@ -165,10 +162,9 @@ async function fetchActivityFeed(username) {
       }
     }
 
-    // 2. Fetch remote branch commits Atom feed (for commits pushed to feature branch)
+    // 2. Fetch remote branch commits Atom feed (only commits authored by this user)
     const branchAtomUrls = [
       `https://github.com/${encodeURIComponent(username)}/Unified-Developer-Ecosystem/commits/feature/devverse-backend-integration.atom`,
-      `https://github.com/neelabh16/Unified-Developer-Ecosystem/commits/feature/devverse-backend-integration.atom`,
     ];
 
     for (const branchUrl of branchAtomUrls) {
@@ -185,6 +181,16 @@ async function fetchActivityFeed(username) {
             const authorMatch = entry.match(/<author>[\s\S]*?<name>([\s\S]*?)<\/name>/);
             const thumbMatch = entry.match(/<media:thumbnail[^>]*url="([^"]+)"/);
 
+            const authorName = authorMatch ? authorMatch[1].trim() : '';
+            const authorClean = authorName.toLowerCase();
+            const isAuthorMatch =
+              authorClean === cleanUser ||
+              authorClean.includes(cleanUser) ||
+              cleanUser.includes(authorClean) ||
+              cleanUser.replace(/[-_]/g, '') === authorClean.replace(/[-_]/g, '');
+
+            if (!isAuthorMatch) continue;
+
             const rawTitle = titleMatch ? titleMatch[1].trim() : '';
             const published = pubMatch ? pubMatch[1].trim() : new Date().toISOString();
             const url = linkMatch ? linkMatch[1] : '';
@@ -193,7 +199,6 @@ async function fetchActivityFeed(username) {
             if (url && !seen.has(url) && !seen.has(eventId)) {
               seen.add(url);
               seen.add(eventId);
-              const authorName = authorMatch ? authorMatch[1].trim() : username;
               events.push({
                 id: eventId,
                 title: `${authorName} pushed to Unified-Developer-Ecosystem`,

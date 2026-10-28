@@ -14,8 +14,9 @@ const getUserGitHubData = async (req, res, next) => {
   try {
     let { username } = req.params;
     if (!username || username === 'you') {
-      if (req.user && req.user.username) {
-        username = req.user.username;
+      const clientUser = req.headers['x-devverse-username'] || (req.user && (req.user.github || req.user.username));
+      if (clientUser) {
+        username = clientUser;
       } else {
         username = 'neelabh16';
       }
