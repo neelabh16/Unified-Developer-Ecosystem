@@ -367,6 +367,41 @@ function dvRenderProfileContent(root) {
   timeline.innerHTML = `<div class="feed-item"><div class="feed-text muted" style="padding:8px 0;">Loading activity timeline...</div></div>`;
 
   // Fetch real GitHub contributions and live activity feed
+  // Real-time backend sync for Followers and Following stats
+  const targetUserHandle = isSelf ? (selfUsername || 'neelabh16') : data.handle;
+  if (window.DVApi && DVApi.users) {
+    if (isSelf && DVApi.users.getFollowing) {
+      DVApi.users.getFollowing().then(function (res) {
+        if (res && res.data && Array.isArray(res.data.followingHandles)) {
+          DVStore.set('following', res.data.followingHandles);
+          const statFollowingEl = document.getElementById('profile-stat-following');
+          if (statFollowingEl) {
+            statFollowingEl.setAttribute('data-count', res.data.followingHandles.length);
+            statFollowingEl.textContent = res.data.followingHandles.length;
+          }
+        }
+      }).catch(function () {});
+    }
+
+    if (DVApi.users.getProfile && targetUserHandle) {
+      DVApi.users.getProfile(targetUserHandle).then(function (res) {
+        if (res && res.data) {
+          const u = res.data;
+          const statFollowersEl = document.getElementById('profile-stat-followers');
+          const statFollowingEl = document.getElementById('profile-stat-following');
+          if (statFollowersEl && typeof u.followersCount === 'number') {
+            statFollowersEl.setAttribute('data-count', u.followersCount);
+            statFollowersEl.textContent = u.followersCount;
+          }
+          if (statFollowingEl && !isSelf && typeof u.followingCount === 'number') {
+            statFollowingEl.setAttribute('data-count', u.followingCount);
+            statFollowingEl.textContent = u.followingCount;
+          }
+        }
+      }).catch(function () {});
+    }
+  }
+
   const ghUsername = isSelf
     ? (data.github || (account && (account.github || account.username)) || selfUsername)
     : (data.github || data.handle);
@@ -376,20 +411,22 @@ function dvRenderProfileContent(root) {
       if (!res || !res.data) return;
       const gh = res.data;
 
-      // 1. Update Followers and Following stats from real GitHub data
+      // 1. Update Followers and Following stats (only for non-self fallback if needed)
       const statFollowersEl = document.getElementById('profile-stat-followers');
       const statFollowingEl = document.getElementById('profile-stat-following');
 
-      const totalFollowers = gh.followers !== undefined ? gh.followers : (isSelf ? 0 : data.followers);
-      const totalFollowing = gh.following !== undefined ? gh.following : (isSelf ? DVStore.get('following', []).length : Math.floor(data.followers / 4));
+      if (!isSelf) {
+        const totalFollowers = gh.followers !== undefined ? gh.followers : data.followers;
+        const totalFollowing = gh.following !== undefined ? gh.following : Math.floor(data.followers / 4);
 
-      if (statFollowersEl) {
-        statFollowersEl.setAttribute('data-count', totalFollowers);
-        statFollowersEl.textContent = totalFollowers;
-      }
-      if (statFollowingEl) {
-        statFollowingEl.setAttribute('data-count', totalFollowing);
-        statFollowingEl.textContent = totalFollowing;
+        if (statFollowersEl && (!statFollowersEl.textContent || statFollowersEl.textContent === '0')) {
+          statFollowersEl.setAttribute('data-count', totalFollowers);
+          statFollowersEl.textContent = totalFollowers;
+        }
+        if (statFollowingEl && (!statFollowingEl.textContent || statFollowingEl.textContent === '0')) {
+          statFollowingEl.setAttribute('data-count', totalFollowing);
+          statFollowingEl.textContent = totalFollowing;
+        }
       }
 
       // 2. Render real contribution heatmap

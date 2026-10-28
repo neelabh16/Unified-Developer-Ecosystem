@@ -85,6 +85,17 @@ const DVStore = {
             }
           } catch (e) {}
         }
+      } else if (path === 'following') {
+        const c = dvGetCookie('dv_following');
+        if (c) {
+          try {
+            const parsed = JSON.parse(c);
+            if (Array.isArray(parsed)) {
+              result = parsed;
+              this._user.following = result;
+            }
+          } catch (e) {}
+        }
       }
     }
     if (result !== undefined) return result;
@@ -112,6 +123,10 @@ const DVStore = {
     } else if (path === 'portfolio' && value && typeof value === 'object') {
       try {
         dvSetCookie('dv_portfolio', JSON.stringify(value));
+      } catch (e) {}
+    } else if (path === 'following' && Array.isArray(value)) {
+      try {
+        dvSetCookie('dv_following', JSON.stringify(value));
       } catch (e) {}
     }
 
@@ -458,6 +473,28 @@ function dvInitAuth() {
                 });
               }
             } catch (hErr) {}
+          }
+
+          // Fetch user following list from backend API
+          if (DVApi.users && DVApi.users.getFollowing) {
+            try {
+              const followRes = await DVApi.users.getFollowing();
+              if (followRes && followRes.data && Array.isArray(followRes.data.followingHandles)) {
+                DVStore.set('following', followRes.data.followingHandles);
+                document.querySelectorAll('[data-follow]').forEach((btn) => {
+                  const fHandle = btn.dataset.follow;
+                  const active = DVStore.has('following', fHandle);
+                  btn.textContent = active ? 'Following' : 'Follow';
+                  btn.classList.toggle('btn-primary', !active);
+                  btn.classList.toggle('btn-ghost', active);
+                });
+                const statFollowingEl = document.getElementById('profile-stat-following');
+                if (statFollowingEl) {
+                  statFollowingEl.setAttribute('data-count', followRes.data.followingHandles.length);
+                  statFollowingEl.textContent = followRes.data.followingHandles.length;
+                }
+              }
+            } catch (fErr) {}
           }
         } else {
           window.DVCurrentUser = null;
@@ -2401,8 +2438,18 @@ function dvWireInteractions(root = document) {
       } else {
         dvToast(active ? `Following ${id}` : `Unfollowed ${id}`);
       }
+      const statFollowingEl = document.getElementById('profile-stat-following');
+      if (statFollowingEl) {
+        const curCount = DVStore.get('following', []).length;
+        statFollowingEl.setAttribute('data-count', curCount);
+        statFollowingEl.textContent = curCount;
+      }
       if (window.DVApi && DVApi.users && DVApi.users.toggleFollow) {
-        DVApi.users.toggleFollow(id).catch(function () {});
+        DVApi.users.toggleFollow(id).then(function (res) {
+          if (res && res.data && typeof res.data.userPoints === 'number' && window.DVCurrentUser) {
+            window.DVCurrentUser.points = res.data.userPoints;
+          }
+        }).catch(function () {});
       }
     }
     const joinBtn = e.target.closest('[data-join]');
