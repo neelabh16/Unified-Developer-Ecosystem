@@ -572,6 +572,7 @@ function dvInitAuth() {
             name: user.name,
             username: user.username,
             bio: user.bio || '',
+            github: user.github || '',
             avatarSeed: user.avatarUrl || user.avatarSeed || user.username,
             points: user.points || 0,
           });
@@ -793,6 +794,7 @@ function dvAuthAccount() {
       points: window.DVCurrentUser.points,
       avatarSeed: window.DVCurrentUser.avatarSeed,
       bio: window.DVCurrentUser.bio,
+      github: window.DVCurrentUser.github || '',
       followersCount: window.DVCurrentUser.followersCount,
       followingCount: window.DVCurrentUser.followingCount,
     };

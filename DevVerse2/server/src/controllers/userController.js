@@ -78,7 +78,19 @@ const updateProfile = async (req, res, next) => {
     const updates = {};
     if (name !== undefined) updates.name = name.trim();
     if (bio !== undefined) updates.bio = bio.trim();
-    if (github !== undefined) updates.github = github.trim().replace(/^@/, '');
+    if (github !== undefined) {
+      const cleanGh = github.trim().replace(/^@/, '');
+      updates.github = cleanGh;
+      const Portfolio = require('../models/Portfolio');
+      await Portfolio.findOneAndUpdate(
+        { user: req.user._id },
+        {
+          $set: {
+            links: cleanGh ? [{ label: 'GitHub', url: `https://github.com/${cleanGh}` }] : [],
+          },
+        }
+      ).catch(() => {});
+    }
     if (avatarSeed !== undefined) updates.avatarSeed = avatarSeed.trim();
     if (skills !== undefined && Array.isArray(skills)) updates.skills = skills;
     if (squadFinderProfile && typeof squadFinderProfile === 'object') {

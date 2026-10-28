@@ -51,7 +51,7 @@ function dvRenderProfileContent(root) {
         ...base,
         handle: selfUsername,
         name: (account && account.name) || overrides.name || ((portfolioData && portfolioData.name && portfolioData.name !== 'Your Name') ? portfolioData.name : null) || 'You',
-        github: (account && account.github) || overrides.github || selfUsername,
+        github: (account && account.github) || overrides.github || (window.DVCurrentUser && window.DVCurrentUser.github) || '',
         bio: (account && typeof account.bio === 'string' && account.bio.trim() !== '') ? account.bio : (overrides.bio || (portfolioData && portfolioData.bio) || ''),
         avatarSeed: (account && (account.avatarUrl || account.avatarSeed)) || overrides.avatarSeed || (portfolioData && (portfolioData.avatarUrl || portfolioData.avatarSeed)) || selfUsername || 'you-builder',
         points: realPoints,
@@ -119,7 +119,14 @@ function dvRenderProfileContent(root) {
           <h2 id="profile-name">${data.name}</h2>
           <span id="profile-tier-badge">${dvTierBadgeHTML(data.points)}</span>
         </div>
-        <div class="mono muted">@${data.handle}</div>
+        <div style="display:flex; align-items:center; gap:12px; margin-top:4px; flex-wrap:wrap;">
+          <div class="mono muted">@${data.handle}</div>
+          ${data.github ? `
+            <a href="https://github.com/${encodeURIComponent(data.github)}" target="_blank" rel="noopener" class="chip chip-ghost" style="font-size:12px; text-decoration:none; display:inline-flex; align-items:center; gap:5px; padding:3px 8px; border-radius:12px;" title="View GitHub profile">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+              <span>${data.github}</span>
+            </a>` : ''}
+        </div>
       </div>
       <div style="padding-bottom:14px; display:flex; gap:10px;">
         <a class="btn btn-outline" href="portfolio.html${isSelf ? '' : '?u=' + data.handle}">${isSelf ? 'View your portfolio' : 'View portfolio'}</a>
@@ -489,7 +496,7 @@ function dvRenderProfileContent(root) {
   }
 
   const ghUsername = isSelf
-    ? ((account && account.github) || (data.github && data.github !== selfUsername ? data.github : ''))
+    ? ((account && account.github) || overrides.github || (window.DVCurrentUser && window.DVCurrentUser.github) || data.github || selfUsername)
     : (data.github || data.handle || '');
 
   if (window.DVApi && DVApi.github && DVApi.github.getUser) {
@@ -602,7 +609,12 @@ function dvRenderProfileContent(root) {
     document.getElementById('edit-profile-btn').addEventListener('click', () => {
       document.getElementById('edit-panel').style.display = 'block';
     });
-    document.getElementById('save-profile-btn').addEventListener('click', () => {
+    document.getElementById('save-profile-btn').addEventListener('click', async () => {
+      const saveBtn = document.getElementById('save-profile-btn');
+      if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving…';
+      }
       // One-time username change: only touched when the field is actually
       // present (i.e. unlocked and not used yet) and the value was changed.
       const usernameInput = document.getElementById('edit-username');
@@ -641,23 +653,48 @@ function dvRenderProfileContent(root) {
       // silently dropping the "username" field that signup had put there
       // (Object.assign/spread merges it with what's already stored instead
       // of throwing it away).
+      const cleanGithub = document.getElementById('edit-github') ? document.getElementById('edit-github').value.trim().replace(/^@/, '') : (data.github || '');
+      const cleanName = document.getElementById('edit-name').value.trim() || data.name || 'You';
+      const cleanBio = document.getElementById('edit-bio').value.trim();
+      const cleanAvatar = document.getElementById('edit-avatar').value.trim() || data.avatarSeed || 'you-builder';
+
       const updatedProfile = {
         ...DVStore.get('profile.overrides', {}),
-        name: document.getElementById('edit-name').value.trim() || 'You',
-        github: document.getElementById('edit-github') ? document.getElementById('edit-github').value.trim().replace(/^@/, '') : (data.github || ''),
-        bio: document.getElementById('edit-bio').value.trim(),
-        avatarSeed: document.getElementById('edit-avatar').value.trim() || 'you-builder',
+        name: cleanName,
+        github: cleanGithub,
+        bio: cleanBio,
+        avatarSeed: cleanAvatar,
       };
       DVStore.set('profile.overrides', updatedProfile);
-      if (window.DVApi && DVApi.users && DVApi.users.updateProfile) {
-        DVApi.users.updateProfile(updatedProfile).catch(function () {});
+
+      if (window.DVCurrentUser) {
+        window.DVCurrentUser.github = cleanGithub;
+        window.DVCurrentUser.name = cleanName;
+        window.DVCurrentUser.bio = cleanBio;
+        window.DVCurrentUser.avatarSeed = cleanAvatar;
       }
+
+      if (window.DVApi && DVApi.users && DVApi.users.updateProfile) {
+        try {
+          const res = await DVApi.users.updateProfile(updatedProfile);
+          if (res && res.data && res.data.user) {
+            window.DVCurrentUser = {
+              ...(window.DVCurrentUser || {}),
+              ...res.data.user,
+              github: cleanGithub,
+            };
+          }
+        } catch (err) {
+          console.warn('Could not sync updated profile to backend:', err);
+        }
+      }
+
       if (dvAwardOnce('milestone', 'profile-edited', DV_POINT_VALUES.milestone.profileEdited, 'Customized your profile')) {
         dvToast(`Profile saved (+${DV_POINT_VALUES.milestone.profileEdited} pts)`);
       } else {
         dvToast('Profile saved');
       }
-      dvProfileInit();
+      dvRenderProfileContent(root);
     });
   }
 
