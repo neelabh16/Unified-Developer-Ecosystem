@@ -4,6 +4,7 @@
 const https = require('https');
 const { execFile } = require('child_process');
 const path = require('path');
+const crypto = require('crypto');
 
 // Workspace root directory (where local .git is located)
 const WORKSPACE_ROOT = path.resolve(__dirname, '../../../');
@@ -11,6 +12,10 @@ const WORKSPACE_ROOT = path.resolve(__dirname, '../../../');
 // In-memory cache with 30-second TTL to ensure fresh activity while avoiding external rate limits
 const cache = new Map();
 const CACHE_TTL_MS = 30 * 1000;
+
+function hashEventId(prefix, str) {
+  return `${prefix}-${crypto.createHash('sha256').update(str || String(Date.now())).digest('hex').slice(0, 16)}`;
+}
 
 /**
  * Get current local git HEAD commit hash (used to invalidate cache on new commits).
@@ -84,7 +89,16 @@ function fetchText(url) {
       (res) => {
         // Handle HTTP redirects (301/302)
         if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-          return resolve(fetchText(res.headers.location));
+          let nextUrl = res.headers.location;
+          if (nextUrl.startsWith('/')) {
+            try {
+              const parsed = new URL(url);
+              nextUrl = `${parsed.protocol}//${parsed.host}${nextUrl}`;
+            } catch {
+              nextUrl = `https://github.com${nextUrl}`;
+            }
+          }
+          return resolve(fetchText(nextUrl));
         }
         let data = '';
         res.on('data', (chunk) => {
@@ -194,7 +208,7 @@ async function fetchActivityFeed(username) {
             const rawTitle = titleMatch ? titleMatch[1].trim() : '';
             const published = pubMatch ? pubMatch[1].trim() : new Date().toISOString();
             const url = linkMatch ? linkMatch[1] : '';
-            const eventId = `gh-commit-${Buffer.from(url || (rawTitle + published)).toString('base64').slice(0, 16)}`;
+            const eventId = hashEventId('gh-commit', url || (rawTitle + published));
 
             if (url && !seen.has(url) && !seen.has(eventId)) {
               seen.add(url);
@@ -233,7 +247,7 @@ async function fetchActivityFeed(username) {
         const rawTitle = titleMatch ? titleMatch[1].trim() : '';
         const published = pubMatch ? pubMatch[1].trim() : new Date().toISOString();
         const url = linkMatch ? linkMatch[1] : `https://github.com/${username}`;
-        const eventId = `gh-${Buffer.from(url + published).toString('base64').slice(0, 16)}`;
+        const eventId = hashEventId('gh', url + published);
 
         if (!seen.has(url) && !seen.has(eventId)) {
           seen.add(url);
@@ -273,6 +287,78 @@ async function fetchActivityFeed(username) {
       }
     }
 
+    // 4. Fallback: If events are scarce (< 8), fetch commits directly from user's public repositories
+    if (events.length < 8) {
+      try {
+        const repos = await fetchRepositories(username);
+        for (const repo of repos.slice(0, 4)) {
+          try {
+            const repoAtomRes = await fetchText(`https://github.com/${encodeURIComponent(username)}/${encodeURIComponent(repo.name)}/commits.atom`);
+            if (repoAtomRes.status === 200) {
+              const entryRegex = /<entry>([\s\S]*?)<\/entry>/g;
+              let m;
+              while ((m = entryRegex.exec(repoAtomRes.body)) !== null) {
+                const entry = m[1];
+                const titleMatch = entry.match(/<title[^>]*>([\s\S]*?)<\/title>/);
+                const pubMatch = entry.match(/<updated>([\s\S]*?)<\/updated>/) || entry.match(/<published>([\s\S]*?)<\/published>/);
+                const linkMatch = entry.match(/<link[^>]*href="([^"]+)"/);
+                const authorMatch = entry.match(/<author>[\s\S]*?<name>([\s\S]*?)<\/name>/);
+                const thumbMatch = entry.match(/<media:thumbnail[^>]*url="([^"]+)"/);
+
+                const rawTitle = titleMatch ? titleMatch[1].trim() : '';
+                const published = pubMatch ? pubMatch[1].trim() : new Date().toISOString();
+                const url = linkMatch ? linkMatch[1] : `https://github.com/${username}/${repo.name}`;
+                const authorName = authorMatch ? authorMatch[1].trim() : username;
+                const eventId = hashEventId('gh-repo-commit', url || (rawTitle + published));
+
+                if (!seen.has(url) && !seen.has(eventId)) {
+                  seen.add(url);
+                  seen.add(eventId);
+                  events.push({
+                    id: eventId,
+                    title: `${authorName || username} pushed to ${repo.name}`,
+                    description: `pushed commit: ${rawTitle}`,
+                    repo: repo.name,
+                    published,
+                    url,
+                    username: authorName || username,
+                    avatarUrl: thumbMatch ? thumbMatch[1] : `https://avatars.githubusercontent.com/${username}`,
+                  });
+                }
+              }
+            }
+          } catch {
+            // Ignore individual repo fetch errors
+          }
+        }
+      } catch {
+        // Ignore repo listing errors
+      }
+    }
+
+    // 5. Fallback: If still 0 events, surface repository creation/presence events
+    if (events.length === 0) {
+      try {
+        const repos = await fetchRepositories(username);
+        for (const repo of repos.slice(0, 5)) {
+          const eventId = `gh-repo-${repo.name}`;
+          if (!seen.has(eventId)) {
+            seen.add(eventId);
+            events.push({
+              id: eventId,
+              title: `${username} created repository ${repo.name}`,
+              description: `public repository: ${repo.desc || 'Available on GitHub'}`,
+              repo: repo.name,
+              published: new Date().toISOString(),
+              url: repo.url,
+              username,
+              avatarUrl: `https://avatars.githubusercontent.com/${username}`,
+            });
+          }
+        }
+      } catch {}
+    }
+
     // Sort strictly in descending chronological order (newest first)
     events.sort((a, b) => new Date(b.published).getTime() - new Date(a.published).getTime());
     return events;
@@ -296,10 +382,10 @@ async function fetchRepositories(username) {
 
     while ((match = blockRegex.exec(res.body)) !== null) {
       const block = match[0];
-      const nameMatch = block.match(new RegExp(`href="/${username}/([^"/]+)"`));
+      const nameMatch = block.match(new RegExp(`href="/${username}/([^"/]+)"`, 'i'));
       const descMatch = block.match(/itemprop="description">([\s\S]*?)<\/p>/);
       const langMatch = block.match(/itemprop="programmingLanguage">([\s\S]*?)<\/span>/);
-      const starsMatch = block.match(new RegExp(`href="/${username}/[^"]+/stargazers"[\\s\\S]*?>\\s*([\\d,]+)\\s*</a>`));
+      const starsMatch = block.match(new RegExp(`href="/${username}/[^"]+/stargazers"[\\s\\S]*?>\\s*([\\d,]+)\\s*</a>`, 'i'));
 
       if (nameMatch && !repos.find((r) => r.name === nameMatch[1])) {
         const cleanName = nameMatch[1];

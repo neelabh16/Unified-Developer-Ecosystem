@@ -567,6 +567,7 @@ function dvInitAuth() {
             name: user.name,
             username: user.username,
             email: user.email,
+            github: user.github || '',
           }]);
           DVStore.set('profile.overrides', {
             name: user.name,
