@@ -188,7 +188,12 @@ function dvSetupOAuthButtons(mode, redirectTarget) {
 function dvInitiateOAuth(provider, redirectTarget) {
   const backendBase = (window.DVApi && DVApi.baseURL) || (window.location.port === '5000' ? '/api/v1' : 'http://localhost:5000/api/v1');
   const target = redirectTarget || 'index.html';
-  window.location.href = `${backendBase}/auth/${provider}?redirect=${encodeURIComponent(target)}`;
+  const pathParts = window.location.pathname.split('/');
+  pathParts.pop();
+  const dirPath = pathParts.join('/');
+  const subpath = dirPath ? (dirPath.startsWith('/') ? dirPath : '/' + dirPath) : '';
+  const clientBase = window.location.origin + subpath;
+  window.location.href = `${backendBase}/auth/${provider}?redirect=${encodeURIComponent(target)}&client_base=${encodeURIComponent(clientBase)}`;
 }
 
 function dvOpenOAuthSetupModal(provider, redirectTarget) {

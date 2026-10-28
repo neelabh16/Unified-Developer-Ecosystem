@@ -258,17 +258,23 @@ const oauthLogin = async (req, res, next) => {
 };
 
 /**
- * Helper to get client origin from request headers or environment
+ * Helper to get client origin & base subpath from request headers or environment
  */
 const getClientOrigin = (req) => {
+  if (req && req.query && req.query.client_base) {
+    return req.query.client_base.replace(/\/+$/, '');
+  }
   const referer = req.get('referer');
   if (referer) {
     try {
       const parsed = new URL(referer);
-      return parsed.origin;
+      const pathParts = parsed.pathname.split('/');
+      pathParts.pop(); // remove login.html, signup.html etc.
+      const subpath = pathParts.join('/');
+      return `${parsed.origin}${subpath}`.replace(/\/+$/, '');
     } catch (e) {}
   }
-  return process.env.CLIENT_ORIGIN || 'http://localhost:5500';
+  return (process.env.CLIENT_ORIGIN || 'http://localhost:5500').replace(/\/+$/, '');
 };
 
 /**
@@ -300,6 +306,11 @@ const findOrCreateOAuthUser = async ({ provider, providerId, email, name, userna
       user.github = github;
       changed = true;
     }
+    // Ensure bio fits schema if pre-existing legacy bio exceeded bounds
+    if (user.bio && user.bio.length > 1000) {
+      user.bio = user.bio.slice(0, 1000);
+      changed = true;
+    }
     if (changed) {
       await user.save();
     }
@@ -321,8 +332,11 @@ const findOrCreateOAuthUser = async ({ provider, providerId, email, name, userna
     counter++;
   }
 
+  const safeBio = (bio || '').slice(0, 1000);
+  const safeName = ((name && name.trim()) || candidateUsername).slice(0, 60);
+
   user = await User.create({
-    name: (name && name.trim()) || candidateUsername,
+    name: safeName,
     username: candidateUsername,
     email: cleanEmail,
     provider,
@@ -330,7 +344,7 @@ const findOrCreateOAuthUser = async ({ provider, providerId, email, name, userna
     avatarSeed: avatarUrl || candidateUsername,
     avatarUrl: avatarUrl || '',
     github: github || (provider === 'github' ? candidateUsername : ''),
-    bio: bio || '',
+    bio: safeBio,
     role: 'user',
     points: 20,
   });
@@ -418,8 +432,8 @@ const githubOAuthCallback = async (req, res) => {
       }
     } catch (e) {}
 
-    const clientOrigin = parsedState.origin || process.env.CLIENT_ORIGIN || 'http://localhost:5500';
-    const redirectPath = parsedState.redirect || 'index.html';
+    const clientOrigin = (parsedState.origin || getClientOrigin(req)).replace(/\/+$/, '');
+    const redirectPath = (parsedState.redirect || 'index.html').replace(/^\/+/, '');
 
     if (error) {
       return res.redirect(`${clientOrigin}/login.html?oauth_error=${encodeURIComponent(error_description || error)}`);
@@ -522,7 +536,13 @@ const githubOAuthCallback = async (req, res) => {
     return res.redirect(`${clientOrigin}/${cleanRedirect}`);
   } catch (err) {
     console.error('GitHub OAuth callback error:', err);
-    const clientOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:5500';
+    let clientOrigin = getClientOrigin(req);
+    try {
+      if (req.query.state) {
+        const s = JSON.parse(Buffer.from(req.query.state, 'base64').toString('utf8'));
+        if (s.origin) clientOrigin = s.origin.replace(/\/+$/, '');
+      }
+    } catch (e) {}
     return res.redirect(`${clientOrigin}/login.html?oauth_error=${encodeURIComponent(err.message || 'OAuth error')}`);
   }
 };
@@ -567,8 +587,8 @@ const googleOAuthCallback = async (req, res) => {
       }
     } catch (e) {}
 
-    const clientOrigin = parsedState.origin || process.env.CLIENT_ORIGIN || 'http://localhost:5500';
-    const redirectPath = parsedState.redirect || 'index.html';
+    const clientOrigin = (parsedState.origin || getClientOrigin(req)).replace(/\/+$/, '');
+    const redirectPath = (parsedState.redirect || 'index.html').replace(/^\/+/, '');
 
     if (error) {
       return res.redirect(`${clientOrigin}/login.html?oauth_error=${encodeURIComponent(error_description || error)}`);
@@ -645,7 +665,13 @@ const googleOAuthCallback = async (req, res) => {
     return res.redirect(`${clientOrigin}/${cleanRedirect}`);
   } catch (err) {
     console.error('Google OAuth callback error:', err);
-    const clientOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:5500';
+    let clientOrigin = getClientOrigin(req);
+    try {
+      if (req.query.state) {
+        const s = JSON.parse(Buffer.from(req.query.state, 'base64').toString('utf8'));
+        if (s.origin) clientOrigin = s.origin.replace(/\/+$/, '');
+      }
+    } catch (e) {}
     return res.redirect(`${clientOrigin}/login.html?oauth_error=${encodeURIComponent(err.message || 'OAuth error')}`);
   }
 };
