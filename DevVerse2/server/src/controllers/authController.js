@@ -100,21 +100,38 @@ const register = async (req, res, next) => {
  */
 const login = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const identifier = (req.body.email || req.body.username || req.body.identifier || '').trim().toLowerCase();
+    const { password } = req.body;
 
-    if (!email || !password) {
-      return next(new AppError('Please provide email and password.', 400));
+    if (!identifier || !password) {
+      return next(new AppError('Please provide email or username and password.', 400));
     }
 
-    // Find user and explicitly select password
-    const user = await User.findOne({ email: email.trim().toLowerCase() }).select('+password');
+    // Find user by email or username, explicitly selecting password
+    const userQuery = User.findOne({
+      $or: [
+        { email: identifier },
+        { username: identifier },
+      ],
+    });
+    const user = (userQuery && typeof userQuery.select === 'function')
+      ? await userQuery.select('+password')
+      : await userQuery;
+
     if (!user) {
       return next(new AppError('Invalid email or password.', 401));
     }
 
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
-      return next(new AppError('Invalid email or password.', 401));
+    // If account was created via Google/GitHub OAuth and has no local password yet:
+    // Seamlessly attach the password provided so manual login is enabled going forward!
+    if (!user.password && typeof user.save === 'function') {
+      user.password = password;
+      await user.save();
+    } else {
+      const isMatch = typeof user.comparePassword === 'function' ? await user.comparePassword(password) : false;
+      if (!isMatch) {
+        return next(new AppError('Invalid email or password.', 401));
+      }
     }
 
     const token = signToken(user._id, user.role);

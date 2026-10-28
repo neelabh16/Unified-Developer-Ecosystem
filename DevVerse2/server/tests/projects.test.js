@@ -150,6 +150,7 @@ describe('Project CRUD & Engagement APIs', () => {
       jest.spyOn(Project, 'findById').mockResolvedValue(mockProject);
       jest.spyOn(Comment, 'create').mockResolvedValue(mockComment);
       jest.spyOn(User, 'findByIdAndUpdate').mockResolvedValue({});
+      jest.spyOn(User, 'findById').mockReturnValue({ select: jest.fn().mockResolvedValue({ points: 15 }) });
       jest.spyOn(Activity, 'create').mockResolvedValue({});
 
       const req = {

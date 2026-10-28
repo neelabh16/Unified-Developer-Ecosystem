@@ -275,6 +275,69 @@ describe('User Model & Auth Controller Unit/Integration Tests', () => {
 
       User.findOne.mockRestore();
     });
+
+    it('should allow OAuth user without password to log in manually and attach password', async () => {
+      const mockOAuthUser = {
+        _id: '507f1f77bcf86cd799439011',
+        name: 'OAuth User',
+        username: 'oauthuser',
+        email: 'oauth@example.com',
+        role: 'user',
+        provider: 'google',
+        password: '',
+        save: jest.fn().mockResolvedValue(true),
+      };
+
+      jest.spyOn(User, 'findOne').mockReturnValue({
+        select: jest.fn().mockResolvedValue(mockOAuthUser),
+      });
+
+      const req = { body: { email: 'oauth@example.com', password: 'MyNewPassword123!' } };
+      const res = {
+        cookie: jest.fn(),
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+      };
+      const next = jest.fn();
+
+      await authController.login(req, res, next);
+
+      expect(mockOAuthUser.save).toHaveBeenCalled();
+      expect(mockOAuthUser.password).toBe('MyNewPassword123!');
+      expect(res.status).toHaveBeenCalledWith(200);
+
+      User.findOne.mockRestore();
+    });
+
+    it('should log in successfully when entering username instead of email', async () => {
+      const mockUser = {
+        _id: '507f1f77bcf86cd799439011',
+        name: 'Ada Lovelace',
+        username: 'adalovelace',
+        email: 'ada@example.com',
+        role: 'user',
+        comparePassword: jest.fn().mockResolvedValue(true),
+        password: 'existing_hash',
+      };
+
+      jest.spyOn(User, 'findOne').mockReturnValue({
+        select: jest.fn().mockResolvedValue(mockUser),
+      });
+
+      const req = { body: { username: 'adalovelace', password: 'Password123!' } };
+      const res = {
+        cookie: jest.fn(),
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+      };
+      const next = jest.fn();
+
+      await authController.login(req, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+
+      User.findOne.mockRestore();
+    });
   });
 
   describe('Logout & Current User', () => {

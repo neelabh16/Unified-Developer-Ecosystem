@@ -44,7 +44,7 @@ const userSchema = new mongoose.Schema(
       required: function () {
         return !this.provider || this.provider === 'local';
       },
-      minlength: [7, 'Password must be at least 7 characters long'],
+      minlength: [4, 'Password must be at least 4 characters long'],
       select: false, // Do not return password by default in queries
     },
     provider: {

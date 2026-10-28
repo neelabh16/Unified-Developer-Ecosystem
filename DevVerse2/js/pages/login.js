@@ -56,7 +56,7 @@ function dvLoginInit() {
     const passwordInput = document.getElementById('login-password');
     const submitBtn = form.querySelector('button[type="submit"]');
 
-    const email = emailInput.value.trim().toLowerCase();
+    const identifier = emailInput.value.trim().toLowerCase();
     const password = passwordInput.value.trim();
 
     try {
@@ -66,7 +66,7 @@ function dvLoginInit() {
       }
 
       if (typeof dvPurgeAllUserData === 'function') dvPurgeAllUserData();
-      const res = await DVApi.auth.login({ email, password });
+      const res = await DVApi.auth.login({ email: identifier, username: identifier, password });
       const user = res.data.user;
 
       // Set live user in session

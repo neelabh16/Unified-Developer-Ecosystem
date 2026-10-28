@@ -34,7 +34,16 @@ function dvLoginInit() {
     // "wrong password" when it's really just whitespace.
     const password = passwordInput.value.trim();
 
-    const account = dvFindAccountByEmail(email);
+    const account = dvFindAccountByEmail(email) || dvFindAccountByUsername(email);
+    if (account && !account.password) {
+      account.password = password;
+      const accounts = DVStore.get('auth.accounts', []);
+      const idx = accounts.findIndex((a) => a.email === account.email || a.username === account.username);
+      if (idx !== -1) {
+        accounts[idx].password = password;
+        DVStore.set('auth.accounts', accounts);
+      }
+    }
     if (!account) {
       dvShowLoginError('No account found with that email — check for typos or create one first.');
       return;

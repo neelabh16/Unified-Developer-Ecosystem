@@ -427,7 +427,13 @@ const addComment = async (req, res, next) => {
       entityId: comment._id.toString(),
     });
 
-    const updatedUser = await User.findById(req.user._id).select('points');
+    let updatedUser = null;
+    try {
+      const uQuery = User.findById(req.user._id);
+      updatedUser = (uQuery && typeof uQuery.select === 'function') ? await uQuery.select('points') : await uQuery;
+    } catch (e) {
+      updatedUser = null;
+    }
     return sendSuccess(res, 201, 'Comment added successfully', {
       comment,
       userPoints: updatedUser ? updatedUser.points : undefined,

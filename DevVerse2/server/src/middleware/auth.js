@@ -13,7 +13,7 @@ const protect = async (req, res, next) => {
   try {
     // 1. Extract token from HttpOnly cookie or Authorization Bearer header
     let token = req.cookies?.token;
-    if (!token && req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+    if (!token && req.headers && req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
       token = req.headers.authorization.split(' ')[1];
     }
 
