@@ -88,8 +88,10 @@ function dvPurgeAllUserData() {
       const trimmed = cookieStr.trim();
       const eqIdx = trimmed.indexOf('=');
       const name = eqIdx !== -1 ? trimmed.substring(0, eqIdx) : trimmed;
-      if (name.startsWith('dv_u_')) {
-        dvDeleteCookie(name);
+      if (name.startsWith('dv_u_') || name.startsWith('dv_')) {
+        if (name !== 'token' && name !== 'dv_jwt') {
+          dvDeleteCookie(name);
+        }
       }
     });
   } catch (e) {}
@@ -393,10 +395,6 @@ const DVStore = {
 
 function dvRegisteredHackathons() {
   const set = new Set();
-  const c = typeof dvGetCookie === 'function' ? dvGetCookie('dv_hackathons') : null;
-  if (c) {
-    c.split(',').map((s) => s.trim()).filter(Boolean).forEach((id) => set.add(id));
-  }
   const storeArr = DVStore.get('hackathons', []);
   if (Array.isArray(storeArr)) {
     storeArr.forEach((id) => set.add(id));
@@ -531,6 +529,7 @@ function dvInitAuth() {
       }
       const oauthSuccess = dvGetQueryParam('oauth') === 'success';
       if (oauthSuccess) {
+        if (typeof dvPurgeAllUserData === 'function') dvPurgeAllUserData();
         const prov = dvGetQueryParam('provider') || 'social';
         const provLabel = prov === 'github' ? 'GitHub' : prov === 'google' ? 'Google' : 'social account';
         if (typeof dvToast === 'function') {
@@ -555,11 +554,11 @@ function dvInitAuth() {
           const currentUserId = user._id ? String(user._id) : '';
           const lastUserId = dvGetCookie('dv_current_user_id');
 
-          // If session belongs to a different user, purge stale state from old user
-          if (lastUserId && lastUserId !== currentUserId) {
+          // If session belongs to a different user or first time loading, purge stale state
+          if (!lastUserId || lastUserId !== currentUserId) {
             dvPurgeAllUserData();
+            dvSetCookie('dv_current_user_id', currentUserId);
           }
-          dvSetCookie('dv_current_user_id', currentUserId);
 
           window.DVCurrentUser = user;
           DVStore._user = {};
@@ -661,6 +660,16 @@ function dvInitAuth() {
                 });
               }
             } catch (likeErr) {}
+          }
+
+          // Fetch user portfolio from backend API
+          if (DVApi.portfolios && DVApi.portfolios.get && user.username) {
+            try {
+              const pfRes = await DVApi.portfolios.get(user.username);
+              if (pfRes && pfRes.data && pfRes.data.portfolio) {
+                DVStore.set('portfolio', pfRes.data.portfolio);
+              }
+            } catch (pfErr) {}
           }
 
           // Fetch user squads from backend API
@@ -1961,7 +1970,26 @@ function dvSaveSquads(squads) {
 }
 function dvMySquads() {
   const self = dvSelfHandle();
-  return dvSquads().filter((s) => s.members.indexOf('you') !== -1 || (self && s.members.indexOf(self) !== -1));
+  const currentUserId = (window.DVCurrentUser && window.DVCurrentUser._id) ? String(window.DVCurrentUser._id) : '';
+  const squads = dvSquads();
+  if (!Array.isArray(squads)) return [];
+
+  return squads.filter((s) => {
+    if (!s || !Array.isArray(s.members)) return false;
+    return s.members.some((m) => {
+      const mStr = typeof m === 'object' && m !== null ? (m.username || m.handle || (m._id ? String(m._id) : '')) : String(m);
+      if (self && self !== 'you' && mStr.toLowerCase() === self.toLowerCase()) return true;
+      if (currentUserId && mStr === currentUserId) return true;
+      if ((!self || self === 'you') && mStr === 'you') return true;
+      return false;
+    }) || (s.leader && (function(){
+      const lStr = typeof s.leader === 'object' && s.leader !== null ? (s.leader.username || (s.leader._id ? String(s.leader._id) : '')) : String(s.leader);
+      if (self && self !== 'you' && lStr.toLowerCase() === self.toLowerCase()) return true;
+      if (currentUserId && lStr === currentUserId) return true;
+      if ((!self || self === 'you') && lStr === 'you') return true;
+      return false;
+    })());
+  });
 }
 function dvCreateSquad(name, description, memberHandles) {
   const squads = dvSquads();

@@ -34,7 +34,7 @@ function dvProfileInit() {
   const tier = dvCurrentTier(data.points);
   const next = dvNextTier(data.points);
 
-  const myProjects = isSelf ? dvAllProjects().filter(function (p) { return p.author === 'you'; }) : dvAllProjects().filter(function (p) { return p.author === data.handle; });
+  const myProjects = isSelf ? dvAllProjects().filter(function (p) { return selfUsername && selfUsername !== 'you' && p.author === selfUsername; }) : dvAllProjects().filter(function (p) { return p.author === data.handle; });
   const statProjects = isSelf ? myProjects.length : data.projects;
   const statFollowers = isSelf ? 0 : data.followers;
   const statFollowing = isSelf ? DVStore.get('following', []).length : Math.floor(data.followers / 4);

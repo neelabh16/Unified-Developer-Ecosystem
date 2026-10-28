@@ -67,6 +67,19 @@ const register = async (req, res, next) => {
         bucket: 'register',
         entityId: newUser._id.toString(),
       }).catch(() => {});
+
+      await Portfolio.create({
+        user: newUser._id,
+        handle: newUser.username,
+        name: newUser.name,
+        title: '',
+        bio: '',
+        avatarSeed: newUser.avatarSeed || newUser.username,
+        accent: '#7c6fff',
+        skills: [],
+        links: [],
+        projects: [],
+      }).catch(() => {});
     }
 
     const token = signToken(newUser._id, newUser.role);
@@ -370,7 +383,7 @@ const findOrCreateOAuthUser = async ({ provider, providerId, email, name, userna
       user: user._id,
       handle: user.username,
       name: user.name,
-      title: 'Full-stack Developer',
+      title: '',
       bio: user.bio || '',
       avatarSeed: user.avatarUrl || user.avatarSeed || user.username,
       accent: '#7c6fff',

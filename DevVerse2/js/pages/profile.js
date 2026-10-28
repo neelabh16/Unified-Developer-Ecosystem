@@ -68,7 +68,7 @@ function dvRenderProfileContent(root) {
   const tier = dvCurrentTier(data.points);
   const next = dvNextTier(data.points);
 
-  const myProjects = isSelf ? dvAllProjects().filter(function (p) { return p.author === 'you' || p.author === selfUsername; }) : dvAllProjects().filter(function (p) { return p.author === data.handle; });
+  const myProjects = isSelf ? dvAllProjects().filter(function (p) { return selfUsername && selfUsername !== 'you' && p.author === selfUsername; }) : dvAllProjects().filter(function (p) { return p.author === data.handle; });
   const statProjects = isSelf ? myProjects.length : data.projects;
   const statFollowers = isSelf ? 0 : data.followers;
   const statFollowing = isSelf ? DVStore.get('following', []).length : Math.floor(data.followers / 4);
@@ -220,10 +220,10 @@ function dvRenderProfileContent(root) {
   if (window.DVApi && DVApi.projects && DVApi.projects.list) {
     DVApi.projects.list({ limit: 100 }).then(function (res) {
       const items = (res && res.data && (res.data.projects || (Array.isArray(res.data) ? res.data : []))) || [];
-      const targetHandle = isSelf ? (selfUsername || 'neelabh16') : data.handle;
+      const targetHandle = isSelf ? (selfUsername || (account && account.username) || '') : data.handle;
       const uploaded = items.filter(function (p) {
         const u = (p.author && (p.author.username || p.author.name)) || p.author;
-        return u === targetHandle || (isSelf && (u === 'you' || (account && u === account.username)));
+        return (targetHandle && u === targetHandle) || (account && account.username && u === account.username);
       });
 
       const listToShow = uploaded.length > 0 ? uploaded.map(function (p) {
@@ -368,7 +368,7 @@ function dvRenderProfileContent(root) {
 
   // Fetch real GitHub contributions and live activity feed
   // Real-time backend sync for Followers and Following stats
-  const targetUserHandle = isSelf ? (selfUsername || 'neelabh16') : data.handle;
+  const targetUserHandle = isSelf ? (selfUsername || (account && account.username) || '') : data.handle;
   if (window.DVApi && DVApi.users) {
     if (isSelf && DVApi.users.getFollowing) {
       DVApi.users.getFollowing().then(function (res) {
@@ -403,8 +403,8 @@ function dvRenderProfileContent(root) {
   }
 
   const ghUsername = isSelf
-    ? (data.github || (account && (account.github || account.username)) || selfUsername)
-    : (data.github || data.handle);
+    ? ((account && account.github) || (data.github && data.github !== selfUsername ? data.github : ''))
+    : (data.github || data.handle || '');
 
   if (window.DVApi && DVApi.github && DVApi.github.getUser) {
     DVApi.github.getUser(ghUsername).then(function (res) {
@@ -488,7 +488,6 @@ function dvRenderProfileContent(root) {
         });
         dvSaveSquads(normalized);
         dvRenderProfileSquads();
-        dvRenderLibrary('bookmarks');
       }).catch(function () {});
     }
 
@@ -502,7 +501,6 @@ function dvRenderProfileContent(root) {
             if (found) DVStore.addToSet('hackathons', found.id);
           });
           dvRenderProfileSquads();
-          dvRenderLibrary('bookmarks');
         }
       }).catch(function () {});
     }
@@ -623,11 +621,7 @@ function dvRenderLibrary(kind) {
   const projectIds = ids.filter((id) => !id.startsWith('hack-'));
   const hackathonIds = ids.filter((id) => id.startsWith('hack-')).map((id) => id.slice(5));
 
-  // Also include hackathons registered directly or through squads
-  const registeredHackathonIds = typeof dvRegisteredHackathons === 'function' ? dvRegisteredHackathons() : [];
-  registeredHackathonIds.forEach((hid) => {
-    if (!hackathonIds.includes(hid)) hackathonIds.push(hid);
-  });
+// Bookmarks display explicitly bookmarked hackathons
 
   const projects = dvAllProjects().filter((p) => projectIds.includes(p.id) || (p.legacyId && projectIds.includes(p.legacyId)) || (p._id && projectIds.includes(p._id.toString())));
   const hackathons = (kind === 'bookmarks' || kind === 'registered') ? DV_HACKATHONS.filter((h) => {
@@ -640,7 +634,7 @@ function dvRenderLibrary(kind) {
   }) : [];
 
   if (!projects.length && !hackathons.length) {
-    container.innerHTML = `<p class="muted">No ${kind === 'bookmarks' ? 'bookmarked or registered' : 'liked'} projects or hackathons yet — head to <a href="explore.html" style="color:var(--accent);">Explore</a> or <a href="hackathons.html" style="color:var(--accent);">Hackathons</a> to discover more.</p>`;
+    container.innerHTML = `<p class="muted">No ${kind === 'bookmarks' ? 'bookmarked' : 'liked'} projects or hackathons yet — head to <a href="explore.html" style="color:var(--accent);">Explore</a> or <a href="hackathons.html" style="color:var(--accent);">Hackathons</a> to discover more.</p>`;
     return;
   }
 
