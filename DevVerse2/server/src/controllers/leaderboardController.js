@@ -36,23 +36,32 @@ const getLeaderboard = async (req, res, next) => {
 
     let userRangeMap = {};
     if (since) {
-      const activitySums = await Activity.aggregate([
-        { $match: { createdAt: { $gte: since } } },
-        { $group: { _id: '$user', total: { $sum: '$amount' } } },
-      ]);
-      activitySums.forEach((item) => {
-        userRangeMap[item._id.toString()] = item.total;
-      });
+      try {
+        if (typeof Activity.aggregate === 'function') {
+          const activitySums = await Activity.aggregate([
+            { $match: { createdAt: { $gte: since } } },
+            { $group: { _id: '$user', total: { $sum: '$amount' } } },
+          ]);
+          if (Array.isArray(activitySums)) {
+            activitySums.forEach((item) => {
+              if (item && item._id) {
+                userRangeMap[item._id.toString()] = item.total;
+              }
+            });
+          }
+        }
+      } catch (aggErr) {}
     }
 
     const devs = await User.find()
+      .sort({ points: -1 })
       .limit(50)
       .select('name username avatarSeed bio skills points createdAt');
 
     const mapped = devs.map((u) => {
       let rangePoints = u.points || 0;
       if (since) {
-        if (typeof userRangeMap[u._id.toString()] === 'number') {
+        if (u._id && typeof userRangeMap[u._id.toString()] === 'number') {
           rangePoints = userRangeMap[u._id.toString()];
         } else if (u.createdAt && u.createdAt >= since) {
           rangePoints = u.points || 0;
@@ -63,7 +72,7 @@ const getLeaderboard = async (req, res, next) => {
       return {
         _id: u._id,
         name: u.name,
-        username: u.username,
+        username: u.username || u.handle,
         avatarSeed: u.avatarSeed,
         bio: u.bio,
         skills: u.skills,

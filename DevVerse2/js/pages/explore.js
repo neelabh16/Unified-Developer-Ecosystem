@@ -54,6 +54,8 @@ function dvExploreInit() {
         dvExploreApiProjects = items.map(function (p) {
           return {
             id: p.legacyId || p.slug || p.id || p._id,
+            _id: p._id ? String(p._id) : (p.id ? String(p.id) : undefined),
+            legacyId: p.legacyId,
             title: p.title,
             desc: p.desc || p.tagline,
             tags: p.tags || [],

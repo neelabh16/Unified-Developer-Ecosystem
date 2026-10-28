@@ -177,6 +177,50 @@ const DVStore = {
             }
           } catch (e) {}
         }
+      } else if (path === 'likes') {
+        const c = dvGetCookie('dv_likes');
+        if (c) {
+          try {
+            const parsed = JSON.parse(c);
+            if (Array.isArray(parsed)) {
+              result = parsed;
+              this._user.likes = result;
+            }
+          } catch (e) {}
+        } else {
+          try {
+            const ls = localStorage.getItem('dv_likes');
+            if (ls) {
+              const parsed = JSON.parse(ls);
+              if (Array.isArray(parsed)) {
+                result = parsed;
+                this._user.likes = result;
+              }
+            }
+          } catch (e) {}
+        }
+      } else if (path === 'bookmarks') {
+        const c = dvGetCookie('dv_bookmarks');
+        if (c) {
+          try {
+            const parsed = JSON.parse(c);
+            if (Array.isArray(parsed)) {
+              result = parsed;
+              this._user.bookmarks = result;
+            }
+          } catch (e) {}
+        } else {
+          try {
+            const ls = localStorage.getItem('dv_bookmarks');
+            if (ls) {
+              const parsed = JSON.parse(ls);
+              if (Array.isArray(parsed)) {
+                result = parsed;
+                this._user.bookmarks = result;
+              }
+            }
+          } catch (e) {}
+        }
       }
     }
     if (result !== undefined) return result;
@@ -227,6 +271,16 @@ const DVStore = {
         dvSetCookie('dv_user_projects', JSON.stringify(value));
         localStorage.setItem('dv_user_projects', JSON.stringify(value));
       } catch (e) {}
+    } else if (path === 'likes' && Array.isArray(value)) {
+      try {
+        dvSetCookie('dv_likes', JSON.stringify(value));
+        localStorage.setItem('dv_likes', JSON.stringify(value));
+      } catch (e) {}
+    } else if (path === 'bookmarks' && Array.isArray(value)) {
+      try {
+        dvSetCookie('dv_bookmarks', JSON.stringify(value));
+        localStorage.setItem('dv_bookmarks', JSON.stringify(value));
+      } catch (e) {}
     }
 
     return value;
@@ -241,20 +295,41 @@ const DVStore = {
     return arr;
   },
   toggleInSet(path, id) {
+    if (!id) return false;
     const arr = this.get(path, []);
-    const index = arr.indexOf(id);
-    let active;
-    if (index === -1) {
-      arr.push(id);
-      active = true;
+    const strId = String(id);
+    const active = this.has(path, id);
+    if (active) {
+      const toRemove = new Set([id, strId]);
+      if (path === 'likes' || path === 'bookmarks') {
+        const found = typeof dvFindProjectById === 'function' ? dvFindProjectById(id) : null;
+        if (found) {
+          if (found.id) { toRemove.add(found.id); toRemove.add(String(found.id)); }
+          if (found._id) { toRemove.add(found._id); toRemove.add(String(found._id)); }
+          if (found.legacyId) { toRemove.add(found.legacyId); toRemove.add(String(found.legacyId)); }
+        }
+        if (path === 'bookmarks') {
+          if (strId.startsWith('hack-')) {
+            toRemove.add(strId.replace(/^hack-/, ''));
+          } else {
+            toRemove.add('hack-' + strId);
+          }
+        }
+      }
+      const updated = arr.filter((x) => !toRemove.has(x) && !toRemove.has(String(x)));
+      this.set(path, updated);
+      return false;
     } else {
-      arr.splice(index, 1);
-      active = false;
+      if (!arr.includes(id) && !arr.includes(strId)) {
+        arr.push(id);
+      }
+      this.set(path, arr);
+      return true;
     }
-    this.set(path, arr);
-    return active;
   },
   has(path, id) {
+    if (!id) return false;
+    const strId = String(id);
     if (path === 'hackathons') {
       const arr = this.get('hackathons', []);
       const found = typeof dvFindHackathon === 'function' ? dvFindHackathon(id) : null;
@@ -275,17 +350,37 @@ const DVStore = {
       return false;
     } else if (path === 'communities') {
       const arr = this.get('communities', []);
-      if (!id) return false;
-      if (arr.includes(id)) return true;
+      if (arr.includes(id) || arr.includes(strId)) return true;
       const matchC = typeof dvFindCommunity === 'function' ? dvFindCommunity(id) : null;
       if (matchC) {
-        if (matchC.id && arr.includes(matchC.id)) return true;
-        if (matchC.slug && arr.includes(matchC.slug)) return true;
-        if (matchC.legacyId && arr.includes(matchC.legacyId)) return true;
-        if (matchC._id && arr.includes(matchC._id.toString())) return true;
+        if (matchC.id && (arr.includes(matchC.id) || arr.includes(String(matchC.id)))) return true;
+        if (matchC.slug && (arr.includes(matchC.slug) || arr.includes(String(matchC.slug)))) return true;
+        if (matchC.legacyId && (arr.includes(matchC.legacyId) || arr.includes(String(matchC.legacyId)))) return true;
+        if (matchC._id && (arr.includes(matchC._id) || arr.includes(matchC._id.toString()))) return true;
+      }
+      return false;
+    } else if (path === 'likes' || path === 'bookmarks') {
+      const arr = this.get(path, []);
+      if (!Array.isArray(arr)) return false;
+      if (arr.includes(id) || arr.includes(strId)) return true;
+      if (path === 'bookmarks') {
+        if (strId.startsWith('hack-')) {
+          const rawHId = strId.replace(/^hack-/, '');
+          if (arr.includes(rawHId) || arr.includes(strId)) return true;
+        } else if (arr.includes('hack-' + strId)) {
+          return true;
+        }
+      }
+      const found = typeof dvFindProjectById === 'function' ? dvFindProjectById(id) : null;
+      if (found) {
+        if (found.id && (arr.includes(found.id) || arr.includes(String(found.id)))) return true;
+        if (found._id && (arr.includes(found._id) || arr.includes(String(found._id)))) return true;
+        if (found.legacyId && (arr.includes(found.legacyId) || arr.includes(String(found.legacyId)))) return true;
       }
       return false;
     }
+    const list = this.get(path, []);
+    return Array.isArray(list) ? (list.includes(id) || list.includes(strId)) : false;
   },
   resetAll() {
     this._user = {};
@@ -541,6 +636,13 @@ function dvInitAuth() {
                   const pId = btn.dataset.like;
                   const active = DVStore.has('likes', pId);
                   btn.classList.toggle('liked', active);
+                  const countEl = btn.querySelector('[data-like-count]');
+                  if (countEl) {
+                    const base = parseInt(countEl.dataset.base, 10);
+                    if (!isNaN(base)) {
+                      countEl.textContent = (active ? base + 1 : base).toLocaleString();
+                    }
+                  }
                 });
               }
             } catch (likeErr) {}
@@ -1071,8 +1173,9 @@ function dvPickProjectArt(p) {
 
 /* ---------- Shared project card (used on Home, Explore, Profile, Project Details) ---------- */
 function dvProjectCardHTML(p) {
-  const liked = DVStore.has('likes', p.id);
-  const bookmarked = DVStore.has('bookmarks', p.id);
+  const pId = p.id || p._id || p.legacyId;
+  const liked = DVStore.has('likes', pId) || (p._id && DVStore.has('likes', p._id)) || (p.legacyId && DVStore.has('likes', p.legacyId));
+  const bookmarked = DVStore.has('bookmarks', pId) || (p._id && DVStore.has('bookmarks', p._id)) || (p.legacyId && DVStore.has('bookmarks', p.legacyId));
   const art = p.art || dvPickProjectArt(p);
   return `
   <a href="project.html?id=${p.id}" class="project-card glass card-lift reveal">
@@ -2358,7 +2461,11 @@ function dvResolveImageUrl(url) {
 
 function dvFindProjectById(id) {
   if (!id) return null;
-  return dvAllProjects().find((p) => p.id === id || p._id === id || p.legacyId === id);
+  const strId = String(id);
+  const pool = (typeof dvExploreApiProjects !== 'undefined' && Array.isArray(dvExploreApiProjects))
+    ? dvExploreApiProjects.concat(dvAllProjects())
+    : dvAllProjects();
+  return pool.find((p) => p.id === id || p.id === strId || p._id === id || p._id === strId || p.legacyId === id || p.legacyId === strId);
 }
 function dvAddUserProject(project) {
   const list = dvUserProjects();

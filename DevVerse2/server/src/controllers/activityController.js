@@ -50,14 +50,15 @@ const getMyActivity = async (req, res, next) => {
  */
 const getGlobalFeed = async (req, res, next) => {
   try {
+    const parsedLimit = parseInt(req.query.limit, 10) || 15;
     const platformFeed = await Activity.find()
       .sort({ createdAt: -1 })
-      .limit(15)
+      .limit(parsedLimit)
       .populate('user', 'name username avatarSeed points');
 
     // Convert platform activities to unified format
     const formattedPlatform = platformFeed.map((item) => ({
-      id: item._id.toString(),
+      id: (item._id && item._id.toString()) || item.id || 'activity-item',
       type: 'platform',
       user: {
         name: (item.user && item.user.name) || 'Builder',
@@ -75,12 +76,21 @@ const getGlobalFeed = async (req, res, next) => {
     try {
       const activeGithubUsers = ['neelabh16'];
       // Also include any users found in database
-      const dbUsers = await User.find({ username: { $ne: 'neelabh16' } }).limit(3).select('username name avatarSeed');
-      dbUsers.forEach((u) => {
-        if (u.username && !activeGithubUsers.includes(u.username)) {
-          activeGithubUsers.push(u.username);
+      try {
+        if (typeof User.find === 'function') {
+          const uQuery = User.find({ username: { $ne: 'neelabh16' } });
+          if (uQuery && typeof uQuery.limit === 'function') {
+            const dbUsers = await uQuery.limit(3).select('username name avatarSeed');
+            if (Array.isArray(dbUsers)) {
+              dbUsers.forEach((u) => {
+                if (u && u.username && !activeGithubUsers.includes(u.username)) {
+                  activeGithubUsers.push(u.username);
+                }
+              });
+            }
+          }
         }
-      });
+      } catch (dbErr) {}
 
       const ghResults = await Promise.all(
         activeGithubUsers.map(async (u) => {
