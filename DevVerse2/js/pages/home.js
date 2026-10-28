@@ -68,8 +68,32 @@ function dvRenderTopDevs() {
   const root = document.getElementById('top-devs');
   if (!root) return;
 
+  function getSelfIdentifiers() {
+    const selfHandle = typeof dvSelfHandle === 'function' ? dvSelfHandle().toLowerCase() : '';
+    const selfId = (window.DVCurrentUser && window.DVCurrentUser._id) ? String(window.DVCurrentUser._id) : '';
+    const account = typeof dvAuthAccount === 'function' ? dvAuthAccount() : null;
+    const accountHandle = (account && (account.username || account.handle)) ? String(account.username || account.handle).toLowerCase() : '';
+    const accountEmail = (account && account.email) ? String(account.email).toLowerCase() : '';
+    return { selfHandle, selfId, accountHandle, accountEmail };
+  }
+
+  function isSelf(u) {
+    if (!u) return false;
+    const { selfHandle, selfId, accountHandle, accountEmail } = getSelfIdentifiers();
+    const uHandle = (u.username || u.handle || '').toLowerCase();
+    const uId = u._id ? String(u._id) : '';
+    const uEmail = (u.email || '').toLowerCase();
+
+    if (selfHandle && selfHandle !== 'you' && uHandle === selfHandle) return true;
+    if (accountHandle && accountHandle !== 'you' && uHandle === accountHandle) return true;
+    if (selfId && uId === selfId) return true;
+    if (accountEmail && uEmail && uEmail === accountEmail) return true;
+    return false;
+  }
+
   function renderList(list) {
-    root.innerHTML = list.map((d) => {
+    const filtered = list.filter((d) => !isSelf(d));
+    root.innerHTML = filtered.map((d) => {
       const followersLabel = typeof d.followers === 'number'
         ? (d.followers >= 1000 ? (d.followers / 1000).toFixed(1) + 'k' : d.followers)
         : (d.followers || 0);
@@ -88,7 +112,7 @@ function dvRenderTopDevs() {
     dvReveal(root);
   }
 
-  const initial = [...DV_DEVS].sort((a, b) => b.points - a.points).slice(0, 5).map((d) => ({
+  const initial = [...DV_DEVS].sort((a, b) => b.points - a.points).slice(0, 6).map((d) => ({
     name: d.name,
     handle: d.handle,
     avatarSeed: d.avatarSeed || d.handle,
@@ -98,46 +122,56 @@ function dvRenderTopDevs() {
   }));
   renderList(initial);
 
-  if (window.DVApi && DVApi.leaderboard && DVApi.leaderboard.get) {
-    DVApi.leaderboard.get({ mode: 'devs', range: 'all' }).then(function (res) {
-      const rankings = (res && res.data && res.data.rankings) || [];
-      if (rankings.length > 0) {
-        const demoHandles = ['kmori', 'ari-devs', 'sena.codes', 'lumen', 'noa.ml', 'priya.dev', 'dax', 'devon.codes', 'elena-v', 'marcus-k'];
+  const authPromise = typeof dvEnsureAuth === 'function' ? dvEnsureAuth() : Promise.resolve();
+  authPromise.then(() => {
+    if (window.DVApi && DVApi.leaderboard && DVApi.leaderboard.get) {
+      DVApi.leaderboard.get({ mode: 'devs', range: 'all' }).then(function (res) {
+        const rankings = (res && res.data && res.data.rankings) || [];
+        if (rankings.length > 0) {
+          const demoHandles = ['kmori', 'ari-devs', 'sena.codes', 'lumen', 'noa.ml', 'priya.dev', 'dax', 'devon.codes', 'elena-v', 'marcus-k'];
 
-        // Real registered users (e.g. neelabh16)
-        const realUsers = rankings.filter((u) => !demoHandles.includes((u.username || '').toLowerCase()));
-        const topDemoUsers = rankings.filter((u) => demoHandles.includes((u.username || '').toLowerCase()));
+          // Real registered users (excluding current logged-in user)
+          const realUsers = rankings.filter((u) => {
+            const handle = (u.username || u.handle || '').toLowerCase();
+            return !demoHandles.includes(handle) && !isSelf(u);
+          });
+          const topDemoUsers = rankings.filter((u) => {
+            const handle = (u.username || u.handle || '').toLowerCase();
+            return demoHandles.includes(handle) && !isSelf(u);
+          });
 
-        // Display featured real users alongside top platform legends (up to 6 total)
-        const selectedDevs = [...realUsers, ...topDemoUsers].slice(0, 6);
+          // Display other real users alongside top platform legends (up to 6 total)
+          const selectedDevs = [...realUsers, ...topDemoUsers].slice(0, 6);
 
-        const liveDevs = selectedDevs.map(function (u) {
-          const handle = u.username || u.handle;
-          const demoMatch = typeof DV_DEVS !== 'undefined' ? DV_DEVS.find((d) => d.handle.toLowerCase() === handle.toLowerCase()) : null;
+          const liveDevs = selectedDevs.map(function (u) {
+            const handle = u.username || u.handle;
+            const demoMatch = typeof DV_DEVS !== 'undefined' ? DV_DEVS.find((d) => d.handle.toLowerCase() === handle.toLowerCase()) : null;
 
-          let projCount = u.projectsCount;
-          if (projCount === undefined || projCount === 0) {
-            projCount = demoMatch ? demoMatch.projects : (u.projects || 0);
-          }
+            let projCount = u.projectsCount;
+            if (projCount === undefined || projCount === 0) {
+              projCount = demoMatch ? demoMatch.projects : (u.projects || 0);
+            }
 
-          let folCount = u.followersCount;
-          if (folCount === undefined || (folCount === 0 && demoMatch)) {
-            folCount = demoMatch ? demoMatch.followers : (u.followers || 0);
-          }
+            let folCount = u.followersCount;
+            if (folCount === undefined || (folCount === 0 && demoMatch)) {
+              folCount = demoMatch ? demoMatch.followers : (u.followers || 0);
+            }
 
-          return {
-            name: u.name,
-            handle: handle,
-            avatarSeed: u.avatarSeed || u.avatarUrl || handle,
-            points: u.points || 0,
-            projects: projCount,
-            followers: folCount,
-          };
-        });
-        renderList(liveDevs);
-      }
-    }).catch(function () {});
-  }
+            return {
+              _id: u._id,
+              name: u.name,
+              handle: handle,
+              avatarSeed: u.avatarSeed || u.avatarUrl || handle,
+              points: u.points || 0,
+              projects: projCount,
+              followers: folCount,
+            };
+          });
+          renderList(liveDevs);
+        }
+      }).catch(function () {});
+    }
+  });
 }
 
 function dvRenderCategories() {
