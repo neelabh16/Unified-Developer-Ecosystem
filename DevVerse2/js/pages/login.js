@@ -65,6 +65,7 @@ function dvLoginInit() {
         submitBtn.textContent = 'Signing in…';
       }
 
+      if (typeof dvPurgeAllUserData === 'function') dvPurgeAllUserData();
       const res = await DVApi.auth.login({ email, password });
       const user = res.data.user;
 

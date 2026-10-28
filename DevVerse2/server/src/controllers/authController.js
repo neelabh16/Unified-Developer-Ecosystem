@@ -123,6 +123,8 @@ const login = async (req, res, next) => {
 const logout = async (req, res, next) => {
   try {
     clearAuthCookie(res);
+    res.clearCookie('dv_jwt', { path: '/' });
+    res.clearCookie('dv_current_user_id', { path: '/' });
     return sendSuccess(res, 200, 'Successfully logged out');
   } catch (error) {
     next(error);
@@ -225,6 +227,7 @@ const oauthLogin = async (req, res, next) => {
         provider,
         providerId: providerId || `${provider}_${Date.now()}`,
         avatarSeed: candidateUsername,
+        avatarUrl: avatarUrl || '',
         github: provider === 'github' ? (github || username || candidateUsername) : (github || ''),
         role: 'user',
         points: 20, // Welcome milestone bonus
@@ -238,11 +241,16 @@ const oauthLogin = async (req, res, next) => {
         entityId: user._id.toString(),
       });
     } else {
-      // If user signed in with GitHub and hasn't linked github handle yet, link it
+      let updated = false;
       if (provider === 'github' && !user.github) {
         user.github = github || username || user.username;
-        await user.save();
+        updated = true;
       }
+      if (avatarUrl && !user.avatarUrl) {
+        user.avatarUrl = avatarUrl;
+        updated = true;
+      }
+      if (updated) await user.save();
     }
 
     const token = signToken(user._id, user.role);
@@ -530,6 +538,7 @@ const githubOAuthCallback = async (req, res) => {
     const token = signToken(user._id, user.role);
     setAuthCookie(res, token);
     res.cookie('dv_jwt', token, { path: '/', maxAge: 7 * 24 * 60 * 60 * 1000, sameSite: 'lax' });
+    res.cookie('dv_current_user_id', user._id.toString(), { path: '/', maxAge: 7 * 24 * 60 * 60 * 1000, sameSite: 'lax' });
     res.clearCookie('dv_oauth_state');
 
     const cleanRedirect = redirectPath.includes('?') 

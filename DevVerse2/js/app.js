@@ -12,13 +12,92 @@ try { localStorage.clear(); sessionStorage.clear(); } catch (e) {}
    backend REST API and MongoDB Atlas. LocalStorage has been removed
    completely per architecture requirements. */
 function dvGetCookie(name) {
-  const match = document.cookie.match(new RegExp('(?:^|;\\s*)' + name.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&') + '=([^;]+)'));
+  const match = document.cookie.match(new RegExp('(?:^|;\\s*)' + name.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&') + '=( [^;]+)'.replace(' ', '')));
   return match ? decodeURIComponent(match[1]) : null;
 }
 
 function dvSetCookie(name, value, days = 7) {
   const maxAge = days * 24 * 60 * 60;
   document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${maxAge}; SameSite=Lax`;
+}
+
+function dvDeleteCookie(name) {
+  document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax`;
+}
+
+function dvUserScopeKey() {
+  if (window.DVCurrentUser && window.DVCurrentUser._id) {
+    return String(window.DVCurrentUser._id);
+  }
+  const cookieUserId = dvGetCookie('dv_current_user_id');
+  if (cookieUserId) {
+    return String(cookieUserId);
+  }
+  const session = (DVStore._global && DVStore._global.auth && DVStore._global.auth.session);
+  if (session) {
+    return String(session).replace(/[^a-zA-Z0-9_-]/g, '_');
+  }
+  return 'guest';
+}
+
+function dvScopedCookieName(baseName) {
+  const scope = dvUserScopeKey();
+  return `dv_u_${scope}_${baseName}`;
+}
+
+function dvPurgeAllUserData() {
+  window.DVCurrentUser = null;
+  if (typeof DVStore !== 'undefined') {
+    DVStore._user = {};
+    if (typeof DVStore.set === 'function') {
+      DVStore.set('auth.session', null);
+      DVStore.set('auth.accounts', []);
+      DVStore.set('profile.overrides', null);
+      DVStore.set('portfolio', null);
+      DVStore.set('squads', []);
+      DVStore.set('userProjects', []);
+      DVStore.set('likes', []);
+      DVStore.set('bookmarks', []);
+      DVStore.set('following', []);
+      DVStore.set('communities', []);
+      DVStore.set('hackathons', []);
+      DVStore.set('points.log', []);
+    }
+  }
+
+  // Clear all legacy and scoped user cookies
+  const legacyCookies = [
+    'dv_portfolio',
+    'dv_squads',
+    'dv_user_projects',
+    'dv_likes',
+    'dv_bookmarks',
+    'dv_following',
+    'dv_communities',
+    'dv_hackathons',
+    'dv_accent',
+    'dv_theme',
+    'dv_motion',
+    'dv_current_user_id',
+    'dv_active_user_id'
+  ];
+  legacyCookies.forEach((c) => dvDeleteCookie(c));
+
+  try {
+    document.cookie.split(';').forEach((cookieStr) => {
+      const trimmed = cookieStr.trim();
+      const eqIdx = trimmed.indexOf('=');
+      const name = eqIdx !== -1 ? trimmed.substring(0, eqIdx) : trimmed;
+      if (name.startsWith('dv_u_')) {
+        dvDeleteCookie(name);
+      }
+    });
+  } catch (e) {}
+
+  try {
+    localStorage.clear();
+    sessionStorage.clear();
+  } catch (e) {}
 }
 
 const DVStore = {
@@ -44,55 +123,28 @@ const DVStore = {
     let result = path.split('.').reduce((o, k) => (o && o[k] !== undefined ? o[k] : undefined), data);
     if (!this._isAuthPath(path)) {
       if (path === 'settings.accent') {
-        const c = dvGetCookie('dv_accent');
+        const c = dvGetCookie(dvScopedCookieName('accent')) || dvGetCookie('dv_accent');
         if (c) {
           result = c;
           this._user.settings = this._user.settings || {};
           this._user.settings.accent = c;
-        } else {
-          try {
-            const ls = localStorage.getItem('dv_settings_accent');
-            if (ls) {
-              result = ls;
-              this._user.settings = this._user.settings || {};
-              this._user.settings.accent = ls;
-            }
-          } catch (e) {}
         }
       } else if (path === 'settings.theme') {
-        const c = dvGetCookie('dv_theme');
+        const c = dvGetCookie(dvScopedCookieName('theme')) || dvGetCookie('dv_theme');
         if (c) {
           result = c;
           this._user.settings = this._user.settings || {};
           this._user.settings.theme = c;
-        } else {
-          try {
-            const ls = localStorage.getItem('dv_settings_theme');
-            if (ls) {
-              result = ls;
-              this._user.settings = this._user.settings || {};
-              this._user.settings.theme = ls;
-            }
-          } catch (e) {}
         }
       } else if (path === 'settings.motion') {
-        const c = dvGetCookie('dv_motion');
+        const c = dvGetCookie(dvScopedCookieName('motion')) || dvGetCookie('dv_motion');
         if (c) {
           result = c;
           this._user.settings = this._user.settings || {};
           this._user.settings.motion = c;
-        } else {
-          try {
-            const ls = localStorage.getItem('dv_settings_motion');
-            if (ls) {
-              result = ls;
-              this._user.settings = this._user.settings || {};
-              this._user.settings.motion = ls;
-            }
-          } catch (e) {}
         }
       } else if (path === 'hackathons') {
-        const c = dvGetCookie('dv_hackathons');
+        const c = dvGetCookie(dvScopedCookieName('hackathons'));
         if (c) {
           const cookieItems = c.split(',').map((s) => s.trim()).filter(Boolean);
           const combined = Array.from(new Set([...(Array.isArray(result) ? result : []), ...cookieItems]));
@@ -100,41 +152,29 @@ const DVStore = {
           result = combined;
         }
       } else if (path === 'squads') {
-        const c = dvGetCookie('dv_squads');
+        const c = dvGetCookie(dvScopedCookieName('squads'));
         if (c) {
           try {
             const parsed = JSON.parse(c);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              if (Array.isArray(result) && result.length > 0) {
-                parsed.forEach((cs) => {
-                  const existing = result.find((s) => s.id === cs.id || s._id === cs._id || s.name === cs.name);
-                  if (existing) {
-                    const mergedReg = new Set([...(existing.registeredHackathons || []), ...(cs.registeredHackathons || [])]);
-                    existing.registeredHackathons = Array.from(mergedReg);
-                  } else {
-                    result.push(cs);
-                  }
-                });
-              } else {
-                result = parsed;
-              }
+            if (Array.isArray(parsed)) {
+              result = parsed;
               this._user.squads = result;
             }
           } catch (e) {}
         }
       } else if (path === 'portfolio') {
-        const c = dvGetCookie('dv_portfolio');
+        const c = dvGetCookie(dvScopedCookieName('portfolio'));
         if (c) {
           try {
             const parsed = JSON.parse(c);
             if (parsed && typeof parsed === 'object') {
-              result = { ...(result || {}), ...parsed };
+              result = parsed;
               this._user.portfolio = result;
             }
           } catch (e) {}
         }
       } else if (path === 'following') {
-        const c = dvGetCookie('dv_following');
+        const c = dvGetCookie(dvScopedCookieName('following'));
         if (c) {
           try {
             const parsed = JSON.parse(c);
@@ -145,7 +185,7 @@ const DVStore = {
           } catch (e) {}
         }
       } else if (path === 'communities') {
-        const c = dvGetCookie('dv_communities');
+        const c = dvGetCookie(dvScopedCookieName('communities'));
         if (c) {
           try {
             const parsed = JSON.parse(c);
@@ -156,29 +196,18 @@ const DVStore = {
           } catch (e) {}
         }
       } else if (path === 'userProjects') {
-        const c = dvGetCookie('dv_user_projects');
+        const c = dvGetCookie(dvScopedCookieName('user_projects'));
         if (c) {
           try {
             const parsed = JSON.parse(c);
-            if (Array.isArray(parsed) && parsed.length > 0) {
+            if (Array.isArray(parsed)) {
               result = parsed;
               this._user.userProjects = result;
             }
           } catch (e) {}
-        } else {
-          try {
-            const ls = localStorage.getItem('dv_user_projects');
-            if (ls) {
-              const parsed = JSON.parse(ls);
-              if (Array.isArray(parsed) && parsed.length > 0) {
-                result = parsed;
-                this._user.userProjects = result;
-              }
-            }
-          } catch (e) {}
         }
       } else if (path === 'likes') {
-        const c = dvGetCookie('dv_likes');
+        const c = dvGetCookie(dvScopedCookieName('likes'));
         if (c) {
           try {
             const parsed = JSON.parse(c);
@@ -187,37 +216,15 @@ const DVStore = {
               this._user.likes = result;
             }
           } catch (e) {}
-        } else {
-          try {
-            const ls = localStorage.getItem('dv_likes');
-            if (ls) {
-              const parsed = JSON.parse(ls);
-              if (Array.isArray(parsed)) {
-                result = parsed;
-                this._user.likes = result;
-              }
-            }
-          } catch (e) {}
         }
       } else if (path === 'bookmarks') {
-        const c = dvGetCookie('dv_bookmarks');
+        const c = dvGetCookie(dvScopedCookieName('bookmarks'));
         if (c) {
           try {
             const parsed = JSON.parse(c);
             if (Array.isArray(parsed)) {
               result = parsed;
               this._user.bookmarks = result;
-            }
-          } catch (e) {}
-        } else {
-          try {
-            const ls = localStorage.getItem('dv_bookmarks');
-            if (ls) {
-              const parsed = JSON.parse(ls);
-              if (Array.isArray(parsed)) {
-                result = parsed;
-                this._user.bookmarks = result;
-              }
             }
           } catch (e) {}
         }
@@ -238,48 +245,45 @@ const DVStore = {
     }
     obj[keys[keys.length - 1]] = value;
 
-    // Persist key collections and preferences in cookie and localStorage so they survive page reloads
+    // Persist key collections and preferences in user-scoped cookies
     if (path === 'settings.accent') {
+      dvSetCookie(dvScopedCookieName('accent'), value);
       dvSetCookie('dv_accent', value);
-      try { localStorage.setItem('dv_settings_accent', value); } catch (e) {}
     } else if (path === 'settings.theme') {
+      dvSetCookie(dvScopedCookieName('theme'), value);
       dvSetCookie('dv_theme', value);
-      try { localStorage.setItem('dv_settings_theme', value); } catch (e) {}
     } else if (path === 'settings.motion') {
+      dvSetCookie(dvScopedCookieName('motion'), value);
       dvSetCookie('dv_motion', value);
-      try { localStorage.setItem('dv_settings_motion', value); } catch (e) {}
     } else if (path === 'hackathons' && Array.isArray(value)) {
-      dvSetCookie('dv_hackathons', value.join(','));
+      dvSetCookie(dvScopedCookieName('hackathons'), value.join(','));
     } else if (path === 'squads' && Array.isArray(value)) {
       try {
-        dvSetCookie('dv_squads', JSON.stringify(value));
+        dvSetCookie(dvScopedCookieName('squads'), JSON.stringify(value));
       } catch (e) {}
     } else if (path === 'portfolio' && value && typeof value === 'object') {
       try {
-        dvSetCookie('dv_portfolio', JSON.stringify(value));
+        dvSetCookie(dvScopedCookieName('portfolio'), JSON.stringify(value));
       } catch (e) {}
     } else if (path === 'following' && Array.isArray(value)) {
       try {
-        dvSetCookie('dv_following', JSON.stringify(value));
+        dvSetCookie(dvScopedCookieName('following'), JSON.stringify(value));
       } catch (e) {}
     } else if (path === 'communities' && Array.isArray(value)) {
       try {
-        dvSetCookie('dv_communities', JSON.stringify(value));
+        dvSetCookie(dvScopedCookieName('communities'), JSON.stringify(value));
       } catch (e) {}
     } else if (path === 'userProjects' && Array.isArray(value)) {
       try {
-        dvSetCookie('dv_user_projects', JSON.stringify(value));
-        localStorage.setItem('dv_user_projects', JSON.stringify(value));
+        dvSetCookie(dvScopedCookieName('user_projects'), JSON.stringify(value));
       } catch (e) {}
     } else if (path === 'likes' && Array.isArray(value)) {
       try {
-        dvSetCookie('dv_likes', JSON.stringify(value));
-        localStorage.setItem('dv_likes', JSON.stringify(value));
+        dvSetCookie(dvScopedCookieName('likes'), JSON.stringify(value));
       } catch (e) {}
     } else if (path === 'bookmarks' && Array.isArray(value)) {
       try {
-        dvSetCookie('dv_bookmarks', JSON.stringify(value));
-        localStorage.setItem('dv_bookmarks', JSON.stringify(value));
+        dvSetCookie(dvScopedCookieName('bookmarks'), JSON.stringify(value));
       } catch (e) {}
     }
 
@@ -547,19 +551,30 @@ function dvInitAuth() {
       try {
         const res = await DVApi.auth.me();
         if (res && res.data && res.data.user) {
-          window.DVCurrentUser = res.data.user;
-          DVStore.set('auth.session', res.data.user.email);
+          const user = res.data.user;
+          const currentUserId = user._id ? String(user._id) : '';
+          const lastUserId = dvGetCookie('dv_current_user_id');
+
+          // If session belongs to a different user, purge stale state from old user
+          if (lastUserId && lastUserId !== currentUserId) {
+            dvPurgeAllUserData();
+          }
+          dvSetCookie('dv_current_user_id', currentUserId);
+
+          window.DVCurrentUser = user;
+          DVStore._user = {};
+          DVStore.set('auth.session', user.email);
           DVStore.set('auth.accounts', [{
-            name: res.data.user.name,
-            username: res.data.user.username,
-            email: res.data.user.email,
+            name: user.name,
+            username: user.username,
+            email: user.email,
           }]);
           DVStore.set('profile.overrides', {
-            name: res.data.user.name,
-            username: res.data.user.username,
-            bio: res.data.user.bio || '',
-            avatarSeed: res.data.user.avatarSeed || 'you-builder',
-            points: res.data.user.points || 0,
+            name: user.name,
+            username: user.username,
+            bio: user.bio || '',
+            avatarSeed: user.avatarUrl || user.avatarSeed || user.username,
+            points: user.points || 0,
           });
 
           // Sync user preferences from backend
@@ -652,16 +667,15 @@ function dvInitAuth() {
           if (DVApi.squads && DVApi.squads.mine) {
             try {
               const sqRes = await DVApi.squads.mine();
-              if (sqRes && sqRes.data && Array.isArray(sqRes.data.squads)) {
-                const normalized = sqRes.data.squads.map(dvNormalizeBackendSquad);
-                dvSaveSquads(normalized);
-                normalized.forEach((sq) => {
-                  (sq.registeredHackathons || []).forEach((hid) => {
-                    DVStore.addToSet('hackathons', hid);
-                  });
+              const serverSquads = (sqRes && sqRes.data && Array.isArray(sqRes.data.squads)) ? sqRes.data.squads : [];
+              const normalized = serverSquads.map(dvNormalizeBackendSquad).filter(Boolean);
+              dvSaveSquads(normalized);
+              normalized.forEach((sq) => {
+                (sq.registeredHackathons || []).forEach((hid) => {
+                  DVStore.addToSet('hackathons', hid);
                 });
-                dvRefreshSquadDisplays();
-              }
+              });
+              dvRefreshSquadDisplays();
             } catch (sqErr) {}
           }
 
@@ -901,10 +915,9 @@ async function dvAuthSignOut() {
   if (window.DVApi && DVApi.auth && DVApi.auth.logout) {
     try { await DVApi.auth.logout(); } catch(e) {}
   }
-  window.DVCurrentUser = null;
-  DVStore.set('auth.session', null);
-  DVStore.set('auth.accounts', []);
-  DVStore.resetAll();
+  dvDeleteCookie('token');
+  dvDeleteCookie('dv_jwt');
+  dvPurgeAllUserData();
   dvToast('Signed out');
   window.location.href = 'index.html';
 }
@@ -3068,39 +3081,29 @@ document.addEventListener('DOMContentLoaded', () => {
   // Authenticate against backend REST API via HttpOnly JWT cookie
   dvInitAuth();
 
-  // Multi-tab synchronization for cookies, hackathon registrations, and squads
+  // Multi-tab synchronization for user-scoped cookies, hackathon registrations, and squads
   function dvOnTabVisibilityOrFocus() {
     if (typeof DVStore !== 'undefined') {
-      const hackCookie = dvGetCookie('dv_hackathons');
+      const hackCookie = dvGetCookie(dvScopedCookieName('hackathons'));
       if (hackCookie) {
         const items = hackCookie.split(',').map((s) => s.trim()).filter(Boolean);
         DVStore._user.hackathons = Array.from(new Set([...(DVStore._user.hackathons || []), ...items]));
       }
-      const squadCookie = dvGetCookie('dv_squads');
+      const squadCookie = dvGetCookie(dvScopedCookieName('squads'));
       if (squadCookie) {
         try {
           const parsed = JSON.parse(squadCookie);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            const current = DVStore._user.squads || [];
-            parsed.forEach((ps) => {
-              const ex = current.find((s) => s.id === ps.id || s._id === ps._id || s.name === ps.name);
-              if (ex) {
-                const merged = new Set([...(ex.registeredHackathons || []), ...(ps.registeredHackathons || [])]);
-                ex.registeredHackathons = Array.from(merged);
-              } else {
-                current.push(ps);
-              }
-            });
-            DVStore._user.squads = current;
+          if (Array.isArray(parsed)) {
+            DVStore._user.squads = parsed;
           }
         } catch (e) {}
       }
-      const portCookie = dvGetCookie('dv_portfolio');
+      const portCookie = dvGetCookie(dvScopedCookieName('portfolio'));
       if (portCookie) {
         try {
           const parsed = JSON.parse(portCookie);
           if (parsed && typeof parsed === 'object') {
-            DVStore._user.portfolio = { ...(DVStore._user.portfolio || {}), ...parsed };
+            DVStore._user.portfolio = parsed;
           }
         } catch (e) {}
       }

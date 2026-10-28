@@ -113,6 +113,7 @@ function dvSignupInit() {
         submitBtn.textContent = 'Creating account…';
       }
 
+      if (typeof dvPurgeAllUserData === 'function') dvPurgeAllUserData();
       const res = await DVApi.auth.register({
         name,
         username,

@@ -362,49 +362,22 @@ function dvRenderSquadMemberChips() {
 }
 
 function dvSyncAndRenderMySquads() {
-  const squadCookie = typeof dvGetCookie === 'function' ? dvGetCookie('dv_squads') : null;
-  if (squadCookie) {
-    try {
-      const parsed = JSON.parse(squadCookie);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        if (typeof DVStore !== 'undefined' && DVStore._user) {
-          DVStore._user.squads = parsed;
-        }
-      }
-    } catch (e) {}
-  }
   dvRenderMySquads();
 
   if (window.DVApi && DVApi.squads && DVApi.squads.mine) {
     DVApi.squads.mine().then(function (res) {
-      const serverSquads = res && res.data && res.data.squads;
-      if (Array.isArray(serverSquads)) {
-        const normalized = serverSquads.map(dvNormalizeBackendSquad).filter(Boolean);
-        const localSquads = dvSquads();
-
-        normalized.forEach((serverSq) => {
-          const idx = localSquads.findIndex((ls) => ls.id === serverSq.id || ls._id === serverSq._id || ls.name === serverSq.name);
-          if (idx !== -1) {
-            const mergedReg = new Set([
-              ...(localSquads[idx].registeredHackathons || []),
-              ...(serverSq.registeredHackathons || [])
-            ]);
-            serverSq.registeredHackathons = Array.from(mergedReg);
-            localSquads[idx] = serverSq;
-          } else {
-            localSquads.push(serverSq);
-          }
-
-          (serverSq.registeredHackathons || []).forEach((hid) => {
-            DVStore.addToSet('hackathons', hid);
-            const found = typeof dvFindHackathon === 'function' ? dvFindHackathon(hid) : null;
-            if (found) DVStore.addToSet('hackathons', found.id);
-          });
+      const serverSquads = (res && res.data && Array.isArray(res.data.squads)) ? res.data.squads : [];
+      const normalized = serverSquads.map(dvNormalizeBackendSquad).filter(Boolean);
+      normalized.forEach((serverSq) => {
+        (serverSq.registeredHackathons || []).forEach((hid) => {
+          DVStore.addToSet('hackathons', hid);
+          const found = typeof dvFindHackathon === 'function' ? dvFindHackathon(hid) : null;
+          if (found) DVStore.addToSet('hackathons', found.id);
         });
+      });
 
-        dvSaveSquads(localSquads);
-        dvRenderMySquads();
-      }
+      dvSaveSquads(normalized);
+      dvRenderMySquads();
     }).catch(function () {});
   }
 }
