@@ -100,6 +100,7 @@ const DVApi = {
       if (res && res.data && res.data.token) DVApi.setToken(res.data.token);
       return res;
     },
+    getProviders: () => DVApi.request('/auth/providers'),
     logout: async () => {
       try {
         await DVApi.request('/auth/logout', { method: 'POST' });

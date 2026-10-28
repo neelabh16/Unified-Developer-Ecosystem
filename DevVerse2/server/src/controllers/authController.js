@@ -1,8 +1,10 @@
 // =============================================================================
 // Auth Controller
 // =============================================================================
+const mongoose = require('mongoose');
 const User = require('../models/User');
 const Activity = require('../models/Activity');
+const Portfolio = require('../models/Portfolio');
 const AppError = require('../utils/AppError');
 const { sendSuccess } = require('../utils/response');
 const { signToken, setAuthCookie, clearAuthCookie } = require('../utils/token');
@@ -57,13 +59,15 @@ const register = async (req, res, next) => {
       points: 20, // 20 milestone points for account creation
     });
 
-    await Activity.create({
-      user: newUser._id,
-      amount: 20,
-      reason: 'Welcome bonus — Account created',
-      bucket: 'register',
-      entityId: newUser._id.toString(),
-    });
+    if (mongoose.connection && mongoose.connection.readyState === 1) {
+      await Activity.create({
+        user: newUser._id,
+        amount: 20,
+        reason: 'Welcome bonus — Account created',
+        bucket: 'register',
+        entityId: newUser._id.toString(),
+      }).catch(() => {});
+    }
 
     const token = signToken(newUser._id, newUser.role);
     setAuthCookie(res, token);
@@ -253,6 +257,399 @@ const oauthLogin = async (req, res, next) => {
   }
 };
 
+/**
+ * Helper to get client origin from request headers or environment
+ */
+const getClientOrigin = (req) => {
+  const referer = req.get('referer');
+  if (referer) {
+    try {
+      const parsed = new URL(referer);
+      return parsed.origin;
+    } catch (e) {}
+  }
+  return process.env.CLIENT_ORIGIN || 'http://localhost:5500';
+};
+
+/**
+ * Shared helper for creating or linking OAuth user records
+ */
+const findOrCreateOAuthUser = async ({ provider, providerId, email, name, username, avatarUrl, github, bio }) => {
+  const cleanEmail = (email || '').trim().toLowerCase();
+
+  let user = null;
+  if (providerId) {
+    user = await User.findOne({ provider, providerId });
+  }
+  if (!user && cleanEmail) {
+    user = await User.findOne({ email: cleanEmail });
+  }
+
+  if (user) {
+    let changed = false;
+    if (!user.providerId && providerId) {
+      user.providerId = providerId;
+      changed = true;
+    }
+    if (avatarUrl && (!user.avatarUrl || user.avatarUrl.includes('dicebear'))) {
+      user.avatarUrl = avatarUrl;
+      user.avatarSeed = avatarUrl;
+      changed = true;
+    }
+    if (github && !user.github) {
+      user.github = github;
+      changed = true;
+    }
+    if (changed) {
+      await user.save();
+    }
+    return user;
+  }
+
+  let candidateUsername = (username || cleanEmail.split('@')[0] || (provider + '_' + Date.now()))
+    .toLowerCase()
+    .replace(/[^a-zA-Z0-9_.-]/g, '');
+  if (candidateUsername.length < 3) candidateUsername += '_user';
+  if (candidateUsername.length > 24) candidateUsername = candidateUsername.slice(0, 24);
+
+  let existing = await User.findOne({ username: candidateUsername });
+  let counter = 1;
+  while (existing) {
+    const suffix = `${counter}`;
+    candidateUsername = `${candidateUsername.slice(0, 20)}${suffix}`;
+    existing = await User.findOne({ username: candidateUsername });
+    counter++;
+  }
+
+  user = await User.create({
+    name: (name && name.trim()) || candidateUsername,
+    username: candidateUsername,
+    email: cleanEmail,
+    provider,
+    providerId: providerId || `${provider}_${Date.now()}`,
+    avatarSeed: avatarUrl || candidateUsername,
+    avatarUrl: avatarUrl || '',
+    github: github || (provider === 'github' ? candidateUsername : ''),
+    bio: bio || '',
+    role: 'user',
+    points: 20,
+  });
+
+  if (mongoose.connection && mongoose.connection.readyState === 1) {
+    await Activity.create({
+      user: user._id,
+      amount: 20,
+      reason: 'Welcome bonus — Account created',
+      bucket: 'register',
+      entityId: user._id.toString(),
+    }).catch(() => {});
+
+    await Portfolio.create({
+      user: user._id,
+      handle: user.username,
+      name: user.name,
+      title: 'Full-stack Developer',
+      bio: user.bio || '',
+      avatarSeed: user.avatarUrl || user.avatarSeed || user.username,
+      accent: '#7c6fff',
+      skills: user.skills || [],
+      links: github ? [{ label: 'GitHub', url: `https://github.com/${github}` }] : [],
+      projects: [],
+    }).catch(() => {});
+  }
+
+  return user;
+};
+
+/**
+ * Returns OAuth providers status (whether credentials are configured in .env)
+ * GET /api/v1/auth/providers
+ */
+const getOAuthProviders = (req, res) => {
+  return sendSuccess(res, 200, 'OAuth providers status', {
+    github: {
+      enabled: !!(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET),
+      configured: !!(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET),
+    },
+    google: {
+      enabled: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
+      configured: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
+    },
+  });
+};
+
+/**
+ * Real GitHub OAuth 2.0 Authorization Endpoint
+ * GET /api/v1/auth/github
+ */
+const githubOAuth = (req, res) => {
+  const clientId = process.env.GITHUB_CLIENT_ID;
+  const clientSecret = process.env.GITHUB_CLIENT_SECRET;
+  const redirectTarget = req.query.redirect || 'index.html';
+  const clientOrigin = getClientOrigin(req);
+
+  if (!clientId || !clientSecret) {
+    return res.redirect(`${clientOrigin}/login.html?oauth_error=github_credentials_missing&provider=github&redirect=${encodeURIComponent(redirectTarget)}`);
+  }
+
+  const backendHost = req.get('host');
+  const protocol = req.protocol;
+  const callbackUrl = `${protocol}://${backendHost}/api/v1/auth/github/callback`;
+  const state = Buffer.from(JSON.stringify({ redirect: redirectTarget, origin: clientOrigin, ts: Date.now() })).toString('base64');
+
+  res.cookie('dv_oauth_state', state, { httpOnly: true, maxAge: 10 * 60 * 1000, sameSite: 'lax' });
+
+  const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(callbackUrl)}&scope=read:user%20user:email&state=${encodeURIComponent(state)}`;
+  return res.redirect(githubAuthUrl);
+};
+
+/**
+ * Real GitHub OAuth 2.0 Callback Endpoint
+ * GET /api/v1/auth/github/callback
+ */
+const githubOAuthCallback = async (req, res) => {
+  try {
+    const { code, state, error, error_description } = req.query;
+
+    let parsedState = {};
+    try {
+      if (state) {
+        parsedState = JSON.parse(Buffer.from(state, 'base64').toString('utf8'));
+      }
+    } catch (e) {}
+
+    const clientOrigin = parsedState.origin || process.env.CLIENT_ORIGIN || 'http://localhost:5500';
+    const redirectPath = parsedState.redirect || 'index.html';
+
+    if (error) {
+      return res.redirect(`${clientOrigin}/login.html?oauth_error=${encodeURIComponent(error_description || error)}`);
+    }
+
+    if (!code) {
+      return res.redirect(`${clientOrigin}/login.html?oauth_error=missing_auth_code`);
+    }
+
+    const clientId = process.env.GITHUB_CLIENT_ID;
+    const clientSecret = process.env.GITHUB_CLIENT_SECRET;
+    if (!clientId || !clientSecret) {
+      return res.redirect(`${clientOrigin}/login.html?oauth_error=github_credentials_missing&provider=github`);
+    }
+
+    const backendHost = req.get('host');
+    const protocol = req.protocol;
+    const callbackUrl = `${protocol}://${backendHost}/api/v1/auth/github/callback`;
+
+    // 1. Exchange code for access token
+    const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        client_id: clientId,
+        client_secret: clientSecret,
+        code,
+        redirect_uri: callbackUrl,
+      }),
+    });
+
+    const tokenData = await tokenRes.json();
+    if (!tokenData || !tokenData.access_token) {
+      const errReason = (tokenData && (tokenData.error_description || tokenData.error)) || 'Failed to exchange GitHub authorization code';
+      return res.redirect(`${clientOrigin}/login.html?oauth_error=${encodeURIComponent(errReason)}`);
+    }
+
+    const accessToken = tokenData.access_token;
+
+    // 2. Fetch user profile from GitHub API
+    const userRes = await fetch('https://api.github.com/user', {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'User-Agent': 'DevVerse-OAuth-App',
+        Accept: 'application/json',
+      },
+    });
+
+    const ghUser = await userRes.json();
+    if (!ghUser || !ghUser.id) {
+      return res.redirect(`${clientOrigin}/login.html?oauth_error=Failed to retrieve GitHub profile`);
+    }
+
+    // 3. Fetch primary verified email if private
+    let email = ghUser.email;
+    if (!email) {
+      try {
+        const emailsRes = await fetch('https://api.github.com/user/emails', {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'User-Agent': 'DevVerse-OAuth-App',
+            Accept: 'application/json',
+          },
+        });
+        const emails = await emailsRes.json();
+        if (Array.isArray(emails)) {
+          const primaryVerified = emails.find((e) => e.primary && e.verified);
+          const verified = emails.find((e) => e.verified);
+          email = (primaryVerified && primaryVerified.email) || (verified && verified.email) || (emails[0] && emails[0].email);
+        }
+      } catch (e) {}
+    }
+
+    if (!email) {
+      email = `${ghUser.login}@users.noreply.github.com`;
+    }
+
+    // 4. Find or create user
+    const user = await findOrCreateOAuthUser({
+      provider: 'github',
+      providerId: `github_${ghUser.id}`,
+      email: email,
+      name: ghUser.name || ghUser.login,
+      username: ghUser.login,
+      avatarUrl: ghUser.avatar_url || '',
+      github: ghUser.login,
+      bio: ghUser.bio || '',
+    });
+
+    // 5. Issue session cookie and token
+    const token = signToken(user._id, user.role);
+    setAuthCookie(res, token);
+    res.cookie('dv_jwt', token, { path: '/', maxAge: 7 * 24 * 60 * 60 * 1000, sameSite: 'lax' });
+    res.clearCookie('dv_oauth_state');
+
+    const cleanRedirect = redirectPath.includes('?') ? `${redirectPath}&oauth=success&provider=github` : `${redirectPath}?oauth=success&provider=github`;
+    return res.redirect(`${clientOrigin}/${cleanRedirect}`);
+  } catch (err) {
+    console.error('GitHub OAuth callback error:', err);
+    const clientOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:5500';
+    return res.redirect(`${clientOrigin}/login.html?oauth_error=${encodeURIComponent(err.message || 'OAuth error')}`);
+  }
+};
+
+/**
+ * Real Google OAuth 2.0 Authorization Endpoint
+ * GET /api/v1/auth/google
+ */
+const googleOAuth = (req, res) => {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const redirectTarget = req.query.redirect || 'index.html';
+  const clientOrigin = getClientOrigin(req);
+
+  if (!clientId || !clientSecret) {
+    return res.redirect(`${clientOrigin}/login.html?oauth_error=google_credentials_missing&provider=google&redirect=${encodeURIComponent(redirectTarget)}`);
+  }
+
+  const backendHost = req.get('host');
+  const protocol = req.protocol;
+  const callbackUrl = `${protocol}://${backendHost}/api/v1/auth/google/callback`;
+  const state = Buffer.from(JSON.stringify({ redirect: redirectTarget, origin: clientOrigin, ts: Date.now() })).toString('base64');
+
+  res.cookie('dv_oauth_state', state, { httpOnly: true, maxAge: 10 * 60 * 1000, sameSite: 'lax' });
+
+  const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(callbackUrl)}&response_type=code&scope=openid%20profile%20email&prompt=select_account&state=${encodeURIComponent(state)}`;
+  return res.redirect(googleAuthUrl);
+};
+
+/**
+ * Real Google OAuth 2.0 Callback Endpoint
+ * GET /api/v1/auth/google/callback
+ */
+const googleOAuthCallback = async (req, res) => {
+  try {
+    const { code, state, error, error_description } = req.query;
+
+    let parsedState = {};
+    try {
+      if (state) {
+        parsedState = JSON.parse(Buffer.from(state, 'base64').toString('utf8'));
+      }
+    } catch (e) {}
+
+    const clientOrigin = parsedState.origin || process.env.CLIENT_ORIGIN || 'http://localhost:5500';
+    const redirectPath = parsedState.redirect || 'index.html';
+
+    if (error) {
+      return res.redirect(`${clientOrigin}/login.html?oauth_error=${encodeURIComponent(error_description || error)}`);
+    }
+
+    if (!code) {
+      return res.redirect(`${clientOrigin}/login.html?oauth_error=missing_auth_code`);
+    }
+
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    if (!clientId || !clientSecret) {
+      return res.redirect(`${clientOrigin}/login.html?oauth_error=google_credentials_missing&provider=google`);
+    }
+
+    const backendHost = req.get('host');
+    const protocol = req.protocol;
+    const callbackUrl = `${protocol}://${backendHost}/api/v1/auth/google/callback`;
+
+    // 1. Exchange code for access token
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: callbackUrl,
+        grant_type: 'authorization_code',
+      }),
+    });
+
+    const tokenData = await tokenRes.json();
+    if (!tokenData || !tokenData.access_token) {
+      const errReason = (tokenData && (tokenData.error_description || tokenData.error)) || 'Failed to exchange Google authorization code';
+      return res.redirect(`${clientOrigin}/login.html?oauth_error=${encodeURIComponent(errReason)}`);
+    }
+
+    const accessToken = tokenData.access_token;
+
+    // 2. Fetch user profile from Google UserInfo API
+    const userRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: 'application/json',
+      },
+    });
+
+    const gUser = await userRes.json();
+    if (!gUser || !gUser.email) {
+      return res.redirect(`${clientOrigin}/login.html?oauth_error=Failed to retrieve Google profile`);
+    }
+
+    // 3. Find or create user
+    const user = await findOrCreateOAuthUser({
+      provider: 'google',
+      providerId: `google_${gUser.sub}`,
+      email: gUser.email,
+      name: gUser.name || gUser.given_name || 'Google User',
+      username: gUser.email.split('@')[0],
+      avatarUrl: gUser.picture || '',
+      bio: '',
+    });
+
+    // 4. Issue session cookie and token
+    const token = signToken(user._id, user.role);
+    setAuthCookie(res, token);
+    res.cookie('dv_jwt', token, { path: '/', maxAge: 7 * 24 * 60 * 60 * 1000, sameSite: 'lax' });
+    res.clearCookie('dv_oauth_state');
+
+    const cleanRedirect = redirectPath.includes('?') ? `${redirectPath}&oauth=success&provider=google` : `${redirectPath}?oauth=success&provider=google`;
+    return res.redirect(`${clientOrigin}/${cleanRedirect}`);
+  } catch (err) {
+    console.error('Google OAuth callback error:', err);
+    const clientOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:5500';
+    return res.redirect(`${clientOrigin}/login.html?oauth_error=${encodeURIComponent(err.message || 'OAuth error')}`);
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -260,4 +657,9 @@ module.exports = {
   getMe,
   changePassword,
   oauthLogin,
+  getOAuthProviders,
+  githubOAuth,
+  githubOAuthCallback,
+  googleOAuth,
+  googleOAuthCallback,
 };
