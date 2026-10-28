@@ -5,11 +5,44 @@
 let dvExploreState = { search: '', category: 'All', difficulty: 'All', sort: 'trending' };
 let dvExploreApiProjects = null;
 
+function dvIsUserProject(p) {
+  if (!p) return false;
+  const selfHandle = (typeof dvSelfHandle === 'function' ? dvSelfHandle() : 'you').toLowerCase();
+  const account = typeof dvAuthAccount === 'function' ? dvAuthAccount() : null;
+  const currentUsername = account && (account.username || account.handle) ? (account.username || account.handle).toLowerCase() : selfHandle;
+  const currentName = account && account.name ? account.name.toLowerCase() : '';
+  const currentId = window.DVCurrentUser && window.DVCurrentUser._id ? String(window.DVCurrentUser._id) : '';
+
+  // 1. Check local userProjects array
+  const userList = typeof dvUserProjects === 'function' ? dvUserProjects() : [];
+  if (userList.some((up) => (up.id && p.id && up.id === p.id) || (up._id && p._id && up._id === p._id) || (up.title && p.title && up.title.toLowerCase().trim() === p.title.toLowerCase().trim()))) {
+    return true;
+  }
+
+  // 2. Check author strings and objects
+  const authorStr = typeof p.author === 'string' ? p.author.toLowerCase() : (p.author && (p.author.username || p.author.name || p.author._id) ? String(p.author.username || p.author.name || p.author._id).toLowerCase() : '');
+  const authorId = p.authorId || (p.author && p.author._id ? String(p.author._id) : '');
+
+  if (authorStr === 'you' || authorStr === 'self') return true;
+  if (currentUsername && (authorStr === currentUsername || authorStr.includes(currentUsername))) return true;
+  if (currentName && authorStr === currentName) return true;
+  if (currentId && (authorId === currentId || authorStr === currentId)) return true;
+  if (p.isOwner) return true;
+
+  return false;
+}
+
 function dvExploreInit() {
   const grid = document.getElementById('explore-grid');
   if (!grid) return;
 
   if (dvGetQueryParam('cat')) dvExploreState.category = dvGetQueryParam('cat');
+
+  if (typeof dvEnsureAuth === 'function') {
+    dvEnsureAuth().then(() => {
+      dvRenderExploreGrid();
+    });
+  }
 
   dvRenderCategoryFilters();
   dvRenderExploreGrid();
@@ -29,6 +62,7 @@ function dvExploreInit() {
             likes: p.likesCount || p.likes || 0,
             views: p.viewsCount || p.views || 0,
             author: (p.author && (p.author.username || p.author.name)) || p.author || 'devverse',
+            authorId: p.author && (p.author._id || p.author.id),
             gradient: typeof p.gradient === 'number' ? p.gradient : 0,
             art: p.art || null,
             features: p.features || [],
@@ -89,8 +123,41 @@ function dvRenderExploreGrid() {
   const grid = document.getElementById('explore-grid');
   const empty = document.getElementById('explore-empty');
   const count = document.getElementById('explore-count');
+  const mySection = document.getElementById('my-projects-section');
+  const myGrid = document.getElementById('my-projects-grid');
+  const myCount = document.getElementById('my-projects-count');
+
   const source = dvExploreApiProjects || dvAllProjects();
-  let list = source.filter((p) => {
+
+  // Find all projects belonging to the current user
+  const allUserProjects = source.filter(dvIsUserProject);
+  let matchingUserProjects = allUserProjects;
+
+  if (dvExploreState.search) {
+    const q = dvExploreState.search.toLowerCase();
+    matchingUserProjects = matchingUserProjects.filter((p) => {
+      return (
+        p.title.toLowerCase().includes(q) ||
+        p.desc.toLowerCase().includes(q) ||
+        (p.tags && p.tags.some((t) => t.toLowerCase().includes(q)))
+      );
+    });
+  }
+
+  // Display user projects section prominently above the catalog
+  if (mySection && myGrid) {
+    if (matchingUserProjects.length > 0) {
+      mySection.style.display = 'block';
+      if (myCount) myCount.textContent = `${matchingUserProjects.length} project${matchingUserProjects.length === 1 ? '' : 's'}`;
+      myGrid.innerHTML = matchingUserProjects.map(dvProjectCardHTML).join('');
+    } else {
+      mySection.style.display = 'none';
+    }
+  }
+
+  // Filter community projects (excluding user's projects already shown above)
+  const communitySource = source.filter((p) => !dvIsUserProject(p));
+  let list = communitySource.filter((p) => {
     const matchSearch = !dvExploreState.search || p.title.toLowerCase().includes(dvExploreState.search) || p.desc.toLowerCase().includes(dvExploreState.search) || p.tags.some((t) => t.toLowerCase().includes(dvExploreState.search));
     const matchCat = dvExploreState.category === 'All' || p.category === dvExploreState.category;
     const matchDiff = dvExploreState.difficulty === 'All' || p.difficulty === dvExploreState.difficulty;
@@ -104,24 +171,13 @@ function dvRenderExploreGrid() {
     default: list = list.sort((a, b) => (b.likes + dvProjectViewCount(b) / 10) - (a.likes + dvProjectViewCount(a) / 10));
   }
 
-  count.textContent = `${list.length} project${list.length === 1 ? '' : 's'}`;
-  empty.style.display = list.length ? 'none' : 'block';
+  const totalVisible = list.length + matchingUserProjects.length;
+  count.textContent = `${list.length} community project${list.length === 1 ? '' : 's'}`;
+  empty.style.display = totalVisible === 0 ? 'block' : 'none';
 
-  const userProjects = list.filter(function (p) { return p.author === 'you'; });
-  const otherProjects = list.filter(function (p) { return p.author !== 'you'; });
-
-  if (userProjects.length > 0) {
-    grid.innerHTML = `
-      <div style="grid-column: 1 / -1; margin-bottom: 4px; color: var(--text-secondary); font-size: 14px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">Your Published Projects</div>
-      ${userProjects.map(dvProjectCardHTML).join('')}
-      <div style="grid-column: 1 / -1; margin-top: 16px; margin-bottom: 4px; color: var(--text-secondary); font-size: 14px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">Community Projects</div>
-      ${otherProjects.map(dvProjectCardHTML).join('')}
-    `;
-  } else {
-    grid.innerHTML = list.map(dvProjectCardHTML).join('');
-  }
-
+  grid.innerHTML = list.map(dvProjectCardHTML).join('');
   dvReveal(grid);
+  if (myGrid) dvReveal(myGrid);
 }
 
 document.addEventListener('DOMContentLoaded', () => setTimeout(dvExploreInit, 30));

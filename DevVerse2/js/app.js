@@ -155,6 +155,28 @@ const DVStore = {
             }
           } catch (e) {}
         }
+      } else if (path === 'userProjects') {
+        const c = dvGetCookie('dv_user_projects');
+        if (c) {
+          try {
+            const parsed = JSON.parse(c);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              result = parsed;
+              this._user.userProjects = result;
+            }
+          } catch (e) {}
+        } else {
+          try {
+            const ls = localStorage.getItem('dv_user_projects');
+            if (ls) {
+              const parsed = JSON.parse(ls);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                result = parsed;
+                this._user.userProjects = result;
+              }
+            }
+          } catch (e) {}
+        }
       }
     }
     if (result !== undefined) return result;
@@ -199,6 +221,11 @@ const DVStore = {
     } else if (path === 'communities' && Array.isArray(value)) {
       try {
         dvSetCookie('dv_communities', JSON.stringify(value));
+      } catch (e) {}
+    } else if (path === 'userProjects' && Array.isArray(value)) {
+      try {
+        dvSetCookie('dv_user_projects', JSON.stringify(value));
+        localStorage.setItem('dv_user_projects', JSON.stringify(value));
       } catch (e) {}
     }
 
