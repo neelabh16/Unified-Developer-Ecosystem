@@ -144,7 +144,22 @@ function dvRenderExploreGrid() {
     });
   }
 
-  // Display user projects section prominently above the catalog
+  if (dvExploreState.category && dvExploreState.category !== 'All') {
+    matchingUserProjects = matchingUserProjects.filter((p) => p.category === dvExploreState.category);
+  }
+
+  if (dvExploreState.difficulty && dvExploreState.difficulty !== 'All') {
+    matchingUserProjects = matchingUserProjects.filter((p) => p.difficulty === dvExploreState.difficulty);
+  }
+
+  switch (dvExploreState.sort) {
+    case 'likes': matchingUserProjects = matchingUserProjects.sort((a, b) => b.likes - a.likes); break;
+    case 'views': matchingUserProjects = matchingUserProjects.sort((a, b) => dvProjectViewCount(b) - dvProjectViewCount(a)); break;
+    case 'newest': matchingUserProjects = matchingUserProjects.sort((a, b) => b.id.localeCompare(a.id)); break;
+    default: matchingUserProjects = matchingUserProjects.sort((a, b) => (b.likes + dvProjectViewCount(b) / 10) - (a.likes + dvProjectViewCount(a) / 10));
+  }
+
+  // Display user projects section prominently below the search bar
   if (mySection && myGrid) {
     if (matchingUserProjects.length > 0) {
       mySection.style.display = 'block';
