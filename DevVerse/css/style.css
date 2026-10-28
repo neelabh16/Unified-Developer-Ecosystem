@@ -457,7 +457,10 @@ ul { list-style: none; }
   position: absolute;
   top: calc(100% + 12px);
   right: 0;
-  width: 210px;
+  min-width: 230px;
+  max-width: 320px;
+  width: max-content;
+  box-sizing: border-box;
   background: var(--bg-panel);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
@@ -470,7 +473,10 @@ ul { list-style: none; }
   z-index: 1010;
 }
 .dock-avatar-menu.open { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
-.dock-avatar-menu-header { padding: 10px 12px 8px; border-bottom: 1px solid var(--border); margin-bottom: 6px; }
+.dock-avatar-menu-header {
+  padding: 10px 12px 8px;
+  overflow: hidden;
+  box-sizing: border-box; border-bottom: 1px solid var(--border); margin-bottom: 6px; }
 .dock-avatar-menu-item {
   display: flex;
   align-items: center;

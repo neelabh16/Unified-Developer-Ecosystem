@@ -834,8 +834,8 @@ function dvProfileNavButtonHTML() {
       </button>
       <div class="dock-avatar-menu" id="dock-avatar-menu">
         <div class="dock-avatar-menu-header">
-          <div style="font-weight:600; font-size:13.5px;">${name}</div>
-          ${email ? `<div class="mono muted" style="font-size:11px;">${email}</div>` : ''}
+          <div style="font-weight:600; font-size:13.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${name}">${name}</div>
+          ${email ? `<div class="mono muted" style="font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%; display:block;" title="${email}">${email}</div>` : ''}
         </div>
         <a href="profile.html" class="dock-avatar-menu-item">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
