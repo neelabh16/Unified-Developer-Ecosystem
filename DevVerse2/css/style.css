@@ -67,11 +67,11 @@
 }
 
 /* Accent themes — set data-accent on <html> from Settings */
-html[data-accent="cyan"] { --accent: var(--cyan); --accent-soft: var(--cyan-soft); }
-html[data-accent="violet"], html:not([data-accent]) { --accent: var(--violet); --accent-soft: var(--violet-soft); }
-html[data-accent="coral"] { --accent: var(--coral); --accent-soft: var(--coral-soft); }
-html[data-accent="amber"] { --accent: var(--amber); --accent-soft: var(--amber-soft); }
-html[data-accent="legend"] { --accent: #f0c419; --accent-soft: rgba(240, 196, 25, 0.16); }
+html[data-accent="cyan"] { --accent: var(--cyan); --accent-soft: var(--cyan-soft); --aurora-1: var(--cyan); }
+html[data-accent="violet"], html:not([data-accent]) { --accent: var(--violet); --accent-soft: var(--violet-soft); --aurora-1: var(--violet); }
+html[data-accent="coral"] { --accent: var(--coral); --accent-soft: var(--coral-soft); --aurora-1: var(--coral); }
+html[data-accent="amber"] { --accent: var(--amber); --accent-soft: var(--amber-soft); --aurora-1: var(--amber); }
+html[data-accent="legend"] { --accent: #f0c419; --accent-soft: rgba(240, 196, 25, 0.16); --aurora-1: #f0c419; }
 
 /* =========================================================
    LIGHT THEME — same accent system, inverted surfaces.

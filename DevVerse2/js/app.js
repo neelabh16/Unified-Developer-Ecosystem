@@ -43,7 +43,55 @@ const DVStore = {
     const data = this._isAuthPath(path) ? this._read() : this._readUser();
     let result = path.split('.').reduce((o, k) => (o && o[k] !== undefined ? o[k] : undefined), data);
     if (!this._isAuthPath(path)) {
-      if (path === 'hackathons') {
+      if (path === 'settings.accent') {
+        const c = dvGetCookie('dv_accent');
+        if (c) {
+          result = c;
+          this._user.settings = this._user.settings || {};
+          this._user.settings.accent = c;
+        } else {
+          try {
+            const ls = localStorage.getItem('dv_settings_accent');
+            if (ls) {
+              result = ls;
+              this._user.settings = this._user.settings || {};
+              this._user.settings.accent = ls;
+            }
+          } catch (e) {}
+        }
+      } else if (path === 'settings.theme') {
+        const c = dvGetCookie('dv_theme');
+        if (c) {
+          result = c;
+          this._user.settings = this._user.settings || {};
+          this._user.settings.theme = c;
+        } else {
+          try {
+            const ls = localStorage.getItem('dv_settings_theme');
+            if (ls) {
+              result = ls;
+              this._user.settings = this._user.settings || {};
+              this._user.settings.theme = ls;
+            }
+          } catch (e) {}
+        }
+      } else if (path === 'settings.motion') {
+        const c = dvGetCookie('dv_motion');
+        if (c) {
+          result = c;
+          this._user.settings = this._user.settings || {};
+          this._user.settings.motion = c;
+        } else {
+          try {
+            const ls = localStorage.getItem('dv_settings_motion');
+            if (ls) {
+              result = ls;
+              this._user.settings = this._user.settings || {};
+              this._user.settings.motion = ls;
+            }
+          } catch (e) {}
+        }
+      } else if (path === 'hackathons') {
         const c = dvGetCookie('dv_hackathons');
         if (c) {
           const cookieItems = c.split(',').map((s) => s.trim()).filter(Boolean);
@@ -124,8 +172,17 @@ const DVStore = {
     }
     obj[keys[keys.length - 1]] = value;
 
-    // Persist key collections in cookie so they survive page reloads and localStorage.clear()
-    if (path === 'hackathons' && Array.isArray(value)) {
+    // Persist key collections and preferences in cookie and localStorage so they survive page reloads
+    if (path === 'settings.accent') {
+      dvSetCookie('dv_accent', value);
+      try { localStorage.setItem('dv_settings_accent', value); } catch (e) {}
+    } else if (path === 'settings.theme') {
+      dvSetCookie('dv_theme', value);
+      try { localStorage.setItem('dv_settings_theme', value); } catch (e) {}
+    } else if (path === 'settings.motion') {
+      dvSetCookie('dv_motion', value);
+      try { localStorage.setItem('dv_settings_motion', value); } catch (e) {}
+    } else if (path === 'hackathons' && Array.isArray(value)) {
       dvSetCookie('dv_hackathons', value.join(','));
     } else if (path === 'squads' && Array.isArray(value)) {
       try {
@@ -382,6 +439,13 @@ function dvInitAuth() {
             avatarSeed: res.data.user.avatarSeed || 'you-builder',
             points: res.data.user.points || 0,
           });
+
+          // Sync user preferences from backend
+          if (res.data.user.settings) {
+            if (res.data.user.settings.accent) dvSetAccent(res.data.user.settings.accent);
+            if (res.data.user.settings.theme) dvSetTheme(res.data.user.settings.theme);
+            if (res.data.user.settings.motion) dvSetMotion(res.data.user.settings.motion);
+          }
 
           // Fetch user activity / points log from backend
           if (DVApi.activity && DVApi.activity.mine) {
@@ -767,13 +831,51 @@ function dvSafeRedirect(target) {
 }
 
 /* ---------- Settings application ---------- */
-function dvApplySettings() {
-  const accent = DVStore.get('settings.accent', 'violet');
-  const motion = DVStore.get('settings.motion', 'on');
-  const theme = DVStore.get('settings.theme', 'dark');
+const DV_ACCENT_COLORS = {
+  violet: { accent: '#7c6fff', soft: 'rgba(124, 111, 255, 0.16)' },
+  cyan: { accent: '#4fe3c1', soft: 'rgba(79, 227, 193, 0.14)' },
+  coral: { accent: '#ff6b5b', soft: 'rgba(255, 107, 91, 0.14)' },
+  amber: { accent: '#ffb86b', soft: 'rgba(255, 184, 107, 0.14)' },
+  legend: { accent: '#f0c419', soft: 'rgba(240, 196, 25, 0.16)' },
+};
+
+function dvSetAccent(accent) {
+  if (!accent) return;
+  const col = DV_ACCENT_COLORS[accent] || DV_ACCENT_COLORS.violet;
   document.documentElement.setAttribute('data-accent', accent);
-  document.documentElement.setAttribute('data-motion', motion);
+  document.documentElement.style.setProperty('--accent', col.accent);
+  document.documentElement.style.setProperty('--accent-soft', col.soft);
+  document.documentElement.style.setProperty('--aurora-1', col.accent);
+  DVStore.set('settings.accent', accent);
+  dvSetCookie('dv_accent', accent);
+  try { localStorage.setItem('dv_settings_accent', accent); } catch (e) {}
+}
+
+function dvSetTheme(theme) {
+  if (!theme) return;
   document.documentElement.setAttribute('data-theme', theme);
+  DVStore.set('settings.theme', theme);
+  dvSetCookie('dv_theme', theme);
+  try { localStorage.setItem('dv_settings_theme', theme); } catch (e) {}
+  if (typeof dvUpdateThemeIcon === 'function') dvUpdateThemeIcon();
+}
+
+function dvSetMotion(motion) {
+  if (!motion) return;
+  document.documentElement.setAttribute('data-motion', motion);
+  DVStore.set('settings.motion', motion);
+  dvSetCookie('dv_motion', motion);
+  try { localStorage.setItem('dv_settings_motion', motion); } catch (e) {}
+}
+
+function dvApplySettings() {
+  const accent = dvGetCookie('dv_accent') || (function(){ try { return localStorage.getItem('dv_settings_accent'); } catch(e){ return null; } })() || DVStore.get('settings.accent', 'violet');
+  const motion = dvGetCookie('dv_motion') || (function(){ try { return localStorage.getItem('dv_settings_motion'); } catch(e){ return null; } })() || DVStore.get('settings.motion', 'on');
+  const theme = dvGetCookie('dv_theme') || (function(){ try { return localStorage.getItem('dv_settings_theme'); } catch(e){ return null; } })() || DVStore.get('settings.theme', 'dark');
+
+  dvSetAccent(accent);
+  dvSetMotion(motion);
+  dvSetTheme(theme);
 }
 dvApplySettings(); // runs before paint, in <head>, so there's no theme flash
 
