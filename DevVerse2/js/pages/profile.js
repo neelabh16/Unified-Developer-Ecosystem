@@ -27,8 +27,8 @@ function dvRenderProfileContent(root) {
     bio: '',
     avatarSeed: handle,
     skills: [],
-    followers: 12,
-    points: 100,
+    followers: 0,
+    points: 0,
     projects: 0,
     github: handle,
   };
@@ -223,7 +223,8 @@ function dvRenderProfileContent(root) {
       const targetHandle = isSelf ? (selfUsername || (account && account.username) || '') : data.handle;
       const uploaded = items.filter(function (p) {
         const u = (p.author && (p.author.username || p.author.name)) || p.author;
-        return (targetHandle && u === targetHandle) || (account && account.username && u === account.username);
+        const uHandle = typeof u === 'string' ? u.toLowerCase() : '';
+        return (targetHandle && uHandle === targetHandle.toLowerCase()) || (isSelf && account && account.username && uHandle === account.username.toLowerCase());
       });
 
       const listToShow = uploaded.length > 0 ? uploaded.map(function (p) {
@@ -387,8 +388,12 @@ function dvRenderProfileContent(root) {
       DVApi.users.getProfile(targetUserHandle).then(function (res) {
         if (res && res.data) {
           const u = res.data;
+          const userObj = u.user || u;
           const statFollowersEl = document.getElementById('profile-stat-followers');
           const statFollowingEl = document.getElementById('profile-stat-following');
+          const statPointsEl = document.getElementById('profile-stat-points');
+          const statProjectsEl = document.getElementById('profile-stat-projects');
+
           if (statFollowersEl && typeof u.followersCount === 'number') {
             statFollowersEl.setAttribute('data-count', u.followersCount);
             statFollowersEl.textContent = u.followersCount;
@@ -396,6 +401,40 @@ function dvRenderProfileContent(root) {
           if (statFollowingEl && !isSelf && typeof u.followingCount === 'number') {
             statFollowingEl.setAttribute('data-count', u.followingCount);
             statFollowingEl.textContent = u.followingCount;
+          }
+          if (statPointsEl && typeof userObj.points === 'number') {
+            statPointsEl.setAttribute('data-count', userObj.points);
+            statPointsEl.textContent = userObj.points;
+
+            if (!isSelf && typeof dvCurrentTier === 'function') {
+              const currentTier = dvCurrentTier(userObj.points);
+              const nextTier = dvNextTier(userObj.points);
+              const tierPill = document.querySelector('.dev-title .chip-accent');
+              if (tierPill) tierPill.textContent = currentTier.name;
+              const tierProgress = document.querySelector('.dev-title .mono.muted');
+              if (tierProgress) {
+                tierProgress.textContent = `${userObj.points} / ${nextTier.min} pts to ${nextTier.name}`;
+              }
+              const tierBar = document.querySelector('.dev-title .progress-fill');
+              if (tierBar) {
+                const prevMin = currentTier.min;
+                const nextMin = nextTier.min;
+                const pct = Math.min(100, Math.max(0, Math.round(((userObj.points - prevMin) / (nextMin - prevMin)) * 100)));
+                tierBar.style.width = `${pct}%`;
+              }
+            }
+          }
+          if (statProjectsEl && typeof u.projectsCount === 'number' && u.projectsCount > 0) {
+            statProjectsEl.setAttribute('data-count', u.projectsCount);
+            statProjectsEl.textContent = u.projectsCount;
+          }
+
+          // Follow button state
+          const followBtn = document.querySelector('[data-follow]');
+          if (followBtn && typeof u.isFollowing === 'boolean') {
+            followBtn.textContent = u.isFollowing ? 'Following' : 'Follow';
+            followBtn.classList.toggle('btn-primary', !u.isFollowing);
+            followBtn.classList.toggle('btn-ghost', u.isFollowing);
           }
         }
       }).catch(function () {});
@@ -415,9 +454,9 @@ function dvRenderProfileContent(root) {
       const statFollowersEl = document.getElementById('profile-stat-followers');
       const statFollowingEl = document.getElementById('profile-stat-following');
 
-      if (!isSelf) {
+      if (!isSelf && !devInList) {
         const totalFollowers = gh.followers !== undefined ? gh.followers : data.followers;
-        const totalFollowing = gh.following !== undefined ? gh.following : Math.floor(data.followers / 4);
+        const totalFollowing = gh.following !== undefined ? gh.following : 0;
 
         if (statFollowersEl && (!statFollowersEl.textContent || statFollowersEl.textContent === '0')) {
           statFollowersEl.setAttribute('data-count', totalFollowers);

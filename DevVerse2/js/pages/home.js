@@ -69,34 +69,69 @@ function dvRenderTopDevs() {
   if (!root) return;
 
   function renderList(list) {
-    root.innerHTML = list.map((d) => `
+    root.innerHTML = list.map((d) => {
+      const followersLabel = typeof d.followers === 'number'
+        ? (d.followers >= 1000 ? (d.followers / 1000).toFixed(1) + 'k' : d.followers)
+        : (d.followers || 0);
+      const projectsCount = d.projects !== undefined ? d.projects : 0;
+      return `
       <a href="profile.html?u=${d.handle}" class="dev-card glass card-lift reveal">
         <div class="dev-avatar-ring"><img src="${dvAvatar(d.avatarSeed)}" alt="${d.name}"></div>
         <div class="dev-name">${d.name}</div>
         <div class="dev-handle">@${d.handle}</div>
         <div class="dev-meta">
-          <div><b>${d.projects !== undefined ? d.projects : 2}</b>projects</div>
-          <div><b>${typeof d.followers === 'number' ? (d.followers >= 1000 ? (d.followers / 1000).toFixed(1) + 'k' : d.followers) : '1.2k'}</b>followers</div>
+          <div><b>${projectsCount}</b>projects</div>
+          <div><b>${followersLabel}</b>followers</div>
         </div>
-      </a>`).join('');
+      </a>`;
+    }).join('');
     dvReveal(root);
   }
 
-  const initial = [...DV_DEVS].sort((a, b) => b.points - a.points).slice(0, 5);
+  const initial = [...DV_DEVS].sort((a, b) => b.points - a.points).slice(0, 5).map((d) => ({
+    name: d.name,
+    handle: d.handle,
+    avatarSeed: d.avatarSeed || d.handle,
+    points: d.points,
+    projects: d.projects,
+    followers: d.followers,
+  }));
   renderList(initial);
 
   if (window.DVApi && DVApi.leaderboard && DVApi.leaderboard.get) {
-    DVApi.leaderboard.get({ mode: 'devs' }).then(function (res) {
+    DVApi.leaderboard.get({ mode: 'devs', range: 'all' }).then(function (res) {
       const rankings = (res && res.data && res.data.rankings) || [];
       if (rankings.length > 0) {
-        const liveDevs = rankings.slice(0, 5).map(function (u) {
+        const demoHandles = ['kmori', 'ari-devs', 'sena.codes', 'lumen', 'noa.ml', 'priya.dev', 'dax', 'devon.codes', 'elena-v', 'marcus-k'];
+
+        // Real registered users (e.g. neelabh16)
+        const realUsers = rankings.filter((u) => !demoHandles.includes((u.username || '').toLowerCase()));
+        const topDemoUsers = rankings.filter((u) => demoHandles.includes((u.username || '').toLowerCase()));
+
+        // Display featured real users alongside top platform legends (up to 6 total)
+        const selectedDevs = [...realUsers, ...topDemoUsers].slice(0, 6);
+
+        const liveDevs = selectedDevs.map(function (u) {
+          const handle = u.username || u.handle;
+          const demoMatch = typeof DV_DEVS !== 'undefined' ? DV_DEVS.find((d) => d.handle.toLowerCase() === handle.toLowerCase()) : null;
+
+          let projCount = u.projectsCount;
+          if (projCount === undefined || projCount === 0) {
+            projCount = demoMatch ? demoMatch.projects : (u.projects || 0);
+          }
+
+          let folCount = u.followersCount;
+          if (folCount === undefined || (folCount === 0 && demoMatch)) {
+            folCount = demoMatch ? demoMatch.followers : (u.followers || 0);
+          }
+
           return {
             name: u.name,
-            handle: u.username,
-            avatarSeed: u.avatarSeed || u.username,
+            handle: handle,
+            avatarSeed: u.avatarSeed || u.avatarUrl || handle,
             points: u.points || 0,
-            projects: u.username === 'neelabh16' ? 10 : 2,
-            followers: u.username === 'neelabh16' ? 0 : (u.points > 5000 ? 1200 : 80),
+            projects: projCount,
+            followers: folCount,
           };
         });
         renderList(liveDevs);

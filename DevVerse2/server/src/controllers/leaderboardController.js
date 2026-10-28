@@ -4,6 +4,7 @@
 const User = require('../models/User');
 const Project = require('../models/Project');
 const Activity = require('../models/Activity');
+const Engagement = require('../models/Engagement');
 const { sendSuccess } = require('../utils/response');
 
 /**
@@ -58,6 +59,27 @@ const getLeaderboard = async (req, res, next) => {
       .limit(50)
       .select('name username avatarSeed bio skills points createdAt');
 
+    const userIds = devs.map((u) => u._id);
+    const [projectCounts, followCounts] = await Promise.all([
+      Project.aggregate([
+        { $match: { author: { $in: userIds } } },
+        { $group: { _id: '$author', count: { $sum: 1 } } },
+      ]).catch(() => []),
+      Engagement.aggregate([
+        { $match: { type: 'follow', targetType: 'user', targetId: { $in: userIds.map((id) => id.toString()) } } },
+        { $group: { _id: '$targetId', count: { $sum: 1 } } },
+      ]).catch(() => []),
+    ]);
+
+    const projMap = {};
+    if (Array.isArray(projectCounts)) {
+      projectCounts.forEach((p) => { if (p && p._id) projMap[p._id.toString()] = p.count; });
+    }
+    const followMap = {};
+    if (Array.isArray(followCounts)) {
+      followCounts.forEach((f) => { if (f && f._id) followMap[f._id.toString()] = f.count; });
+    }
+
     const mapped = devs.map((u) => {
       let rangePoints = u.points || 0;
       if (since) {
@@ -78,6 +100,8 @@ const getLeaderboard = async (req, res, next) => {
         skills: u.skills,
         allTimePoints: u.points || 0,
         points: rangePoints,
+        projectsCount: projMap[u._id.toString()] || 0,
+        followersCount: followMap[u._id.toString()] || 0,
       };
     });
 

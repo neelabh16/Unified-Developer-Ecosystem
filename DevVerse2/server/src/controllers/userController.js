@@ -4,6 +4,7 @@
 const User = require('../models/User');
 const Engagement = require('../models/Engagement');
 const Activity = require('../models/Activity');
+const Project = require('../models/Project');
 const AppError = require('../utils/AppError');
 const { sendSuccess } = require('../utils/response');
 
@@ -43,11 +44,16 @@ const getProfile = async (req, res, next) => {
       targetType: 'user',
     });
 
+    const projectsCount = await Project.countDocuments({
+      author: user._id,
+    });
+
     return sendSuccess(res, 200, 'User profile retrieved', {
       user,
       isFollowing,
       followersCount,
       followingCount,
+      projectsCount,
     });
   } catch (error) {
     next(error);
