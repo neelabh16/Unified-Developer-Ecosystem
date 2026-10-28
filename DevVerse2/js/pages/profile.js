@@ -200,7 +200,7 @@ function dvRenderProfileContent(root) {
         <div class="grid grid-2" id="profile-projects"></div>
       </div>
       <div>
-        <div class="eyebrow">Activity timeline</div>
+        <div class="eyebrow">GitHub activity</div>
         <div class="glass feed" id="profile-timeline" style="padding:8px 14px;"></div>
       </div>
     </div>
@@ -395,7 +395,7 @@ function dvRenderProfileContent(root) {
   };
 
   const timeline = document.getElementById('profile-timeline');
-  timeline.innerHTML = `<div class="feed-item"><div class="feed-text muted" style="padding:8px 0;">Loading activity timeline...</div></div>`;
+  timeline.innerHTML = `<div class="feed-item"><div class="feed-text muted" style="padding:8px 0;">Loading GitHub activity...</div></div>`;
 
   // Fetch real GitHub contributions and live activity feed
   // Real-time backend sync for Followers and Following stats
@@ -556,7 +556,7 @@ function dvRenderProfileContent(root) {
 
       // 3. Render real activity timeline from GitHub public events, repo commits, and platform activity
       if (timeline && gh.events && gh.events.length > 0) {
-        timeline.innerHTML = gh.events.slice(0, 8).map(function (ev) {
+        timeline.innerHTML = ghOnlyEvents.slice(0, 8).map(function (ev) {
           const diffMin = Math.max(0, Math.floor((Date.now() - new Date(ev.published).getTime()) / 60000));
           const timeAgo = dvTimeAgo(diffMin);
           return `

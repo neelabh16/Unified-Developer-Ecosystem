@@ -3,7 +3,6 @@
 // =============================================================================
 const githubService = require('../services/githubService');
 const User = require('../models/User');
-const Activity = require('../models/Activity');
 const { sendSuccess } = require('../utils/response');
 const AppError = require('../utils/AppError');
 
@@ -39,35 +38,6 @@ const getUserGitHubData = async (req, res, next) => {
 
     if (!data) {
       return next(new AppError('Failed to fetch GitHub data for user', 404));
-    }
-
-    // Blend platform activities if devUser exists
-    if (devUser && Activity) {
-      try {
-        const platformActivities = await Activity.find({ user: devUser._id })
-          .sort({ createdAt: -1 })
-          .limit(8);
-        const seenIds = new Set((data.events || []).map((e) => e.id));
-        for (const act of platformActivities) {
-          const actId = `dv-act-${act._id}`;
-          if (!seenIds.has(actId)) {
-            seenIds.add(actId);
-            (data.events = data.events || []).push({
-              id: actId,
-              title: `${devUser.name} on DevVerse`,
-              description: act.reason || 'Earned points on DevVerse',
-              repo: 'DevVerse Community',
-              published: act.createdAt ? act.createdAt.toISOString() : new Date().toISOString(),
-              url: `profile.html?u=${encodeURIComponent(devUser.username)}`,
-              username: devUser.name,
-              avatarUrl: devUser.avatarUrl || devUser.avatarSeed || '',
-            });
-          }
-        }
-        data.events.sort((a, b) => new Date(b.published).getTime() - new Date(a.published).getTime());
-      } catch (err) {
-        // Silently continue if platform activities cannot be queried
-      }
     }
 
     return sendSuccess(res, 200, 'GitHub user data retrieved', data);
