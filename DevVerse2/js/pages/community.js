@@ -1,33 +1,126 @@
 /* =========================================================
    COMMUNITY FORUM
-   Public-feeling discussion board per community. Everything is
-   real client-side logic (DOM, events, forms, validation,
-   arrays/objects, JSON, LocalStorage) — but it's still local to
-   this browser only, since there's no backend to sync
-   threads between different people. That's called out in the UI.
-   The data-access helpers (dvForumThreads, dvForumAgo, etc.) live
-   in app.js since the Communities index page needs them too.
+   Discussion board per community with live MongoDB backend sync.
    ========================================================= */
 
 let dvForumCommunity = null;
+let dvCurrentCommunityObj = null;
 
 function dvCommunityInit() {
   const root = document.getElementById('community-root');
   if (!root) return;
-  const id = dvGetQueryParam('id') || DV_COMMUNITIES[0].id;
-  const c = DV_COMMUNITIES.find((x) => x.id === id || x.slug === id || x.legacyId === id) || DV_COMMUNITIES[0];
-  dvForumCommunity = c.id;
+
+  const paramId = dvGetQueryParam('id') || 'c1';
+  let c = (typeof dvFindCommunity === 'function' ? dvFindCommunity(paramId) : null)
+    || (typeof DV_COMMUNITIES !== 'undefined' ? DV_COMMUNITIES.find((x) => x.id === paramId || x.slug === paramId || x.legacyId === paramId || x._id === paramId) : null)
+    || (typeof DV_COMMUNITIES !== 'undefined' ? DV_COMMUNITIES[0] : { id: paramId, name: paramId.replace(/[-_]/g, ' '), desc: '', gradient: 0, members: 5, online: 1 });
+
+  dvForumCommunity = c.id || paramId;
+  dvCurrentCommunityObj = c;
   document.title = `${c.name} — DevVerse`;
 
+  // Render initial page with local/cached data
+  dvRenderCommunityPage(c);
+
+  // Fetch live community from Atlas backend
+  if (window.DVApi && DVApi.communities && DVApi.communities.get) {
+    DVApi.communities.get(paramId).then(function (res) {
+      const comm = res && res.data && (res.data.community || res.data);
+      if (comm) {
+        c = {
+          id: comm.legacyId || comm.slug || comm._id,
+          legacyId: comm.legacyId,
+          slug: comm.slug,
+          _id: comm._id ? comm._id.toString() : '',
+          name: comm.name,
+          desc: comm.desc || comm.description || c.desc,
+          gradient: typeof comm.gradient === 'number' ? comm.gradient : (c.gradient || 0),
+          members: typeof comm.membersCount === 'number' ? comm.membersCount : (c.members || 5),
+          online: typeof comm.onlineCount === 'number' ? comm.onlineCount : (c.online || 1),
+        };
+        dvForumCommunity = c.id;
+        dvCurrentCommunityObj = c;
+        document.title = `${c.name} — DevVerse`;
+
+        if (res.data && res.data.isMember) {
+          DVStore.addToSet('communities', c.id);
+          if (c.slug) DVStore.addToSet('communities', c.slug);
+          if (c.legacyId) DVStore.addToSet('communities', c.legacyId);
+          if (c._id) DVStore.addToSet('communities', c._id);
+        }
+
+        // Update header fields live
+        const titleEl = document.getElementById('community-title');
+        const descEl = document.getElementById('community-desc');
+        const memEl = document.getElementById('community-members-count');
+        const onlEl = document.getElementById('community-online-count');
+        const gradEl = document.getElementById('community-gradient-box');
+        const joinBtn = document.getElementById('community-join-btn');
+
+        if (titleEl) titleEl.textContent = c.name;
+        if (descEl) descEl.textContent = c.desc;
+        if (memEl) memEl.textContent = `${c.members.toLocaleString()} members`;
+        if (onlEl) onlEl.textContent = c.online;
+        if (gradEl && typeof DV_TECH_GRADIENTS !== 'undefined') {
+          gradEl.style.background = DV_TECH_GRADIENTS[c.gradient] || DV_TECH_GRADIENTS[0];
+        }
+
+        const isJoined = DVStore.has('communities', c.id) || !!(res.data && res.data.isMember);
+        if (joinBtn) {
+          joinBtn.setAttribute('data-join', c.id);
+          joinBtn.textContent = isJoined ? 'Joined' : 'Join';
+          joinBtn.classList.toggle('btn-ghost', isJoined);
+          joinBtn.classList.toggle('btn-primary', !isJoined);
+        }
+
+        // Unlock forum box if user is a member
+        if (isJoined) {
+          dvUnlockForumImmediately(true, c);
+        }
+      }
+    }).catch(function () {});
+  }
+
+  // Fetch live discussions from backend
+  if (window.DVApi && DVApi.communities && DVApi.communities.getDiscussions) {
+    DVApi.communities.getDiscussions(paramId).then((res) => {
+      const discussions = (res && res.data && (res.data.discussions || res.data)) || [];
+      if (discussions && discussions.length) {
+        const mapped = discussions.map((d) => ({
+          id: d._id || d.id,
+          title: d.title,
+          body: d.body,
+          author: (d.author && (d.author.username || d.author.name)) || d.authorHandle || 'devverse',
+          createdAt: new Date(d.createdAt).getTime(),
+          replies: (d.replies || []).map((r) => ({
+            id: r._id || r.id,
+            author: (r.author && (r.author.username || r.author.name)) || r.authorHandle || 'you',
+            text: r.text || r.body || '',
+            createdAt: new Date(r.createdAt || Date.now()).getTime(),
+          })),
+        }));
+        DVStore.set(`forum.${dvForumCommunity}`, mapped);
+        dvRenderThreads(dvForumCommunity, DVStore.has('communities', dvForumCommunity));
+      }
+    }).catch(function () {});
+  }
+}
+
+function dvRenderCommunityPage(c) {
+  const root = document.getElementById('community-root');
+  if (!root) return;
+
   const joined = DVStore.has('communities', c.id);
+  const grad = typeof c.gradient === 'number' ? c.gradient : 0;
+  const gradientBg = typeof DV_TECH_GRADIENTS !== 'undefined' ? (DV_TECH_GRADIENTS[grad] || DV_TECH_GRADIENTS[0]) : 'var(--accent)';
 
   root.innerHTML = `
     <div class="glass reveal in" style="padding:26px; display:flex; flex-wrap:wrap; gap:20px; justify-content:space-between; align-items:center; margin-bottom:28px;">
       <div style="display:flex; gap:16px; align-items:center;">
-        <div style="width:56px;height:56px;border-radius:16px;background:${DV_TECH_GRADIENTS[c.gradient]}; flex-shrink:0;"></div>
+        <div id="community-gradient-box" style="width:56px;height:56px;border-radius:16px;background:${gradientBg}; flex-shrink:0;"></div>
         <div>
-          <h1 style="font-size:26px;">${c.name}</h1>
-          <p style="margin-top:4px; font-size:13.5px;">${c.desc}</p>
+          <h1 id="community-title" style="font-size:26px;">${c.name}</h1>
+          <p id="community-desc" style="margin-top:4px; font-size:13.5px;">${c.desc || ''}</p>
         </div>
       </div>
       <div style="display:flex; align-items:center; gap:14px;">
@@ -42,7 +135,24 @@ function dvCommunityInit() {
       <p style="font-size:12px; padding:12px 0;">Synced live with DevVerse Community Backend &amp; MongoDB Atlas.</p>
     </div>
 
-    ${joined ? `
+    <div id="community-forum-box">
+      ${joined ? dvThreadFormHTML() : dvLockedForumHTML(c)}
+    </div>
+
+    <div class="eyebrow">Threads</div>
+    <div id="thread-list" style="display:flex; flex-direction:column; gap:14px;"></div>
+  `;
+
+  if (joined) {
+    dvWireThreadForm(c.id);
+  }
+
+  dvRenderThreads(c.id, joined);
+  dvReveal(root);
+}
+
+function dvThreadFormHTML() {
+  return `
     <form class="glass reveal in" id="thread-form" novalidate style="padding:22px; margin-bottom:26px;">
       <h3 style="margin-bottom:14px;">Start a new thread</h3>
       <div class="field">
@@ -54,90 +164,82 @@ function dvCommunityInit() {
         <textarea id="thread-body" name="body" rows="3" required minlength="12" data-error-required="Add a bit of context for your thread." data-error-minlength="Write at least 12 characters so people know what you're asking."></textarea>
       </div>
       <button class="btn btn-primary btn-sm" type="submit">Post thread</button>
-    </form>` : `
+    </form>`;
+}
+
+function dvLockedForumHTML(c) {
+  const cName = c ? (c.name || 'this community') : 'this community';
+  const cId = c ? (c.id || dvForumCommunity) : dvForumCommunity;
+  return `
     <div class="glass reveal in forum-locked" style="padding:26px; margin-bottom:26px; text-align:center;">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" stroke-width="2" style="margin-bottom:10px;"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
-      <p style="font-size:13.5px; margin-bottom:14px;">Join ${c.name} to start threads and reply to other builders.</p>
-      <button class="btn btn-primary btn-sm" data-join="${c.id}">Join community</button>
-    </div>`}
-
-    <div class="eyebrow">Threads</div>
-    <div id="thread-list" style="display:flex; flex-direction:column; gap:14px;"></div>
-  `;
-
-  if (joined) {
-    document.getElementById('thread-form').addEventListener('submit', (e) => {
-      e.preventDefault();
-      if (!dvValidateForm(e.target)) return;
-      const titleInput = document.getElementById('thread-title');
-      const bodyInput = document.getElementById('thread-body');
-      const threads = dvForumThreads(c.id);
-      threads.unshift({
-        id: `${c.id}-${Date.now()}`,
-        title: titleInput.value.trim(),
-        body: bodyInput.value.trim(),
-        author: 'you',
-        createdAt: Date.now(),
-        replies: [],
-      });
-      dvForumSave(c.id, threads);
-      e.target.reset();
-      dvAwardPoints(DV_POINT_VALUES.thread, 'Started a discussion thread');
-      dvToast(`Thread posted (+${DV_POINT_VALUES.thread} pts)`);
-      dvRenderThreads(c.id, joined);
-
-      if (window.DVApi && DVApi.communities && DVApi.communities.createDiscussion) {
-        DVApi.communities.createDiscussion(c.id, { title, body }).catch(function () {});
-      }
-    });
-  }
-
-  dvRenderThreads(c.id, joined);
-
-  if (window.DVApi && DVApi.communities && DVApi.communities.getDiscussions) {
-    DVApi.communities.getDiscussions(c.id).then((res) => {
-      const discussions = (res && res.data && (res.data.discussions || res.data)) || [];
-      if (discussions && discussions.length) {
-        const mapped = discussions.map((d) => ({
-          id: d._id || d.id,
-          title: d.title,
-          body: d.body,
-          author: (d.author && (d.author.username || d.author.name)) || d.authorHandle || 'devverse',
-          createdAt: new Date(d.createdAt).getTime(),
-          replies: (d.replies || []).map((r) => ({
-            id: r._id || r.id,
-            author: (r.author && (r.author.username || r.author.name)) || r.authorHandle || 'you',
-            text: r.text || r.body || '',
-            createdAt: new Date(r.createdAt || Date.now()).getTime()
-          }))
-        }));
-        DVStore.set(`forum.${c.id}`, mapped);
-        dvRenderThreads(c.id, joined);
-      }
-    }).catch(function () {});
-  }
-
-  if (window.DVApi && DVApi.communities && DVApi.communities.get) {
-    DVApi.communities.get(c.id).then(function (res) {
-      const comm = res && res.data && (res.data.community || res.data);
-      if (comm) {
-        const memEl = document.getElementById('community-members-count');
-        const onlEl = document.getElementById('community-online-count');
-        if (memEl && typeof comm.membersCount === 'number') {
-          memEl.textContent = `${comm.membersCount.toLocaleString()} members`;
-        }
-        if (onlEl && typeof comm.onlineCount === 'number') {
-          onlEl.textContent = comm.onlineCount;
-        }
-      }
-    }).catch(function () {});
-  }
-
-  dvReveal(root);
+      <p style="font-size:13.5px; margin-bottom:14px;">Join ${cName} to start threads and reply to other builders.</p>
+      <button class="btn btn-primary btn-sm" data-join="${cId}">Join community</button>
+    </div>`;
 }
+
+function dvWireThreadForm(communityId) {
+  const form = document.getElementById('thread-form');
+  if (!form) return;
+  form.onsubmit = function (e) {
+    e.preventDefault();
+    if (!dvValidateForm(e.target)) return;
+    const titleInput = document.getElementById('thread-title');
+    const bodyInput = document.getElementById('thread-body');
+    const title = titleInput.value.trim();
+    const body = bodyInput.value.trim();
+    const threads = dvForumThreads(communityId);
+    threads.unshift({
+      id: `${communityId}-${Date.now()}`,
+      title,
+      body,
+      author: 'you',
+      createdAt: Date.now(),
+      replies: [],
+    });
+    dvForumSave(communityId, threads);
+    e.target.reset();
+    dvAwardPoints(DV_POINT_VALUES.thread, 'Started a discussion thread');
+    dvToast(`Thread posted (+${DV_POINT_VALUES.thread} pts)`);
+    dvRenderThreads(communityId, true);
+
+    if (window.DVApi && DVApi.communities && DVApi.communities.createDiscussion) {
+      DVApi.communities.createDiscussion(communityId, { title, body }).catch(function () {});
+    }
+  };
+}
+
+// Seamless immediate unlock called whenever Join is clicked
+window.dvUnlockForumImmediately = function (active, communityObj) {
+  const box = document.getElementById('community-forum-box');
+  const targetComm = communityObj || dvCurrentCommunityObj || { id: dvForumCommunity };
+  const commId = targetComm.id || dvForumCommunity;
+
+  if (box) {
+    if (active) {
+      box.innerHTML = dvThreadFormHTML();
+      dvWireThreadForm(commId);
+    } else {
+      box.innerHTML = dvLockedForumHTML(targetComm);
+    }
+  }
+
+  // Update header button
+  const topBtn = document.getElementById('community-join-btn');
+  if (topBtn) {
+    topBtn.textContent = active ? 'Joined' : 'Join';
+    topBtn.classList.toggle('btn-ghost', active);
+    topBtn.classList.toggle('btn-primary', !active);
+  }
+
+  // Update thread replies
+  dvRenderThreads(commId, active);
+};
 
 function dvRenderThreads(communityId, joined) {
   const listRoot = document.getElementById('thread-list');
+  if (!listRoot) return;
+
   const threads = dvForumThreads(communityId).slice().sort((a, b) => b.createdAt - a.createdAt);
 
   if (!threads.length) {
@@ -145,7 +247,8 @@ function dvRenderThreads(communityId, joined) {
     return;
   }
 
-  listRoot.innerHTML = threads.map(function (t) { return `
+  listRoot.innerHTML = threads.map(function (t) {
+    return `
     <div class="glass reveal in thread-card" data-thread-id="${t.id}">
       <div style="display:flex; align-items:flex-start;">
         <button class="thread-toggle" data-toggle-thread="${t.id}" style="flex:1; text-align:left; background:none; border:none; padding:18px 20px; display:flex; gap:14px; align-items:flex-start; cursor:pointer; color:inherit;">
@@ -161,7 +264,8 @@ function dvRenderThreads(communityId, joined) {
       <div class="thread-body" id="thread-body-${t.id}" style="display:none; padding:16px 20px 20px 72px;">
         <p style="font-size:13.5px; margin-bottom:16px;">${t.body}</p>
         <div class="thread-replies" style="display:flex; flex-direction:column; gap:12px; margin-bottom:16px;">
-          ${t.replies.map(function (r) { return `
+          ${t.replies.map(function (r) {
+            return `
             <div style="display:flex; gap:10px; align-items:flex-start;">
               <img src="${dvAvatar(dvForumAuthorAvatar(r.author), 30)}" style="width:28px;height:28px;border-radius:50%; flex-shrink:0;">
               <div style="flex:1;">
@@ -169,7 +273,8 @@ function dvRenderThreads(communityId, joined) {
                 <div style="font-size:13px; color:var(--text-secondary); margin-top:2px;">${r.text}</div>
               </div>
               ${r.author === 'you' ? `<button class="thread-delete-btn" data-delete-reply="${t.id}" data-reply-id="${r.id}" style="flex-shrink:0;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg> Delete</button>` : ''}
-            </div>`; }).join('') || `<p class="muted" style="font-size:12.5px;">No replies yet.</p>`}
+            </div>`;
+          }).join('') || `<p class="muted" style="font-size:12.5px;">No replies yet.</p>`}
         </div>
         ${joined
           ? `<form class="reply-form" data-reply-thread="${t.id}" novalidate style="display:flex; gap:10px; align-items:flex-start;">
@@ -178,25 +283,13 @@ function dvRenderThreads(communityId, joined) {
             </form>`
           : `<p class="muted" style="font-size:12.5px;">Join this community to reply.</p>`}
       </div>
-    </div>`; }).join('');
+    </div>`;
+  }).join('');
 
   dvReveal(listRoot);
 }
 
-/* Re-render the whole page whenever the join button for THIS community
-   is toggled, so the gate (forms appearing/disappearing) updates live
-   without a full page reload. Runs after app.js's own click handler
-   (attached later, during dvCommunityInit), so DVStore already
-   reflects the new joined state by the time this fires. */
-document.addEventListener('click', (e) => {
-  const joinBtn = e.target.closest('[data-join]');
-  if (joinBtn && dvForumCommunity && joinBtn.dataset.join === dvForumCommunity) {
-    dvCommunityInit();
-  }
-});
-
-/* Delegated: expand/collapse threads + submit replies (elements are
-   regenerated on every render, so we listen on a stable ancestor). */
+/* Delegated: expand/collapse threads + delete threads/replies */
 document.addEventListener('click', (e) => {
   const toggle = e.target.closest('[data-toggle-thread]');
   if (toggle) {
@@ -240,17 +333,18 @@ document.addEventListener('submit', (e) => {
   const form = e.target.closest('.reply-form');
   if (!form || !dvForumCommunity) return;
   e.preventDefault();
-  if (!DVStore.has('communities', dvForumCommunity)) return; // defensive: reply forms only render when joined anyway
+  if (!DVStore.has('communities', dvForumCommunity)) return;
   if (!dvValidateForm(form)) return;
   const threadId = form.dataset.replyThread;
   const input = form.querySelector('.reply-input');
+  const text = input.value.trim();
   const threads = dvForumThreads(dvForumCommunity);
   const thread = threads.find((t) => t.id === threadId);
   if (!thread) return;
   thread.replies.push({
     id: `${threadId}-r${Date.now()}`,
     author: 'you',
-    text: input.value.trim(),
+    text,
     createdAt: Date.now(),
   });
   dvForumSave(dvForumCommunity, threads);

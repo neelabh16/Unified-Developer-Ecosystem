@@ -96,6 +96,17 @@ const DVStore = {
             }
           } catch (e) {}
         }
+      } else if (path === 'communities') {
+        const c = dvGetCookie('dv_communities');
+        if (c) {
+          try {
+            const parsed = JSON.parse(c);
+            if (Array.isArray(parsed)) {
+              result = parsed;
+              this._user.communities = result;
+            }
+          } catch (e) {}
+        }
       }
     }
     if (result !== undefined) return result;
@@ -127,6 +138,10 @@ const DVStore = {
     } else if (path === 'following' && Array.isArray(value)) {
       try {
         dvSetCookie('dv_following', JSON.stringify(value));
+      } catch (e) {}
+    } else if (path === 'communities' && Array.isArray(value)) {
+      try {
+        dvSetCookie('dv_communities', JSON.stringify(value));
       } catch (e) {}
     }
 
@@ -174,8 +189,19 @@ const DVStore = {
         if (inSquad) return true;
       }
       return false;
+    } else if (path === 'communities') {
+      const arr = this.get('communities', []);
+      if (!id) return false;
+      if (arr.includes(id)) return true;
+      const matchC = typeof dvFindCommunity === 'function' ? dvFindCommunity(id) : null;
+      if (matchC) {
+        if (matchC.id && arr.includes(matchC.id)) return true;
+        if (matchC.slug && arr.includes(matchC.slug)) return true;
+        if (matchC.legacyId && arr.includes(matchC.legacyId)) return true;
+        if (matchC._id && arr.includes(matchC._id.toString())) return true;
+      }
+      return false;
     }
-    return (this.get(path, []) || []).includes(id);
   },
   resetAll() {
     this._user = {};
@@ -495,6 +521,32 @@ function dvInitAuth() {
                 }
               }
             } catch (fErr) {}
+          }
+
+          // Fetch user community memberships from backend API
+          if (DVApi.communities && DVApi.communities.list) {
+            try {
+              const commRes = await DVApi.communities.list();
+              if (commRes && commRes.data && Array.isArray(commRes.data.joinedIds)) {
+                commRes.data.joinedIds.forEach((jid) => {
+                  DVStore.addToSet('communities', jid);
+                  const comm = (commRes.data.communities || []).find((c) => (c._id && c._id.toString() === jid) || c.id === jid || c.legacyId === jid || c.slug === jid);
+                  if (comm) {
+                    if (comm.slug) DVStore.addToSet('communities', comm.slug);
+                    if (comm.legacyId) DVStore.addToSet('communities', comm.legacyId);
+                    if (comm.id) DVStore.addToSet('communities', comm.id);
+                  }
+                });
+                document.querySelectorAll('[data-join]').forEach((btn) => {
+                  const jid = btn.dataset.join;
+                  if (DVStore.has('communities', jid)) {
+                    btn.textContent = 'Joined';
+                    btn.classList.add('btn-ghost');
+                    btn.classList.remove('btn-primary');
+                  }
+                });
+              }
+            } catch (cErr) {}
           }
         } else {
           window.DVCurrentUser = null;
@@ -1564,6 +1616,23 @@ function dvFindHackathon(ident) {
   }) || null;
 }
 
+function dvFindCommunity(ident) {
+  if (!ident || typeof DV_COMMUNITIES === 'undefined') return null;
+  const raw = typeof ident === 'string' ? ident.trim() : (ident.id || ident.legacyId || ident.slug || ident.name || '');
+  if (!raw) return null;
+  const clean = raw.toLowerCase().replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim();
+
+  return DV_COMMUNITIES.find((c) => {
+    if (c.id && c.id.toLowerCase() === raw.toLowerCase()) return true;
+    if (c.legacyId && c.legacyId.toLowerCase() === raw.toLowerCase()) return true;
+    if (c.slug && c.slug.toLowerCase() === raw.toLowerCase()) return true;
+    if (c._id && c._id.toString().toLowerCase() === raw.toLowerCase()) return true;
+    const cName = (c.name || '').toLowerCase().replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (cName === clean) return true;
+    return false;
+  }) || null;
+}
+
 function dvNormalizeBackendSquad(s) {
   if (!s) return null;
   const selfHandle = dvSelfHandle();
@@ -2456,22 +2525,53 @@ function dvWireInteractions(root = document) {
     if (joinBtn) {
       const id = joinBtn.dataset.join;
       const active = DVStore.toggleInSet('communities', id);
-      joinBtn.textContent = active ? 'Joined' : 'Join';
-      joinBtn.classList.toggle('btn-primary', !active);
-      joinBtn.classList.toggle('btn-ghost', active);
+      const matchC = typeof dvFindCommunity === 'function' ? dvFindCommunity(id) : null;
+      if (matchC) {
+        if (active) {
+          if (matchC.id) DVStore.addToSet('communities', matchC.id);
+          if (matchC.slug) DVStore.addToSet('communities', matchC.slug);
+          if (matchC.legacyId) DVStore.addToSet('communities', matchC.legacyId);
+        } else {
+          const cur = DVStore.get('communities', []);
+          const aliases = [matchC.id, matchC.slug, matchC.legacyId, id].filter(Boolean);
+          DVStore.set('communities', cur.filter((x) => !aliases.includes(x)));
+        }
+      }
+
+      // Update all matching join buttons across the page
+      const selectors = [`[data-join="${id}"]`];
+      if (matchC) {
+        if (matchC.id) selectors.push(`[data-join="${matchC.id}"]`);
+        if (matchC.slug) selectors.push(`[data-join="${matchC.slug}"]`);
+      }
+      document.querySelectorAll(selectors.join(',')).forEach((btn) => {
+        btn.textContent = active ? 'Joined' : (btn.id === 'community-join-btn' || btn.classList.contains('btn-sm') ? 'Join' : 'Join community');
+        btn.classList.toggle('btn-primary', !active);
+        btn.classList.toggle('btn-ghost', active);
+      });
 
       // Optimistic update of member count on card / detail header
-      const cardCountEl = document.querySelector(`[data-members-count="${id}"]`);
-      if (cardCountEl) {
-        let cur = parseInt(cardCountEl.textContent.replace(/[^0-9]/g, ''), 10) || 5;
-        cur = active ? cur + 1 : Math.max(1, cur - 1);
-        cardCountEl.textContent = `${cur.toLocaleString()} members`;
+      const cardSelectors = [`[data-members-count="${id}"]`];
+      if (matchC) {
+        if (matchC.id) cardSelectors.push(`[data-members-count="${matchC.id}"]`);
+        if (matchC.slug) cardSelectors.push(`[data-members-count="${matchC.slug}"]`);
       }
+      document.querySelectorAll(cardSelectors.join(',')).forEach((el) => {
+        let cur = parseInt(el.textContent.replace(/[^0-9]/g, ''), 10) || 5;
+        cur = active ? cur + 1 : Math.max(1, cur - 1);
+        el.textContent = `${cur.toLocaleString()} members`;
+      });
+
       const pageHeaderCountEl = document.getElementById('community-members-count');
       if (pageHeaderCountEl) {
         let cur = parseInt(pageHeaderCountEl.textContent.replace(/[^0-9]/g, ''), 10) || 5;
         cur = active ? cur + 1 : Math.max(1, cur - 1);
         pageHeaderCountEl.textContent = `${cur.toLocaleString()} members`;
+      }
+
+      // If on community.html, IMMEDIATELY unlock or lock the forum discussion thread form!
+      if (typeof window.dvUnlockForumImmediately === 'function') {
+        window.dvUnlockForumImmediately(active, matchC || { id });
       }
 
       if (active && dvAwardOnce('communities', id, DV_POINT_VALUES.join, 'Joined a community')) {
@@ -2482,8 +2582,13 @@ function dvWireInteractions(root = document) {
       if (window.DVApi && DVApi.communities && DVApi.communities.toggleJoin) {
         DVApi.communities.toggleJoin(id).then(function (res) {
           if (res && res.data && typeof res.data.membersCount === 'number') {
-            if (cardCountEl) cardCountEl.textContent = `${res.data.membersCount.toLocaleString()} members`;
+            document.querySelectorAll(cardSelectors.join(',')).forEach((el) => {
+              el.textContent = `${res.data.membersCount.toLocaleString()} members`;
+            });
             if (pageHeaderCountEl) pageHeaderCountEl.textContent = `${res.data.membersCount.toLocaleString()} members`;
+          }
+          if (res && res.data && typeof res.data.userPoints === 'number' && window.DVCurrentUser) {
+            window.DVCurrentUser.points = res.data.userPoints;
           }
         }).catch(function () {});
       }
