@@ -554,8 +554,14 @@ function dvRenderProfileContent(root) {
         renderHeatmapDays(recentDays);
       }
 
-      // 3. Render real activity timeline from GitHub public events, repo commits, and platform activity
-      if (timeline && gh.events && gh.events.length > 0) {
+      // 3. Render real activity timeline from GitHub public events
+      const ghOnlyEvents = Array.isArray(gh.events)
+        ? gh.events.filter(function (ev) {
+            return ev && (!ev.id || !String(ev.id).startsWith('dv-'));
+          })
+        : [];
+
+      if (timeline && ghOnlyEvents.length > 0) {
         timeline.innerHTML = ghOnlyEvents.slice(0, 8).map(function (ev) {
           const diffMin = Math.max(0, Math.floor((Date.now() - new Date(ev.published).getTime()) / 60000));
           const timeAgo = dvTimeAgo(diffMin);
@@ -579,6 +585,9 @@ function dvRenderProfileContent(root) {
       dvAnimateCounters(root);
     }).catch(function (err) {
       console.warn('Could not fetch real GitHub profile data:', err);
+      if (timeline) {
+        timeline.innerHTML = '<div class="feed-item"><div class="feed-text muted">No recent public GitHub activity.</div></div>';
+      }
     });
   }
 
