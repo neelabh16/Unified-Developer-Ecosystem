@@ -59,16 +59,20 @@ const getLeaderboard = async (req, res, next) => {
       .limit(50)
       .select('name username avatarSeed bio skills points createdAt');
 
-    const userIds = devs.map((u) => u._id);
+    const userIds = devs.map((u) => u._id).filter(Boolean);
     const [projectCounts, followCounts] = await Promise.all([
-      Project.aggregate([
-        { $match: { author: { $in: userIds } } },
-        { $group: { _id: '$author', count: { $sum: 1 } } },
-      ]).catch(() => []),
-      Engagement.aggregate([
-        { $match: { type: 'follow', targetType: 'user', targetId: { $in: userIds.map((id) => id.toString()) } } },
-        { $group: { _id: '$targetId', count: { $sum: 1 } } },
-      ]).catch(() => []),
+      (userIds.length && typeof Project.aggregate === 'function')
+        ? Project.aggregate([
+            { $match: { author: { $in: userIds } } },
+            { $group: { _id: '$author', count: { $sum: 1 } } },
+          ]).catch(() => [])
+        : Promise.resolve([]),
+      (userIds.length && typeof Engagement.aggregate === 'function')
+        ? Engagement.aggregate([
+            { $match: { type: 'follow', targetType: 'user', targetId: { $in: userIds.map((id) => id ? id.toString() : '') } } },
+            { $group: { _id: '$targetId', count: { $sum: 1 } } },
+          ]).catch(() => [])
+        : Promise.resolve([]),
     ]);
 
     const projMap = {};
@@ -81,10 +85,11 @@ const getLeaderboard = async (req, res, next) => {
     }
 
     const mapped = devs.map((u) => {
+      const uIdStr = u._id ? u._id.toString() : '';
       let rangePoints = u.points || 0;
       if (since) {
-        if (u._id && typeof userRangeMap[u._id.toString()] === 'number') {
-          rangePoints = userRangeMap[u._id.toString()];
+        if (uIdStr && typeof userRangeMap[uIdStr] === 'number') {
+          rangePoints = userRangeMap[uIdStr];
         } else if (u.createdAt && u.createdAt >= since) {
           rangePoints = u.points || 0;
         } else {
@@ -100,8 +105,8 @@ const getLeaderboard = async (req, res, next) => {
         skills: u.skills,
         allTimePoints: u.points || 0,
         points: rangePoints,
-        projectsCount: projMap[u._id.toString()] || 0,
-        followersCount: followMap[u._id.toString()] || 0,
+        projectsCount: (uIdStr && projMap[uIdStr]) || 0,
+        followersCount: (uIdStr && followMap[uIdStr]) || 0,
       };
     });
 

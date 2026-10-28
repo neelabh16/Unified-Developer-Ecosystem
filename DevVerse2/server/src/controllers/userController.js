@@ -44,9 +44,16 @@ const getProfile = async (req, res, next) => {
       targetType: 'user',
     });
 
-    const projectsCount = await Project.countDocuments({
-      author: user._id,
-    });
+    let projectsCount = 0;
+    try {
+      if (user._id && typeof Project.countDocuments === 'function') {
+        projectsCount = await Project.countDocuments({
+          author: user._id,
+        });
+      }
+    } catch (countErr) {
+      projectsCount = 0;
+    }
 
     return sendSuccess(res, 200, 'User profile retrieved', {
       user,

@@ -758,9 +758,18 @@ function dvElementInView(el, viewportFraction) {
 }
 
 function dvRunCounter(el) {
+  if (el._dvTimer) {
+    clearInterval(el._dvTimer);
+    el._dvTimer = null;
+  }
   const target = parseFloat(el.dataset.count);
+  if (isNaN(target)) return;
   const suffix = el.dataset.suffix || '';
   const isWhole = target % 1 === 0;
+  if (target === 0) {
+    el.textContent = '0' + suffix;
+    return;
+  }
   const steps = 45;
   const stepDuration = 1400 / steps;
   let step = 0;
@@ -770,8 +779,26 @@ function dvRunCounter(el) {
     const eased = 1 - Math.pow(1 - p, 3);
     const val = target * eased;
     el.textContent = (isWhole ? Math.floor(val).toLocaleString() : val.toFixed(1)) + suffix;
-    if (step >= steps) clearInterval(timer);
+    if (step >= steps) {
+      clearInterval(timer);
+      el._dvTimer = null;
+    }
   }, stepDuration);
+  el._dvTimer = timer;
+}
+
+function dvUpdateCounter(el, newCount) {
+  if (!el) return;
+  const count = parseFloat(newCount);
+  if (isNaN(count)) return;
+  if (el._dvTimer) {
+    clearInterval(el._dvTimer);
+    el._dvTimer = null;
+  }
+  el.dataset.count = count;
+  el.setAttribute('data-count', count);
+  el.classList.add('dv-counted');
+  dvRunCounter(el);
 }
 
 function dvCheckCounters() {

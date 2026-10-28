@@ -65,13 +65,17 @@ function dvRenderProfileContent(root) {
         bio: base.bio || '',
       };
 
+  const accountPoints = account && typeof account.points === 'number' ? account.points : null;
+  if (isSelf && accountPoints !== null) {
+    data.points = accountPoints;
+  }
   const tier = dvCurrentTier(data.points);
   const next = dvNextTier(data.points);
 
   const myProjects = isSelf ? dvAllProjects().filter(function (p) { return selfUsername && selfUsername !== 'you' && p.author === selfUsername; }) : dvAllProjects().filter(function (p) { return p.author === data.handle; });
-  const statProjects = isSelf ? myProjects.length : data.projects;
-  const statFollowers = isSelf ? 0 : data.followers;
-  const statFollowing = isSelf ? DVStore.get('following', []).length : Math.floor(data.followers / 4);
+  const statProjects = isSelf ? myProjects.length : (data.projects || 0);
+  const statFollowers = isSelf ? ((account && typeof account.followersCount === 'number') ? account.followersCount : 0) : (data.followers || 0);
+  const statFollowing = isSelf ? ((account && typeof account.followingCount === 'number') ? account.followingCount : DVStore.get('following', []).length) : Math.floor((data.followers || 0) / 4);
 
   // One-time username change: unlocks once the account reaches Legend
   // tier's point threshold (same 600-pt bar dvLegendUnlocked() in
@@ -113,7 +117,7 @@ function dvRenderProfileContent(root) {
       <div style="flex:1; padding-bottom:10px;">
         <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
           <h2 id="profile-name">${data.name}</h2>
-          ${dvTierBadgeHTML(data.points)}
+          <span id="profile-tier-badge">${dvTierBadgeHTML(data.points)}</span>
         </div>
         <div class="mono muted">@${data.handle}</div>
       </div>
@@ -141,12 +145,12 @@ function dvRenderProfileContent(root) {
     </div>
 
     ${isSelf ? `
-    <div class="glass reveal in" style="padding:18px 22px; margin-top:24px;">
+    <div id="profile-self-tier-card" class="glass reveal in" style="padding:18px 22px; margin-top:24px;">
       <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:8px;">
-        <span>${tier.icon} <b>${tier.name}</b></span>
-        <span class="muted">${next ? `${data.points} / ${next.min} pts to ${next.name}` : `${data.points} pts — top tier reached`}</span>
+        <span id="profile-tier-text">${tier.icon} <b>${tier.name}</b></span>
+        <span class="muted" id="profile-tier-progress">${next ? `${data.points} / ${next.min} pts to ${next.name}` : `${data.points} pts — top tier reached`}</span>
       </div>
-      <div class="bar-track"><div class="bar-fill" style="width:${next ? Math.min(100, (data.points / next.min) * 100) : 100}%"></div></div>
+      <div class="bar-track"><div class="bar-fill" id="profile-tier-bar" style="width:${next ? Math.min(100, (data.points / next.min) * 100) : 100}%"></div></div>
     </div>` : ''}
 
     <div class="grid grid-4" style="margin-top:30px;">
@@ -224,7 +228,11 @@ function dvRenderProfileContent(root) {
       const uploaded = items.filter(function (p) {
         const u = (p.author && (p.author.username || p.author.name)) || p.author;
         const uHandle = typeof u === 'string' ? u.toLowerCase() : '';
-        return (targetHandle && uHandle === targetHandle.toLowerCase()) || (isSelf && account && account.username && uHandle === account.username.toLowerCase());
+        const authorHandle = (p.authorHandle || '').toLowerCase();
+        const target = (targetHandle || '').toLowerCase();
+        const accountU = (account && account.username ? account.username : '').toLowerCase();
+        return (target && (uHandle === target || authorHandle === target)) ||
+               (isSelf && accountU && (uHandle === accountU || authorHandle === accountU));
       });
 
       const listToShow = uploaded.length > 0 ? uploaded.map(function (p) {
@@ -246,8 +254,12 @@ function dvRenderProfileContent(root) {
 
       const statProjectsEl = document.getElementById('profile-stat-projects');
       if (statProjectsEl) {
-        statProjectsEl.setAttribute('data-count', listToShow.length);
-        statProjectsEl.textContent = listToShow.length;
+        if (typeof dvUpdateCounter === 'function') {
+          dvUpdateCounter(statProjectsEl, listToShow.length);
+        } else {
+          statProjectsEl.setAttribute('data-count', listToShow.length);
+          statProjectsEl.textContent = listToShow.length;
+        }
       }
 
       if (projectsEl) {
@@ -282,6 +294,18 @@ function dvRenderProfileContent(root) {
           const skillsSection = document.querySelector('.section-tight .pc-tags');
           if (skillsSection) {
             skillsSection.innerHTML = pf.skills.map(function (s) { return `<span class="chip chip-accent">${s}</span>`; }).join('');
+          }
+        }
+
+        if (Array.isArray(pf.projects) && pf.projects.length) {
+          const statProjectsEl = document.getElementById('profile-stat-projects');
+          if (statProjectsEl && (!statProjectsEl.dataset.count || statProjectsEl.dataset.count === '0')) {
+            if (typeof dvUpdateCounter === 'function') {
+              dvUpdateCounter(statProjectsEl, pf.projects.length);
+            } else {
+              statProjectsEl.setAttribute('data-count', pf.projects.length);
+              statProjectsEl.textContent = pf.projects.length;
+            }
           }
         }
       }
@@ -395,38 +419,59 @@ function dvRenderProfileContent(root) {
           const statProjectsEl = document.getElementById('profile-stat-projects');
 
           if (statFollowersEl && typeof u.followersCount === 'number') {
-            statFollowersEl.setAttribute('data-count', u.followersCount);
-            statFollowersEl.textContent = u.followersCount;
+            if (typeof dvUpdateCounter === 'function') {
+              dvUpdateCounter(statFollowersEl, u.followersCount);
+            } else {
+              statFollowersEl.setAttribute('data-count', u.followersCount);
+              statFollowersEl.textContent = u.followersCount;
+            }
           }
-          if (statFollowingEl && !isSelf && typeof u.followingCount === 'number') {
-            statFollowingEl.setAttribute('data-count', u.followingCount);
-            statFollowingEl.textContent = u.followingCount;
+          if (statFollowingEl && typeof u.followingCount === 'number') {
+            if (typeof dvUpdateCounter === 'function') {
+              dvUpdateCounter(statFollowingEl, u.followingCount);
+            } else {
+              statFollowingEl.setAttribute('data-count', u.followingCount);
+              statFollowingEl.textContent = u.followingCount;
+            }
           }
           if (statPointsEl && typeof userObj.points === 'number') {
-            statPointsEl.setAttribute('data-count', userObj.points);
-            statPointsEl.textContent = userObj.points;
+            if (typeof dvUpdateCounter === 'function') {
+              dvUpdateCounter(statPointsEl, userObj.points);
+            } else {
+              statPointsEl.setAttribute('data-count', userObj.points);
+              statPointsEl.textContent = userObj.points;
+            }
 
-            if (!isSelf && typeof dvCurrentTier === 'function') {
+            const tierBadgeEl = document.getElementById('profile-tier-badge');
+            if (tierBadgeEl && typeof dvTierBadgeHTML === 'function') {
+              tierBadgeEl.innerHTML = dvTierBadgeHTML(userObj.points);
+            }
+
+            const tierTextEl = document.getElementById('profile-tier-text');
+            const tierProgressEl = document.getElementById('profile-tier-progress');
+            const tierBarEl = document.getElementById('profile-tier-bar');
+            if (tierTextEl || tierProgressEl || tierBarEl) {
               const currentTier = dvCurrentTier(userObj.points);
               const nextTier = dvNextTier(userObj.points);
-              const tierPill = document.querySelector('.dev-title .chip-accent');
-              if (tierPill) tierPill.textContent = currentTier.name;
-              const tierProgress = document.querySelector('.dev-title .mono.muted');
-              if (tierProgress) {
-                tierProgress.textContent = `${userObj.points} / ${nextTier.min} pts to ${nextTier.name}`;
+              if (tierTextEl) tierTextEl.innerHTML = `${currentTier.icon} <b>${currentTier.name}</b>`;
+              if (tierProgressEl) {
+                tierProgressEl.textContent = nextTier ? `${userObj.points} / ${nextTier.min} pts to ${nextTier.name}` : `${userObj.points} pts — top tier reached`;
               }
-              const tierBar = document.querySelector('.dev-title .progress-fill');
-              if (tierBar) {
+              if (tierBarEl) {
                 const prevMin = currentTier.min;
-                const nextMin = nextTier.min;
-                const pct = Math.min(100, Math.max(0, Math.round(((userObj.points - prevMin) / (nextMin - prevMin)) * 100)));
-                tierBar.style.width = `${pct}%`;
+                const nextMin = nextTier ? nextTier.min : currentTier.min;
+                const pct = nextTier ? Math.min(100, Math.max(0, Math.round(((userObj.points - prevMin) / (nextMin - prevMin)) * 100))) : 100;
+                tierBarEl.style.width = `${pct}%`;
               }
             }
           }
-          if (statProjectsEl && typeof u.projectsCount === 'number' && u.projectsCount > 0) {
-            statProjectsEl.setAttribute('data-count', u.projectsCount);
-            statProjectsEl.textContent = u.projectsCount;
+          if (statProjectsEl && typeof u.projectsCount === 'number') {
+            if (typeof dvUpdateCounter === 'function') {
+              dvUpdateCounter(statProjectsEl, u.projectsCount);
+            } else {
+              statProjectsEl.setAttribute('data-count', u.projectsCount);
+              statProjectsEl.textContent = u.projectsCount;
+            }
           }
 
           // Follow button state
@@ -437,7 +482,9 @@ function dvRenderProfileContent(root) {
             followBtn.classList.toggle('btn-ghost', u.isFollowing);
           }
         }
-      }).catch(function () {});
+      }).catch(function (err) {
+        console.warn('Could not fetch user profile:', err);
+      });
     }
   }
 
@@ -458,13 +505,21 @@ function dvRenderProfileContent(root) {
         const totalFollowers = gh.followers !== undefined ? gh.followers : data.followers;
         const totalFollowing = gh.following !== undefined ? gh.following : 0;
 
-        if (statFollowersEl && (!statFollowersEl.textContent || statFollowersEl.textContent === '0')) {
-          statFollowersEl.setAttribute('data-count', totalFollowers);
-          statFollowersEl.textContent = totalFollowers;
+        if (statFollowersEl && (!statFollowersEl.dataset.count || statFollowersEl.dataset.count === '0')) {
+          if (typeof dvUpdateCounter === 'function') {
+            dvUpdateCounter(statFollowersEl, totalFollowers);
+          } else {
+            statFollowersEl.setAttribute('data-count', totalFollowers);
+            statFollowersEl.textContent = totalFollowers;
+          }
         }
-        if (statFollowingEl && (!statFollowingEl.textContent || statFollowingEl.textContent === '0')) {
-          statFollowingEl.setAttribute('data-count', totalFollowing);
-          statFollowingEl.textContent = totalFollowing;
+        if (statFollowingEl && (!statFollowingEl.dataset.count || statFollowingEl.dataset.count === '0')) {
+          if (typeof dvUpdateCounter === 'function') {
+            dvUpdateCounter(statFollowingEl, totalFollowing);
+          } else {
+            statFollowingEl.setAttribute('data-count', totalFollowing);
+            statFollowingEl.textContent = totalFollowing;
+          }
         }
       }
 
