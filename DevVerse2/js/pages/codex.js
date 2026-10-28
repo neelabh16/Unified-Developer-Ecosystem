@@ -17,12 +17,27 @@ function dvCodexInit() {
       return;
     }
 
-    if (!dvCodexUnlocked()) {
-      dvRenderCodexLocked(root);
-      return;
+    if (window.DVApi && DVApi.codex && DVApi.codex.status) {
+      DVApi.codex.status().then((res) => {
+        if (res && res.data && res.data.unlocked) {
+          dvRenderCodexUnlocked(root);
+        } else {
+          dvRenderCodexLocked(root);
+        }
+      }).catch(() => {
+        if (!dvCodexUnlocked()) {
+          dvRenderCodexLocked(root);
+        } else {
+          dvRenderCodexUnlocked(root);
+        }
+      });
+    } else {
+      if (!dvCodexUnlocked()) {
+        dvRenderCodexLocked(root);
+      } else {
+        dvRenderCodexUnlocked(root);
+      }
     }
-
-    dvRenderCodexUnlocked(root);
   });
 }
 
@@ -44,6 +59,28 @@ function dvRenderCodexLocked(root) {
 
 function dvRenderCodexUnlocked(root) {
   const entries = dvCodexEntries();
+
+  if (window.DVApi && DVApi.codex && DVApi.codex.list) {
+    DVApi.codex.list().then((res) => {
+      const items = (res && res.data && (res.data.entries || (Array.isArray(res.data) ? res.data : []))) || [];
+      if (items.length > 0) {
+        const liveEntries = items.map((e) => ({
+          id: e.slug || e._id || e.id,
+          title: e.title,
+          category: e.category,
+          problem: e.problem,
+          tried: e.tried,
+          fix: e.fix,
+          lesson: e.lesson,
+          createdAt: new Date(e.createdAt).getTime(),
+          author: (e.author && (e.author.username || e.author.name)) || 'devverse',
+          authorAvatar: e.author && (e.author.avatarUrl || e.author.avatarSeed),
+        }));
+        DVStore.set('codex.entries', liveEntries);
+        dvRenderCodexEntries();
+      }
+    }).catch(() => {});
+  }
   const categories = dvUniqueArray(entries.map((e) => e.category));
 
   root.innerHTML = `

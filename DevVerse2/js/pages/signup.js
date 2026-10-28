@@ -130,12 +130,14 @@ function dvSignupInit() {
         name: user.name,
         username: user.username,
         email: user.email,
+        github: user.github || '',
       }]);
       DVStore.set('profile.overrides', {
         name: user.name,
         username: user.username,
+        github: user.github || '',
         bio: user.bio || '',
-        avatarSeed: user.avatarSeed || 'you-builder',
+        avatarSeed: user.avatarUrl || user.avatarSeed || 'you-builder',
         points: user.points || 0,
       });
       if ((user.points || 0) > 0) {
