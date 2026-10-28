@@ -299,6 +299,30 @@ let dvAuthInitPromise = null;
 function dvInitAuth() {
   if (dvAuthInitPromise) return dvAuthInitPromise;
   dvAuthInitPromise = (async function () {
+    // Check if auth token arrived via OAuth callback redirect
+    if (typeof dvGetQueryParam === 'function' && window.DVApi) {
+      const oauthToken = dvGetQueryParam('token');
+      if (oauthToken) {
+        DVApi.setToken(oauthToken);
+      }
+      const oauthSuccess = dvGetQueryParam('oauth') === 'success';
+      if (oauthSuccess) {
+        const prov = dvGetQueryParam('provider') || 'social';
+        const provLabel = prov === 'github' ? 'GitHub' : prov === 'google' ? 'Google' : 'social account';
+        if (typeof dvToast === 'function') {
+          dvToast(`Welcome! Signed in with ${provLabel}.`);
+        }
+        try {
+          const cleanUrl = new URL(window.location.href);
+          cleanUrl.searchParams.delete('token');
+          cleanUrl.searchParams.delete('oauth');
+          cleanUrl.searchParams.delete('provider');
+          const cleanPath = cleanUrl.pathname + (cleanUrl.search ? cleanUrl.search : '') + cleanUrl.hash;
+          window.history.replaceState({}, document.title, cleanPath);
+        } catch (e) {}
+      }
+    }
+
     if (window.DVApi && DVApi.auth && DVApi.auth.me) {
       try {
         const res = await DVApi.auth.me();

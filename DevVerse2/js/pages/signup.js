@@ -13,6 +13,11 @@ function dvSignupInit() {
   const existingLoginLink = document.getElementById('signup-existing-login-link');
   if (existingLoginLink) existingLoginLink.href = 'login.html' + redirectQuery;
 
+  const oauthToken = dvGetQueryParam('token');
+  if (oauthToken && window.DVApi) {
+    DVApi.setToken(oauthToken);
+  }
+
   const oauthSuccess = dvGetQueryParam('oauth') === 'success';
   if (oauthSuccess) {
     const provider = dvGetQueryParam('provider') || 'social';

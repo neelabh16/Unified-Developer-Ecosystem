@@ -11,6 +11,11 @@ function dvLoginInit() {
     signupLink.href = 'signup.html?redirect=' + encodeURIComponent(redirectTarget);
   }
 
+  const oauthToken = dvGetQueryParam('token');
+  if (oauthToken && window.DVApi) {
+    DVApi.setToken(oauthToken);
+  }
+
   const oauthSuccess = dvGetQueryParam('oauth') === 'success';
   if (oauthSuccess) {
     const provider = dvGetQueryParam('provider') || 'social';

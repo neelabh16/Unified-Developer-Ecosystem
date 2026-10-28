@@ -532,7 +532,9 @@ const githubOAuthCallback = async (req, res) => {
     res.cookie('dv_jwt', token, { path: '/', maxAge: 7 * 24 * 60 * 60 * 1000, sameSite: 'lax' });
     res.clearCookie('dv_oauth_state');
 
-    const cleanRedirect = redirectPath.includes('?') ? `${redirectPath}&oauth=success&provider=github` : `${redirectPath}?oauth=success&provider=github`;
+    const cleanRedirect = redirectPath.includes('?') 
+      ? `${redirectPath}&oauth=success&provider=github&token=${encodeURIComponent(token)}` 
+      : `${redirectPath}?oauth=success&provider=github&token=${encodeURIComponent(token)}`;
     return res.redirect(`${clientOrigin}/${cleanRedirect}`);
   } catch (err) {
     console.error('GitHub OAuth callback error:', err);
@@ -661,7 +663,9 @@ const googleOAuthCallback = async (req, res) => {
     res.cookie('dv_jwt', token, { path: '/', maxAge: 7 * 24 * 60 * 60 * 1000, sameSite: 'lax' });
     res.clearCookie('dv_oauth_state');
 
-    const cleanRedirect = redirectPath.includes('?') ? `${redirectPath}&oauth=success&provider=google` : `${redirectPath}?oauth=success&provider=google`;
+    const cleanRedirect = redirectPath.includes('?') 
+      ? `${redirectPath}&oauth=success&provider=google&token=${encodeURIComponent(token)}` 
+      : `${redirectPath}?oauth=success&provider=google&token=${encodeURIComponent(token)}`;
     return res.redirect(`${clientOrigin}/${cleanRedirect}`);
   } catch (err) {
     console.error('Google OAuth callback error:', err);
