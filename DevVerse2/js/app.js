@@ -74,6 +74,17 @@ const DVStore = {
             }
           } catch (e) {}
         }
+      } else if (path === 'portfolio') {
+        const c = dvGetCookie('dv_portfolio');
+        if (c) {
+          try {
+            const parsed = JSON.parse(c);
+            if (parsed && typeof parsed === 'object') {
+              result = { ...(result || {}), ...parsed };
+              this._user.portfolio = result;
+            }
+          } catch (e) {}
+        }
       }
     }
     if (result !== undefined) return result;
@@ -97,6 +108,10 @@ const DVStore = {
     } else if (path === 'squads' && Array.isArray(value)) {
       try {
         dvSetCookie('dv_squads', JSON.stringify(value));
+      } catch (e) {}
+    } else if (path === 'portfolio' && value && typeof value === 'object') {
+      try {
+        dvSetCookie('dv_portfolio', JSON.stringify(value));
       } catch (e) {}
     }
 
@@ -1734,26 +1749,70 @@ function dvSquadMemberInfo(handle) {
 
     return {
       handle: selfHandle,
-      name: overrides.name || (account && account.name) || 'You',
+      name: (portfolio && portfolio.name) || overrides.name || (account && account.name) || 'You',
+      title: (portfolio && portfolio.title) || 'Full-stack Developer',
       avatarSeed: (portfolio && portfolio.avatarSeed) || overrides.avatarSeed || (account && (account.avatarSeed || account.username)) || 'you-builder',
       bio: (portfolio && portfolio.bio) || overrides.bio || (account && account.bio) || '',
+      accent: (portfolio && portfolio.accent) || '#7c6fff',
+      links: (portfolio && portfolio.links) || [],
       skills: userSkillsList,
       projects: userProjectsList,
       points: dvPointsTotal(),
       isYou: true,
     };
   }
-  const dev = DV_DEVS.find((d) => d.handle === handle);
-  if (!dev) return null;
-  const projects = DV_PROJECTS.filter((p) => p.author === handle).map((p) => ({ title: p.title, desc: p.desc, id: p.id }));
+
+  const cached = window.__dvLoadedPortfolios && window.__dvLoadedPortfolios[handle];
+  if (cached) {
+    return {
+      handle: cached.handle || handle,
+      name: cached.name || handle,
+      title: cached.title || 'Developer',
+      avatarSeed: cached.avatarUrl || cached.avatarSeed || handle,
+      bio: cached.bio || '',
+      accent: cached.accent || '#7c6fff',
+      skills: cached.skills || [],
+      links: cached.links || [],
+      projects: cached.projects || [],
+      points: cached.points || 100,
+      isYou: false,
+    };
+  }
+
+  const dev = DV_DEVS.find((d) => d.handle && d.handle.toLowerCase() === handle.toLowerCase());
+  if (dev) {
+    const projects = DV_PROJECTS.filter((p) => p.author === dev.handle).map((p) => ({
+      title: p.title,
+      desc: p.desc,
+      id: p.id,
+      githubUrl: `https://github.com/${dev.handle}/${p.id}`,
+    }));
+    return {
+      handle: dev.handle,
+      name: dev.name,
+      title: dev.skills ? dev.skills[0] + ' Engineer' : 'Developer',
+      avatarSeed: dev.avatarSeed,
+      bio: dev.bio || '',
+      accent: '#7c6fff',
+      skills: dev.skills || [],
+      links: [{ label: 'GitHub', url: `https://github.com/${dev.handle}` }],
+      projects,
+      points: dev.points || 100,
+      isYou: false,
+    };
+  }
+
   return {
-    handle: dev.handle,
-    name: dev.name,
-    avatarSeed: dev.avatarSeed,
-    bio: dev.bio,
-    skills: dev.skills,
-    projects,
-    points: dev.points,
+    handle: handle,
+    name: handle,
+    title: 'Developer',
+    avatarSeed: handle,
+    bio: '',
+    accent: '#7c6fff',
+    skills: [],
+    links: [],
+    projects: [],
+    points: 50,
     isYou: false,
   };
 }
@@ -2576,6 +2635,15 @@ document.addEventListener('DOMContentLoaded', () => {
               }
             });
             DVStore._user.squads = current;
+          }
+        } catch (e) {}
+      }
+      const portCookie = dvGetCookie('dv_portfolio');
+      if (portCookie) {
+        try {
+          const parsed = JSON.parse(portCookie);
+          if (parsed && typeof parsed === 'object') {
+            DVStore._user.portfolio = { ...(DVStore._user.portfolio || {}), ...parsed };
           }
         } catch (e) {}
       }

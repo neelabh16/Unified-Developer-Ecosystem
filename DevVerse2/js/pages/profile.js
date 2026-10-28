@@ -19,7 +19,20 @@ function dvProfileInit() {
 function dvRenderProfileContent(root) {
 
   const handle = dvGetQueryParam('u');
-  const base = DV_DEVS.find((d) => d.handle === handle) || DV_DEVS[0];
+  const devInList = DV_DEVS.find((d) => d.handle && d.handle.toLowerCase() === (handle || '').toLowerCase());
+  const fallbackOtherUser = {
+    handle: handle,
+    name: handle,
+    title: 'Developer',
+    bio: '',
+    avatarSeed: handle,
+    skills: [],
+    followers: 12,
+    points: 100,
+    projects: 0,
+    github: handle,
+  };
+  const base = devInList || fallbackOtherUser;
 
   const overrides = DVStore.get('profile.overrides', {});
   const account = dvAuthAccount();
@@ -34,8 +47,23 @@ function dvRenderProfileContent(root) {
   // edit yet showed the literal placeholder "You" here instead of the
   // name entered at signup.
   const data = isSelf
-    ? { ...base, handle: selfUsername, name: overrides.name || (account && account.name) || 'You', github: overrides.github || (account && account.github) || selfUsername, bio: overrides.bio || base.bio, avatarSeed: overrides.avatarSeed || 'you-builder', points: realPoints, skills: userSkills }
-    : base;
+    ? {
+        ...base,
+        handle: selfUsername,
+        name: (portfolioData && portfolioData.name && portfolioData.name !== 'Your Name') || overrides.name || (account && account.name) || 'You',
+        github: overrides.github || (account && account.github) || selfUsername,
+        bio: overrides.bio || (portfolioData && portfolioData.bio) || base.bio,
+        avatarSeed: (portfolioData && (portfolioData.avatarUrl || portfolioData.avatarSeed)) || overrides.avatarSeed || (account && (account.avatarUrl || account.avatarSeed)) || 'you-builder',
+        points: realPoints,
+        skills: userSkills,
+      }
+    : {
+        ...base,
+        handle: handle || base.handle,
+        name: base.name || handle,
+        avatarSeed: base.avatarSeed || handle,
+        bio: base.bio || '',
+      };
 
   const tier = dvCurrentTier(data.points);
   const next = dvNextTier(data.points);
@@ -226,6 +254,35 @@ function dvRenderProfileContent(root) {
           ? listToShow.slice(0, 4).map(dvProjectCardHTML).join('')
           : (isSelf ? `<p class="muted">No published projects yet \u2014 <a href="submit-project.html" style="color:var(--accent);">submit one</a>.</p>` : `<p class="muted">No published projects yet.</p>`);
         dvReveal(projectsEl);
+      }
+    }).catch(function () {});
+  }
+
+  // If viewing another user, asynchronously fetch their portfolio from server to hydrate real name, bio, avatar, skills
+  if (!isSelf && data.handle && window.DVApi && DVApi.portfolios && DVApi.portfolios.get) {
+    DVApi.portfolios.get(data.handle).then(function (res) {
+      if (res && res.data && res.data.portfolio) {
+        const pf = res.data.portfolio;
+        window.__dvLoadedPortfolios = window.__dvLoadedPortfolios || {};
+        window.__dvLoadedPortfolios[data.handle] = pf;
+
+        const nameEl = document.getElementById('profile-name');
+        if (nameEl && pf.name && pf.name !== 'Your Name') nameEl.textContent = pf.name;
+
+        const bioEl = document.getElementById('profile-bio');
+        if (bioEl && pf.bio) bioEl.textContent = pf.bio;
+
+        const avatarImg = document.querySelector('.dev-avatar-ring img');
+        if (avatarImg && (pf.avatarUrl || pf.avatarSeed)) {
+          avatarImg.src = dvAvatar(pf.avatarUrl || pf.avatarSeed, 130);
+        }
+
+        if (Array.isArray(pf.skills) && pf.skills.length) {
+          const skillsSection = document.querySelector('.section-tight .pc-tags');
+          if (skillsSection) {
+            skillsSection.innerHTML = pf.skills.map(function (s) { return `<span class="chip chip-accent">${s}</span>`; }).join('');
+          }
+        }
       }
     }).catch(function () {});
   }

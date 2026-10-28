@@ -80,13 +80,28 @@ function dvPortfolioInit() {
     const forcePreview = dvGetQueryParam('view') === '1';
     const isOwnHandle = !requestedHandle || requestedHandle === 'you' || requestedHandle === selfHandle;
 
-    // If own portfolio, fetch live portfolio from backend if available
-    if (isOwnHandle && window.DVApi && DVApi.portfolios && DVApi.portfolios.get) {
+    if (!isOwnHandle) {
+      const targetHandle = requestedHandle;
+      if (window.DVApi && DVApi.portfolios && DVApi.portfolios.get) {
+        DVApi.portfolios.get(targetHandle).then((res) => {
+          if (res && res.data && res.data.portfolio) {
+            window.__dvLoadedPortfolios = window.__dvLoadedPortfolios || {};
+            window.__dvLoadedPortfolios[targetHandle] = res.data.portfolio;
+            dvRenderPublicPortfolio(root, targetHandle, selfHandle);
+          }
+        }).catch(() => {});
+      }
+      dvRenderPublicPortfolio(root, targetHandle, selfHandle);
+      return;
+    }
+
+    // Own portfolio
+    if (window.DVApi && DVApi.portfolios && DVApi.portfolios.get) {
       DVApi.portfolios.get(selfHandle).then((res) => {
         if (res && res.data && res.data.portfolio) {
           DVStore.set('portfolio', res.data.portfolio);
           if (forcePreview) {
-            dvRenderPublicPortfolio(root, requestedHandle || selfHandle, selfHandle);
+            dvRenderPublicPortfolio(root, selfHandle, selfHandle);
           } else {
             dvRenderPortfolioEditor(root, selfHandle);
             dvSyncUserProjectsIntoPortfolio();
@@ -95,8 +110,8 @@ function dvPortfolioInit() {
       }).catch(function () {});
     }
 
-    if (!isOwnHandle || forcePreview) {
-      dvRenderPublicPortfolio(root, requestedHandle || selfHandle, selfHandle);
+    if (forcePreview) {
+      dvRenderPublicPortfolio(root, selfHandle, selfHandle);
       return;
     }
 
@@ -115,25 +130,46 @@ function dvRenderPublicPortfolio(root, handle, selfHandle) {
   const eyebrow = document.getElementById('pf-page-eyebrow');
   const heading = document.getElementById('pf-page-title');
   const lede = document.getElementById('pf-page-lede');
-  const info = dvSquadMemberInfo(handle);
+  const info = dvSquadMemberInfo(handle) || {
+    handle: handle,
+    name: handle,
+    title: 'Developer',
+    bio: '',
+    avatarSeed: handle,
+    accent: '#7c6fff',
+    skills: [],
+    links: [],
+    projects: [],
+    points: 100,
+    isYou: handle === selfHandle,
+  };
 
-  if (!info) {
-    if (eyebrow) eyebrow.textContent = 'Portfolio';
-    if (heading) heading.textContent = 'Not found';
-    if (lede) lede.textContent = `There's no portfolio for "@${handle}" on DevVerse.`;
-    root.innerHTML = `<div class="glass reveal in" style="padding:40px; text-align:center;"><p class="muted">Double-check the link, or explore other builders instead.</p><a href="explore.html" class="btn btn-ghost" style="margin-top:14px;">Back to Explore</a></div>`;
-    dvReveal(root);
-    return;
-  }
+  const isSelf = info.handle === selfHandle || info.isYou || !handle || handle === 'you';
+  const portfolioObj = isSelf
+    ? dvPortfolioData()
+    : ((window.__dvLoadedPortfolios && window.__dvLoadedPortfolios[handle]) || {});
 
-  const isSelf = info.handle === selfHandle || info.isYou;
-  const extra = info.isYou ? dvPortfolioData() : null;
-  const accent = (extra && extra.accent) || '#7c6fff';
-  const roleLine = extra && extra.title ? extra.title : null;
-  const links = extra && extra.links ? extra.links : [];
+  const accent = (portfolioObj && portfolioObj.accent) || info.accent || '#7c6fff';
+  const displayName = (portfolioObj && portfolioObj.name && portfolioObj.name !== 'Your Name')
+    ? portfolioObj.name
+    : (info.name || handle);
+  const roleLine = (portfolioObj && portfolioObj.title) || info.title || null;
+  const bioText = (portfolioObj && portfolioObj.bio !== undefined && portfolioObj.bio !== '')
+    ? portfolioObj.bio
+    : (info.bio || '');
+  const avatarSeed = (portfolioObj && (portfolioObj.avatarUrl || portfolioObj.avatarSeed)) || info.avatarSeed || handle;
+  const skillsList = (portfolioObj && Array.isArray(portfolioObj.skills) && portfolioObj.skills.length)
+    ? portfolioObj.skills
+    : (info.skills || []);
+  const linksList = (portfolioObj && Array.isArray(portfolioObj.links) && portfolioObj.links.length)
+    ? portfolioObj.links
+    : (info.links || []);
+  const projectsList = (portfolioObj && Array.isArray(portfolioObj.projects) && portfolioObj.projects.length)
+    ? portfolioObj.projects
+    : (info.projects || []);
 
   if (eyebrow) eyebrow.textContent = 'Public portfolio';
-  if (heading) heading.textContent = info.name;
+  if (heading) heading.textContent = displayName;
   if (lede) lede.textContent = isSelf
     ? 'This is exactly what squadmates and visitors see when they look you up.'
     : `A look at what @${info.handle} has built on DevVerse.`;
@@ -143,18 +179,18 @@ function dvRenderPublicPortfolio(root, handle, selfHandle) {
       <div class="sticky-panel">
         <div class="glass reveal in" style="padding:28px; border-radius:var(--radius-lg); background:radial-gradient(circle at 20% 0%, ${accent}22, transparent 60%), var(--bg-panel); border:1px solid var(--border);">
           <div style="display:flex; align-items:center; gap:14px;">
-            <img src="${dvAvatar(info.avatarSeed, 76)}" style="width:64px;height:64px;border-radius:50%; border:2px solid ${accent};">
+            <img src="${dvAvatar(avatarSeed, 76)}" style="width:64px;height:64px;border-radius:50%; border:2px solid ${accent}; object-fit:cover;">
             <div>
-              <div style="font-family:var(--font-display); font-size:19px; font-weight:700;">${info.name}</div>
+              <div style="font-family:var(--font-display); font-size:19px; font-weight:700;">${displayName}</div>
               ${roleLine ? `<div class="mono" style="font-size:12.5px; color:${accent};">${roleLine}</div>` : `<div class="mono muted" style="font-size:12.5px;">@${info.handle}</div>`}
             </div>
           </div>
           <div style="margin-top:14px;">${dvTierBadgeHTML(info.points)}</div>
-          <p style="margin-top:16px; font-size:13.5px;">${info.bio || 'No bio yet.'}</p>
-          <div class="pc-tags" style="margin-top:14px;">${info.skills.length
-            ? info.skills.map((s) => `<span class="chip" style="border-color:${accent}55;">${s}</span>`).join('')
+          <p style="margin-top:16px; font-size:13.5px;">${bioText || 'No bio yet.'}</p>
+          <div class="pc-tags" style="margin-top:14px;">${skillsList.length
+            ? skillsList.map((s) => `<span class="chip" style="border-color:${accent}55;">${s}</span>`).join('')
             : `<span class="muted" style="font-size:12.5px;">No skills listed yet.</span>`}</div>
-          ${links.length ? `<div style="display:flex; gap:10px; margin-top:16px; flex-wrap:wrap;">${links.map((l) => `<a href="${l.url}" target="_blank" rel="noopener noreferrer" class="chip chip-link mono">${l.label} ↗</a>`).join('')}</div>` : ''}
+          ${linksList.length ? `<div style="display:flex; gap:10px; margin-top:16px; flex-wrap:wrap;">${linksList.map((l) => `<a href="${l.url}" target="_blank" rel="noopener noreferrer" class="chip chip-link mono">${l.label} ↗</a>`).join('')}</div>` : ''}
           <div style="display:flex; gap:10px; margin-top:22px; flex-wrap:wrap;">
             <a href="profile.html${info.isYou ? '' : '?u=' + info.handle}" class="btn btn-ghost btn-sm">Full profile</a>
             <button class="btn btn-outline btn-sm" id="pf-copy-link">Copy link</button>
@@ -165,8 +201,8 @@ function dvRenderPublicPortfolio(root, handle, selfHandle) {
 
       <div>
         <div class="eyebrow" style="margin-bottom:14px;">Projects</div>
-        ${info.projects.length
-          ? `<div style="display:flex; flex-direction:column; gap:10px;">${info.projects.map((p) => `
+        ${projectsList.length
+          ? `<div style="display:flex; flex-direction:column; gap:10px;">${projectsList.map((p) => `
             <div class="glass" style="padding:14px 16px;">
               <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
                 <div style="font-size:13.5px; font-weight:600;">${p.title}</div>

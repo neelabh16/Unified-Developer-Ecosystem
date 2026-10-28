@@ -30,7 +30,7 @@ const getPortfolio = async (req, res, next) => {
         name: user.name,
         title: '',
         bio: user.bio || '',
-        avatarSeed: user.avatarUrl || user.avatarSeed || 'you-builder',
+        avatarSeed: user.avatarUrl || user.avatarSeed || user.username || 'you-builder',
         accent: '#7c6fff',
         skills: user.skills || [],
         links: [],
@@ -39,10 +39,35 @@ const getPortfolio = async (req, res, next) => {
     }
 
     if (!portfolio) {
-      return next(new AppError(`Portfolio for @${handle} not found`, 404));
+      // Dynamic fallback for demo devs or users without a database record yet
+      const fallbackPortfolio = {
+        handle: handle.toLowerCase(),
+        name: handle,
+        title: 'Developer',
+        bio: '',
+        avatarSeed: handle,
+        accent: '#7c6fff',
+        skills: [],
+        links: [],
+        projects: [],
+      };
+      return sendSuccess(res, 200, 'Portfolio retrieved', { portfolio: fallbackPortfolio });
     }
 
     const portObj = portfolio.toObject ? portfolio.toObject() : { ...portfolio };
+
+    if (user) {
+      if (user.avatarUrl) {
+        portObj.avatarUrl = user.avatarUrl;
+        portObj.avatarSeed = user.avatarUrl;
+      }
+      if (!portObj.bio && user.bio) {
+        portObj.bio = user.bio;
+      }
+      if ((!portObj.skills || !portObj.skills.length) && user.skills && user.skills.length) {
+        portObj.skills = user.skills;
+      }
+    }
 
     // Auto-populate / merge projects created by this user in Explore
     const targetUserId = user ? user._id : portObj.user;
