@@ -832,16 +832,27 @@ function dvSafeRedirect(target) {
 
 /* ---------- Settings application ---------- */
 const DV_ACCENT_COLORS = {
-  violet: { accent: '#7c6fff', soft: 'rgba(124, 111, 255, 0.16)' },
-  cyan: { accent: '#4fe3c1', soft: 'rgba(79, 227, 193, 0.14)' },
-  coral: { accent: '#ff6b5b', soft: 'rgba(255, 107, 91, 0.14)' },
-  amber: { accent: '#ffb86b', soft: 'rgba(255, 184, 107, 0.14)' },
-  legend: { accent: '#f0c419', soft: 'rgba(240, 196, 25, 0.16)' },
+  dark: {
+    violet: { accent: '#7c6fff', soft: 'rgba(124, 111, 255, 0.16)' },
+    cyan: { accent: '#4fe3c1', soft: 'rgba(79, 227, 193, 0.14)' },
+    coral: { accent: '#ff6b5b', soft: 'rgba(255, 107, 91, 0.14)' },
+    amber: { accent: '#ffb86b', soft: 'rgba(255, 184, 107, 0.14)' },
+    legend: { accent: '#f0c419', soft: 'rgba(240, 196, 25, 0.16)' },
+  },
+  light: {
+    violet: { accent: '#9c2b3c', soft: 'rgba(156, 43, 60, 0.14)' },
+    cyan: { accent: '#b07a3e', soft: 'rgba(176, 122, 62, 0.16)' },
+    coral: { accent: '#c1502e', soft: 'rgba(193, 80, 46, 0.15)' },
+    amber: { accent: '#a6862a', soft: 'rgba(166, 134, 42, 0.16)' },
+    legend: { accent: '#d48806', soft: 'rgba(212, 136, 6, 0.16)' },
+  },
 };
 
 function dvSetAccent(accent) {
   if (!accent) return;
-  const col = DV_ACCENT_COLORS[accent] || DV_ACCENT_COLORS.violet;
+  const theme = document.documentElement.getAttribute('data-theme') || 'dark';
+  const themeMap = DV_ACCENT_COLORS[theme] || DV_ACCENT_COLORS.dark;
+  const col = themeMap[accent] || DV_ACCENT_COLORS.dark[accent] || { accent: '#7c6fff', soft: 'rgba(124, 111, 255, 0.16)' };
   document.documentElement.setAttribute('data-accent', accent);
   document.documentElement.style.setProperty('--accent', col.accent);
   document.documentElement.style.setProperty('--accent-soft', col.soft);
@@ -858,6 +869,26 @@ function dvSetTheme(theme) {
   dvSetCookie('dv_theme', theme);
   try { localStorage.setItem('dv_settings_theme', theme); } catch (e) {}
   if (typeof dvUpdateThemeIcon === 'function') dvUpdateThemeIcon();
+
+  // Re-apply accent for the active theme
+  const currentAccent = document.documentElement.getAttribute('data-accent') || 'violet';
+  const themeMap = DV_ACCENT_COLORS[theme] || DV_ACCENT_COLORS.dark;
+  const col = themeMap[currentAccent] || DV_ACCENT_COLORS.dark[currentAccent];
+  if (col) {
+    document.documentElement.style.setProperty('--accent', col.accent);
+    document.documentElement.style.setProperty('--accent-soft', col.soft);
+    document.documentElement.style.setProperty('--aurora-1', col.accent);
+  }
+
+  // Sync settings page buttons if present
+  document.querySelectorAll('[data-set-theme]').forEach((b) => {
+    b.classList.toggle('active', b.dataset.setTheme === theme);
+  });
+
+  // Persist to user MongoDB profile if logged in
+  if (window.DVApi && DVApi.users && DVApi.users.updateProfile && typeof dvIsLoggedIn === 'function' && dvIsLoggedIn()) {
+    DVApi.users.updateProfile({ settings: { theme } }).catch(() => {});
+  }
 }
 
 function dvSetMotion(motion) {
@@ -869,13 +900,13 @@ function dvSetMotion(motion) {
 }
 
 function dvApplySettings() {
+  const theme = dvGetCookie('dv_theme') || (function(){ try { return localStorage.getItem('dv_settings_theme'); } catch(e){ return null; } })() || DVStore.get('settings.theme', 'dark');
   const accent = dvGetCookie('dv_accent') || (function(){ try { return localStorage.getItem('dv_settings_accent'); } catch(e){ return null; } })() || DVStore.get('settings.accent', 'violet');
   const motion = dvGetCookie('dv_motion') || (function(){ try { return localStorage.getItem('dv_settings_motion'); } catch(e){ return null; } })() || DVStore.get('settings.motion', 'on');
-  const theme = dvGetCookie('dv_theme') || (function(){ try { return localStorage.getItem('dv_settings_theme'); } catch(e){ return null; } })() || DVStore.get('settings.theme', 'dark');
 
+  dvSetTheme(theme);
   dvSetAccent(accent);
   dvSetMotion(motion);
-  dvSetTheme(theme);
 }
 dvApplySettings(); // runs before paint, in <head>, so there's no theme flash
 
@@ -885,15 +916,19 @@ const DV_ICON_MOON = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none
 function dvToggleTheme() {
   const current = document.documentElement.getAttribute('data-theme') || 'dark';
   const next = current === 'dark' ? 'light' : 'dark';
-  DVStore.set('settings.theme', next);
-  document.documentElement.setAttribute('data-theme', next);
-  dvUpdateThemeIcon();
+  dvSetTheme(next);
+  if (typeof dvToast === 'function') {
+    dvToast(`Switched to ${next} mode`);
+  }
 }
 function dvUpdateThemeIcon() {
   const theme = document.documentElement.getAttribute('data-theme') || 'dark';
   document.querySelectorAll('[data-theme-toggle]').forEach((btn) => {
     btn.innerHTML = theme === 'dark' ? DV_ICON_SUN : DV_ICON_MOON;
     btn.title = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+  });
+  document.querySelectorAll('[data-set-theme]').forEach((b) => {
+    b.classList.toggle('active', b.dataset.setTheme === theme);
   });
 }
 
