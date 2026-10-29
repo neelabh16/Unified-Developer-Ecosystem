@@ -37,7 +37,7 @@ function dvRenderProfileContent(root) {
   const overrides = DVStore.get('profile.overrides', {});
   const account = dvAuthAccount();
   const selfUsername = dvSelfHandle();
-  const isSelf = !handle || handle === 'you' || handle === selfUsername;
+  const isSelf = !handle || handle.toLowerCase() === 'you' || handle.toLowerCase() === (selfUsername || '').toLowerCase();
   const realPoints = dvPointsTotal();
   const portfolioData = DVStore.get('portfolio', null);
   const userSkills = portfolioData && portfolioData.skills && portfolioData.skills.length ? portfolioData.skills : base.skills;
@@ -216,6 +216,7 @@ function dvRenderProfileContent(root) {
       <div class="pill-toggle" id="library-toggle" style="margin-bottom:20px;">
         <button data-lib="bookmarks" class="active">Bookmarked</button>
         <button data-lib="likes">Liked</button>
+        <button data-lib="registered">Joined Hackathons</button>
       </div>
       <div id="library-container"></div>
     </div>` : ''}
@@ -745,16 +746,28 @@ function dvRenderProfileSquads() {
   root.innerHTML = squads.map((squad) => {
     const members = squad.members.map(dvSquadMemberInfo).filter(Boolean);
     const regList = Array.isArray(squad.registeredHackathons) ? squad.registeredHackathons : [];
-    const registered = regList.map((id) => {
-      const found = typeof dvFindHackathon === 'function' ? dvFindHackathon(id) : null;
-      if (found) return found;
-      return DV_HACKATHONS.find((h) =>
-        h.id === id ||
-        h.legacyId === id ||
-        (h._id && h._id.toString() === id.toString()) ||
-        (h.title && typeof id === 'string' && h.title.toLowerCase() === id.toLowerCase())
-      );
-    }).filter(Boolean);
+    const registered = [];
+    const seen = new Set();
+    regList.forEach((item) => {
+      let h = (typeof dvFindHackathon === 'function' ? dvFindHackathon(item) : null) ||
+        DV_HACKATHONS.find((x) =>
+          x.id === item ||
+          x.legacyId === item ||
+          (x._id && item && String(x._id) === String(item._id || item)) ||
+          (x.title && typeof item === 'string' && x.title.toLowerCase() === item.toLowerCase()) ||
+          (typeof item === 'object' && item && (x.id === item.id || x.legacyId === item.legacyId || (x.title && item.title && x.title.toLowerCase() === item.title.toLowerCase())))
+        );
+      if (!h && item && typeof item === 'object' && item.title) {
+        h = {
+          id: item.legacyId || item.id || (item._id ? String(item._id) : item.title),
+          title: item.title,
+        };
+      }
+      if (h && !seen.has(h.id || h.title)) {
+        seen.add(h.id || h.title);
+        registered.push(h);
+      }
+    });
 
     return `
     <div class="glass reveal in" style="padding:20px; margin-bottom:16px;">
@@ -777,18 +790,30 @@ function dvRenderProfileSquads() {
 function dvRenderLibrary(kind) {
   const container = document.getElementById('library-container');
   if (!container) return;
-  const ids = DVStore.get(kind, []);
 
-  // Bookmarks can hold both project ids and hackathon ids (stored with
-  // a "hack-" prefix — see hackathons.js / hackathon.js). Likes are
-  // project-only for now, since there's no "like a hackathon" action.
+  if (kind === 'registered') {
+    const hackathons = typeof dvMyRegisteredHackathons === 'function' ? dvMyRegisteredHackathons() : [];
+    if (!hackathons.length) {
+      container.innerHTML = `<p class="muted">You haven't joined any hackathons yet — check out upcoming events in <a href="hackathons.html" style="color:var(--accent);">Hackathons</a>.</p>`;
+      return;
+    }
+    container.innerHTML = `
+      <div>
+        <div class="mono muted" style="font-size:11.5px; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:12px;">Joined Hackathons (${hackathons.length})</div>
+        <div class="grid grid-3">${hackathons.map(dvHackathonCardHTML).join('')}</div>
+      </div>
+    `;
+    dvReveal(container);
+    dvTickCountdowns();
+    return;
+  }
+
+  const ids = DVStore.get(kind, []);
   const projectIds = ids.filter((id) => !id.startsWith('hack-'));
   const hackathonIds = ids.filter((id) => id.startsWith('hack-')).map((id) => id.slice(5));
 
-// Bookmarks display explicitly bookmarked hackathons
-
   const projects = dvAllProjects().filter((p) => projectIds.includes(p.id) || (p.legacyId && projectIds.includes(p.legacyId)) || (p._id && projectIds.includes(p._id.toString())));
-  const hackathons = (kind === 'bookmarks' || kind === 'registered') ? DV_HACKATHONS.filter((h) => {
+  const hackathons = (kind === 'bookmarks') ? DV_HACKATHONS.filter((h) => {
     return hackathonIds.some((hid) =>
       hid === h.id ||
       hid === h.legacyId ||

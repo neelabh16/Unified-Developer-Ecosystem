@@ -1,6 +1,7 @@
 // =============================================================================
 // Squad Controller
 // =============================================================================
+const mongoose = require('mongoose');
 const Squad = require('../models/Squad');
 const Hackathon = require('../models/Hackathon');
 const HackathonRegistration = require('../models/HackathonRegistration');

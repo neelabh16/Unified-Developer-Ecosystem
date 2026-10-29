@@ -128,15 +128,27 @@ const getHackathons = async (req, res, next) => {
         }
       }
 
-      // Also add canonical IDs for all registeredIds
-      const extraCanons = [];
+      // Also add canonical IDs, legacyIds, and ObjectIds for all registeredIds
+      const idToHackathon = new Map();
+      for (const h of hackathons) {
+        idToHackathon.set(h._id.toString(), h);
+        if (h.legacyId) idToHackathon.set(h.legacyId, h);
+      }
+
+      const allRegisteredIds = new Set(registeredIds);
       for (const rid of registeredIds) {
-        const canon = getCanonicalHackathonId(rid);
-        if (canon && !registeredIds.includes(canon) && !extraCanons.includes(canon)) {
-          extraCanons.push(canon);
+        const found = idToHackathon.get(rid.toString());
+        if (found) {
+          if (found._id) allRegisteredIds.add(found._id.toString());
+          if (found.legacyId) allRegisteredIds.add(found.legacyId);
+          const canon = getCanonicalHackathonId(found.legacyId || found.title);
+          if (canon) allRegisteredIds.add(canon);
+        } else {
+          const canon = getCanonicalHackathonId(rid);
+          if (canon) allRegisteredIds.add(canon);
         }
       }
-      registeredIds.push(...extraCanons);
+      registeredIds = Array.from(allRegisteredIds);
 
       const bookmarks = await Engagement.find({
         user: req.user._id,

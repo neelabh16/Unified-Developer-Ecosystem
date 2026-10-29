@@ -61,14 +61,29 @@ async function findHackathonByIdentifier(id) {
 
 function getCanonicalHackathonId(hackathonOrId) {
   if (!hackathonOrId) return null;
-  const str = typeof hackathonOrId === 'string' ? hackathonOrId : (hackathonOrId.legacyId || hackathonOrId.title || hackathonOrId.id || '');
-  const lower = str.toLowerCase().trim();
+  let str = '';
+  if (typeof hackathonOrId === 'string') {
+    str = hackathonOrId;
+  } else if (typeof hackathonOrId.legacyId === 'string') {
+    str = hackathonOrId.legacyId;
+  } else if (typeof hackathonOrId.title === 'string') {
+    str = hackathonOrId.title;
+  } else if (typeof hackathonOrId.slug === 'string') {
+    str = hackathonOrId.slug;
+  } else if (typeof hackathonOrId.id === 'string') {
+    str = hackathonOrId.id;
+  } else if (hackathonOrId._id) {
+    str = hackathonOrId._id.toString();
+  } else if (typeof hackathonOrId.toString === 'function') {
+    str = hackathonOrId.toString();
+  }
+  const lower = typeof str === 'string' ? str.toLowerCase().trim() : '';
   for (const [key, meta] of Object.entries(HACKATHON_MAP)) {
     if (key === lower || meta.title.toLowerCase() === lower || meta.slugs.includes(lower)) {
       return key;
     }
   }
-  return typeof hackathonOrId === 'string' ? hackathonOrId : (hackathonOrId.legacyId || (hackathonOrId._id ? hackathonOrId._id.toString() : ''));
+  return typeof str === 'string' ? str : (hackathonOrId.legacyId || (hackathonOrId._id ? hackathonOrId._id.toString() : ''));
 }
 
 module.exports = {

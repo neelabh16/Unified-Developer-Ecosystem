@@ -398,23 +398,30 @@ function dvRenderMySquads() {
 
 function dvSquadCardHTML(squad) {
   const members = squad.members.map(dvSquadMemberInfo).filter(Boolean);
-  const regList = squad.registeredHackathons || [];
-  const userRegs = typeof dvRegisteredHackathons === 'function' ? dvRegisteredHackathons() : (DVStore.get('hackathons', []) || []);
+  const regList = Array.isArray(squad.registeredHackathons) ? squad.registeredHackathons : [];
+  const userRegs = typeof dvMyRegisteredHackathons === 'function' ? dvMyRegisteredHackathons().map((h) => h.id) : (DVStore.get('hackathons', []) || []);
   
   const allRegKeys = new Set([...regList, ...userRegs]);
   const registered = [];
   const seenIds = new Set();
 
   allRegKeys.forEach((item) => {
-    const h = (typeof dvFindHackathon === 'function' ? dvFindHackathon(item) : null) ||
+    let h = (typeof dvFindHackathon === 'function' ? dvFindHackathon(item) : null) ||
               DV_HACKATHONS.find((x) =>
                 x.id === item ||
                 x.legacyId === item ||
+                (x._id && item && String(x._id) === String(item._id || item)) ||
                 (x.title && typeof item === 'string' && x.title.toLowerCase() === item.toLowerCase()) ||
                 (typeof item === 'object' && item && (x.id === item.id || x.legacyId === item.legacyId || (x.title && item.title && x.title.toLowerCase() === item.title.toLowerCase())))
               );
-    if (h && !seenIds.has(h.id)) {
-      seenIds.add(h.id);
+    if (!h && item && typeof item === 'object' && item.title) {
+      h = {
+        id: item.legacyId || item.id || (item._id ? String(item._id) : item.title),
+        title: item.title,
+      };
+    }
+    if (h && !seenIds.has(h.id || h.title)) {
+      seenIds.add(h.id || h.title);
       registered.push(h);
       if (!regList.includes(h.id)) {
         regList.push(h.id);

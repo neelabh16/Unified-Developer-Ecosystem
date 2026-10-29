@@ -1231,8 +1231,15 @@ function dvProjectCardHTML(p) {
 /* ---------- Shared hackathon card (used on Hackathons, Profile library,
    and the "Other hackathons" section of the Hackathon detail page) ---------- */
 function dvHackathonCardHTML(h) {
-  const bookmarked = DVStore.has('bookmarks', 'hack-' + h.id);
-  const registered = DVStore.has('hackathons', h.id);
+  const hId = h.id || h.legacyId || (h._id ? h._id.toString() : '');
+  const legacyId = h.legacyId || h.id;
+  const mongoId = h._id ? h._id.toString() : '';
+
+  const bookmarked = DVStore.has('bookmarks', 'hack-' + hId) || (legacyId && DVStore.has('bookmarks', 'hack-' + legacyId));
+  const registered = DVStore.has('hackathons', hId) ||
+                     (legacyId && DVStore.has('hackathons', legacyId)) ||
+                     (mongoId && DVStore.has('hackathons', mongoId)) ||
+                     (h.title && DVStore.has('hackathons', h.title.toLowerCase()));
 
   // DevVerse participants list
   let dvList = (h.devverseParticipants && h.devverseParticipants.slice()) || [];
@@ -1920,14 +1927,17 @@ const DV_HACKATHON_ALIASES = {
 
 function dvFindHackathon(ident) {
   if (!ident || typeof DV_HACKATHONS === 'undefined') return null;
-  const raw = typeof ident === 'string' ? ident.trim() : (ident.id || ident.legacyId || ident.title || ident.slug || '');
+  const raw = typeof ident === 'string'
+    ? ident.trim()
+    : (ident.id || ident.legacyId || ident.title || ident.slug || (ident._id ? String(ident._id) : ''));
   if (!raw) return null;
   const clean = raw.toLowerCase().replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim();
 
   return DV_HACKATHONS.find((h) => {
-    if (h.id.toLowerCase() === raw.toLowerCase()) return true;
+    if (h.id && h.id.toLowerCase() === raw.toLowerCase()) return true;
     if (h.legacyId && h.legacyId.toLowerCase() === raw.toLowerCase()) return true;
-    const hTitle = h.title.toLowerCase().replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (h._id && String(h._id).toLowerCase() === raw.toLowerCase()) return true;
+    const hTitle = (h.title || '').toLowerCase().replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim();
     if (hTitle === clean) return true;
     const aliases = DV_HACKATHON_ALIASES[h.id] || [];
     return aliases.some((a) => {
@@ -1957,16 +1967,30 @@ function dvFindCommunity(ident) {
 function dvNormalizeBackendSquad(s) {
   if (!s) return null;
   const selfHandle = dvSelfHandle();
-  const currentUserId = window.DVCurrentUser ? (window.DVCurrentUser._id || window.DVCurrentUser.id) : null;
+  const currentUserId = window.DVCurrentUser ? String(window.DVCurrentUser._id || window.DVCurrentUser.id) : null;
   const members = (s.members || []).map((m) => {
     if (typeof m === 'string') {
-      if (m === selfHandle || (currentUserId && m === currentUserId)) return 'you';
+      if (m === selfHandle || (currentUserId && m === currentUserId) || m.toLowerCase() === (selfHandle || '').toLowerCase()) return 'you';
       return m;
     }
     if (m && typeof m === 'object') {
       const u = m.username || m.handle || m.name;
-      if (u === selfHandle || (currentUserId && (m._id === currentUserId || m.id === currentUserId))) {
+      const mId = m._id ? String(m._id) : (m.id ? String(m.id) : '');
+      if ((u && u.toLowerCase() === (selfHandle || '').toLowerCase()) || (currentUserId && mId === currentUserId)) {
         return 'you';
+      }
+      if (!window.__dvLoadedPortfolios) window.__dvLoadedPortfolios = {};
+      if (u) {
+        window.__dvLoadedPortfolios[u] = {
+          handle: u,
+          name: m.name || u,
+          avatarUrl: m.avatarUrl || m.avatarSeed || u,
+          avatarSeed: m.avatarSeed || m.avatarUrl || u,
+          bio: m.bio || '',
+          skills: m.skills || [],
+          points: m.points || 50,
+          projects: [],
+        };
       }
       return u || 'you';
     }
@@ -1988,6 +2012,7 @@ function dvNormalizeBackendSquad(s) {
     _id: sqId,
     name: s.name || 'Untitled Squad',
     description: s.description || '',
+    leader: s.leader || null,
     createdAt: s.createdAt || Date.now(),
     members: members,
     registeredHackathons: registeredHackathons,
@@ -1999,6 +2024,28 @@ function dvSquads() {
 }
 function dvSaveSquads(squads) {
   DVStore.set('squads', squads);
+}
+function dvMyRegisteredHackathons() {
+  const rawIds = DVStore.get('hackathons', []) || [];
+  const list = [];
+  const seen = new Set();
+  rawIds.forEach((id) => {
+    const found = (typeof dvFindHackathon === 'function' ? dvFindHackathon(id) : null) ||
+      (typeof DV_HACKATHONS !== 'undefined' && DV_HACKATHONS.find((x) =>
+        x.id === id ||
+        x.legacyId === id ||
+        (x._id && String(x._id) === String(id)) ||
+        (x.title && typeof id === 'string' && x.title.toLowerCase() === id.toLowerCase())
+      ));
+    if (found && !seen.has(found.id)) {
+      seen.add(found.id);
+      list.push(found);
+    }
+  });
+  return list;
+}
+function dvRegisteredHackathons() {
+  return dvMyRegisteredHackathons();
 }
 function dvMySquads() {
   const self = dvSelfHandle();
