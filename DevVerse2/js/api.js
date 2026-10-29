@@ -5,7 +5,17 @@
    states, network degradation, and unified responses.
    ========================================================= */
 
-const DV_API_BASE = window.DV_API_URL || (window.location.port === '5000' ? '/api/v1' : 'http://localhost:5000/api/v1');
+const isLocalDev = typeof window !== 'undefined' && (
+  window.location.hostname === 'localhost' ||
+  window.location.hostname === '127.0.0.1' ||
+  window.location.hostname === '[::1]'
+);
+
+const DV_API_BASE = window.DV_API_URL || (
+  isLocalDev
+    ? (window.location.port === '5000' ? '/api/v1' : 'http://localhost:5000/api/v1')
+    : '/api/v1'
+);
 
 const DVApi = {
   baseURL: DV_API_BASE,
@@ -73,7 +83,11 @@ const DVApi = {
       return data;
     } catch (err) {
       if (err.name === 'TypeError' && err.message.includes('fetch')) {
-        const offlineError = new Error('Backend server is unreachable. Please check if the API server is running on port 5000.');
+        const offlineError = new Error(
+          isLocalDev
+            ? 'Backend server is unreachable. Please check if the API server is running on port 5000.'
+            : 'Backend server is unreachable. Please verify your connection or ensure the API server is live.'
+        );
         offlineError.isOffline = true;
         throw offlineError;
       }

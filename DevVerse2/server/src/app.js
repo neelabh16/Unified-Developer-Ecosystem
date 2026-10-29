@@ -62,7 +62,12 @@ app.use(
   cors({
     origin: function (origin, callback) {
       if (!origin) return callback(null, true);
-      if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+      if (
+        allowedOrigins.indexOf(origin) !== -1 ||
+        process.env.NODE_ENV === 'development' ||
+        /\.onrender\.com$/.test(new URL(origin).hostname) ||
+        /\.vercel\.app$/.test(new URL(origin).hostname)
+      ) {
         return callback(null, true);
       }
       return callback(new Error('Blocked by CORS policy'));

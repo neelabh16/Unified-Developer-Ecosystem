@@ -53,6 +53,18 @@ const csrfProtection = (req, res, next) => {
     return next();
   }
 
+  // Allow same-origin requests or standard hosting domains
+  try {
+    const host = req.get('Host');
+    const sourceUrl = new URL(source);
+    if (host && (sourceUrl.host === host || sourceUrl.hostname === req.hostname)) {
+      return next();
+    }
+    if (/\.onrender\.com$/.test(sourceUrl.hostname) || /\.vercel\.app$/.test(sourceUrl.hostname)) {
+      return next();
+    }
+  } catch (e) {}
+
   return next(new AppError('Cross-origin request blocked.', 403));
 };
 
