@@ -20,7 +20,17 @@ const csrfProtection = (req, res, next) => {
 
   // Header-based Bearer token authentication is inherently CSRF-immune
   const authHeader = req.get('Authorization') || req.headers?.authorization;
-  if (authHeader && authHeader.startsWith('Bearer ')) {
+  if (authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+    return next();
+  }
+
+  // API development tools (Postman, Insomnia, Thunder Client) are not browser clients
+  // and are immune to browser-based CSRF attacks. Check actual headers dictionary.
+  const rawHeaders = req.headers || {};
+  if (
+    rawHeaders['postman-token'] ||
+    /PostmanRuntime|insomnia|Thunder Client/i.test(rawHeaders['user-agent'] || '')
+  ) {
     return next();
   }
 
@@ -34,6 +44,7 @@ const csrfProtection = (req, res, next) => {
     'http://127.0.0.1:3000',
     'http://localhost:5173',
     'http://localhost:8080',
+    'https://web.postman.co',
   ].filter(Boolean);
 
   const origin = req.get('Origin');
