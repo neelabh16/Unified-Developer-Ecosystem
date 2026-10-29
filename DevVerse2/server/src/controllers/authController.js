@@ -445,7 +445,7 @@ const githubOAuth = (req, res) => {
   }
 
   const backendHost = req.get('host');
-  const protocol = req.protocol;
+  const protocol = req.headers['x-forwarded-proto'] || (req.secure ? 'https' : req.protocol);
   const callbackUrl = `${protocol}://${backendHost}/api/v1/auth/github/callback`;
   const state = Buffer.from(JSON.stringify({ redirect: redirectTarget, origin: clientOrigin, ts: Date.now() })).toString('base64');
 
@@ -488,7 +488,7 @@ const githubOAuthCallback = async (req, res) => {
     }
 
     const backendHost = req.get('host');
-    const protocol = req.protocol;
+    const protocol = req.headers['x-forwarded-proto'] || (req.secure ? 'https' : req.protocol);
     const callbackUrl = `${protocol}://${backendHost}/api/v1/auth/github/callback`;
 
     // 1. Exchange code for access token
@@ -603,7 +603,7 @@ const googleOAuth = (req, res) => {
   }
 
   const backendHost = req.get('host');
-  const protocol = req.protocol;
+  const protocol = req.headers['x-forwarded-proto'] || (req.secure ? 'https' : req.protocol);
   const callbackUrl = `${protocol}://${backendHost}/api/v1/auth/google/callback`;
   const state = Buffer.from(JSON.stringify({ redirect: redirectTarget, origin: clientOrigin, ts: Date.now() })).toString('base64');
 
@@ -646,7 +646,7 @@ const googleOAuthCallback = async (req, res) => {
     }
 
     const backendHost = req.get('host');
-    const protocol = req.protocol;
+    const protocol = req.headers['x-forwarded-proto'] || (req.secure ? 'https' : req.protocol);
     const callbackUrl = `${protocol}://${backendHost}/api/v1/auth/google/callback`;
 
     // 1. Exchange code for access token

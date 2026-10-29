@@ -33,6 +33,9 @@ const githubRoutes = require('./routes/githubRoutes');
 
 const app = express();
 
+// Trust reverse proxy for secure cookies and protocol detection (Render, Heroku, etc.)
+app.enable('trust proxy');
+
 // Security headers
 app.use(
   helmet({
