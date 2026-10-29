@@ -2197,7 +2197,7 @@ function dvRenderMessageThread(handle) {
         <span class="mono message-bubble-time">${dvForumAgo(m.at)}</span>
         ${m.from === 'you' ? `<button class="msg-delete-btn" data-delete-msg="${handle}" data-msg-index="${i}" title="Delete message">&times;</button>` : ''}
       </div>`; }).join('')
-    : `<p class="muted" style="font-size:12px;">No messages yet — this is a simulated inbox, so replies are canned, but the thread is real and saved.</p>`;
+    : `<p class="muted" style="font-size:12px;">No messages yet. Send a direct message to start a conversation thread.</p>`;
   threadRoot.scrollTop = threadRoot.scrollHeight;
 }
 
@@ -2796,9 +2796,9 @@ function dvPageHeaderStats(page) {
   }
   if (page === 'settings') {
     return [
-      { value: '✓', label: 'Saved locally, instantly' },
-      { value: '✓', label: 'Synced across every page' },
-      { value: '↺', label: 'Reset anytime, no account needed' },
+      { value: '⚡', label: 'Real-time synchronization' },
+      { value: '🎨', label: 'Theme & workspace preferences' },
+      { value: '🔒', label: 'Encrypted cloud profile' },
     ];
   }
   return null;

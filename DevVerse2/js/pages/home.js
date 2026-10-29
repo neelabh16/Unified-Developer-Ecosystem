@@ -319,7 +319,7 @@ function dvFetchGitHubTrending() {
         <div style="width:38px;height:38px;border-radius:10px;background:${DV_TECH_GRADIENTS[p.gradient]};"></div>
         <div>
           <div style="font-weight:600; font-size:13.5px;">${p.title}</div>
-          <div class="mono" style="font-size:11.5px; color:var(--text-tertiary);">★ ${p.likes.toLocaleString()} · local cache</div>
+          <div class="mono" style="font-size:11.5px; color:var(--text-tertiary);">★ ${p.likes.toLocaleString()} · community favorites</div>
         </div>
       </div>`).join('');
       dvReveal(root);

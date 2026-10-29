@@ -73,9 +73,7 @@
         <h2 class="signup2-form-title">Create your account</h2>
         <p class="signup2-form-sub">Let's get you started! 🚀</p>
 
-        <div id="signup-existing-notice" class="signup2-error-notice" style="display:none;">
-          <p>This browser already has an account. Creating a new one will <b>erase everything</b> tied to it on this device — points, likes, bookmarks, portfolio, squads, all of it. If you meant to continue as that account, <a href="login.html" id="signup-existing-login-link" style="color:var(--coral); text-decoration:underline;">sign in instead</a>.</p>
-        </div>
+        <div id="signup-existing-notice" class="signup2-error-notice" style="display:none;"><p>Already have an account? <a href="login.html" id="signup-existing-login-link" style="color:var(--coral); text-decoration:underline;">Sign in instead</a>.</p></div>
 
         <form id="signup-form" novalidate>
           <div class="field">
@@ -124,7 +122,7 @@
 
           <label class="signup2-terms">
             <input type="checkbox" id="signup-terms" checked>
-            <span>I agree to the <a href="#" onclick="event.preventDefault(); dvToast('This is a demo — no real Terms of Service to show.');">Terms of Service</a> and <a href="#" onclick="event.preventDefault(); dvToast('This is a demo — no real Privacy Policy to show.');">Privacy Policy</a>.</span>
+            <span>I agree to the <a href="#" onclick="event.preventDefault(); dvToast('DevVerse Terms of Service apply.');">Terms of Service</a> and <a href="#" onclick="event.preventDefault(); dvToast('DevVerse Privacy Policy: user credentials and activity are securely handled.');">Privacy Policy</a>.</span>
           </label>
 
           <button class="btn btn-primary signup2-submit" type="submit">

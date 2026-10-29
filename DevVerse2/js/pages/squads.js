@@ -117,7 +117,7 @@ function dvSquadsInit() {
   root.innerHTML = `
     <div class="glass reveal in" style="padding:26px; margin-bottom:26px;">
       <h3 style="margin-bottom:6px;">Your matching profile</h3>
-      <p style="font-size:13px; margin-bottom:20px;">Pick what you bring and what you're into — this is saved locally and reused every time you visit.</p>
+      <p style="font-size:13px; margin-bottom:20px;">Pick your skills and interests to find teammates with complementary skill sets.</p>
 
       <div style="margin-bottom:20px;">
         <div class="eyebrow" style="margin-bottom:10px;">Your skills</div>

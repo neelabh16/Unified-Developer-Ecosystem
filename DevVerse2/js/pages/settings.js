@@ -123,28 +123,7 @@ function dvSettingsInit() {
     dvToast(`Animations ${val === 'on' ? 'enabled' : 'disabled'}`);
   });
 
-  document.getElementById('reset-app-btn').addEventListener('click', () => {
-    if (confirm('This clears all local DevVerse data — likes, bookmarks, profile edits, portfolio, and settings. Continue?')) {
-      DVStore.resetAll();
-      dvToast('Application reset — reloading…');
-      setTimeout(() => window.location.reload(), 900);
-    }
-  });
-
-  const stats = document.getElementById('storage-stats');
-  // BUG FIXED: this used to read the raw global localStorage key directly
-  // (bypassing DVStore), which mixed every account's data together and,
-  // since the account-scoping fix, would show 0 for everything because the
-  // global key now holds only auth info. Go through DVStore so these
-  // counts reflect the signed-in account's own bucket, same as the rest
-  // of the app.
-  stats.innerHTML = `
-    <div style="display:flex; justify-content:space-between; padding:8px 0;"><span class="muted" style="font-size:13px;">Total points earned</span><span class="mono">${dvPointsTotal().toLocaleString()}</span></div>
-    <div style="display:flex; justify-content:space-between; padding:8px 0;"><span class="muted" style="font-size:13px;">Likes saved</span><span class="mono">${DVStore.get('likes', []).length}</span></div>
-    <div style="display:flex; justify-content:space-between; padding:8px 0;"><span class="muted" style="font-size:13px;">Bookmarks saved</span><span class="mono">${DVStore.get('bookmarks', []).length}</span></div>
-    <div style="display:flex; justify-content:space-between; padding:8px 0;"><span class="muted" style="font-size:13px;">Communities joined</span><span class="mono">${DVStore.get('communities', []).length}</span></div>
-    <div style="display:flex; justify-content:space-between; padding:8px 0;"><span class="muted" style="font-size:13px;">Hackathons registered</span><span class="mono">${(typeof dvRegisteredHackathons === 'function' ? dvRegisteredHackathons() : DVStore.get('hackathons', [])).length}</span></div>
-  `;
+  // Local data & reset panels removed in unified cloud backend architecture
 }
 
 document.addEventListener('DOMContentLoaded', () => setTimeout(dvSettingsInit, 30));

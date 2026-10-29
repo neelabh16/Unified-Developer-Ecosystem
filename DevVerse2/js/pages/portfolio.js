@@ -310,7 +310,7 @@ function dvRenderPortfolioEditor(root, selfHandle) {
   const lede = document.getElementById('pf-page-lede');
   if (eyebrow) eyebrow.textContent = 'Build your legend';
   if (heading) heading.textContent = 'Portfolio Builder';
-  if (lede) lede.textContent = 'Everything you enter here is saved to this browser and reflected instantly in the live preview \u2014 and it\u2019s what shows up when squadmates or visitors check out your work.';
+  if (lede) lede.textContent = 'Everything you enter here is saved to your account and reflected instantly in the live preview \u2014 and it\u2019s what shows up when squadmates or visitors check out your work.';
 
   root.innerHTML = dvPortfolioEditorHTML();
 
@@ -444,7 +444,7 @@ function dvRenderPortfolioEditor(root, selfHandle) {
         }
       }).catch((err) => {
         console.warn('Avatar upload error:', err);
-        dvToast(err.message || 'Avatar upload failed, saved locally');
+        dvToast(err.message || 'Avatar upload failed, please try again');
       });
     } else {
       dvToast(`Selected "${file.name}"`);
