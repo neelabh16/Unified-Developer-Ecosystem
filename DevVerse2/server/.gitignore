@@ -1,5 +1,23 @@
+# Dependencies
 node_modules/
+
+# Environment Variables & Secrets
 .env
+.env.*
+!.env.example
+
+# Logs & Testing
 *.log
+logs/
 coverage/
+.nyc_output/
+
+# OS & Editors
 .DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# User Uploads
+uploads/*
+!uploads/.gitkeep
