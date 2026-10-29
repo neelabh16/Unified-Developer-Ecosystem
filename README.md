@@ -292,7 +292,7 @@ Covered test suites:
 
 * **Neelabh** — [@neelabh16](https://github.com/neelabh16)
 * **Aryan Verma** — [@Aryan-verma-ai](https://github.com/Aryan-verma-ai)
-* **Nitin Kataria**
+* **Nitin Kataria** - [@NITIN17102004](https://github.com/NITIN17102004)
 
 ---
 
