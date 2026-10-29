@@ -813,7 +813,8 @@ function dvRenderLibrary(kind) {
   const hackathonIds = ids.filter((id) => id.startsWith('hack-')).map((id) => id.slice(5));
 
   const projects = dvAllProjects().filter((p) => projectIds.includes(p.id) || (p.legacyId && projectIds.includes(p.legacyId)) || (p._id && projectIds.includes(p._id.toString())));
-  const hackathons = (kind === 'bookmarks') ? DV_HACKATHONS.filter((h) => {
+  const regHackathons = typeof dvMyRegisteredHackathons === 'function' ? dvMyRegisteredHackathons() : [];
+  const bookmarkedHackathons = (kind === 'bookmarks') ? DV_HACKATHONS.filter((h) => {
     return hackathonIds.some((hid) =>
       hid === h.id ||
       hid === h.legacyId ||
@@ -821,6 +822,15 @@ function dvRenderLibrary(kind) {
       (h.title && typeof hid === 'string' && h.title.toLowerCase() === hid.toLowerCase())
     );
   }) : [];
+
+  const hackathons = [...bookmarkedHackathons];
+  if (kind === 'bookmarks') {
+    regHackathons.forEach((rh) => {
+      if (!hackathons.some((h) => h.id === rh.id)) {
+        hackathons.push(rh);
+      }
+    });
+  }
 
   if (!projects.length && !hackathons.length) {
     container.innerHTML = `<p class="muted">No ${kind === 'bookmarks' ? 'bookmarked' : 'liked'} projects or hackathons yet — head to <a href="explore.html" style="color:var(--accent);">Explore</a> or <a href="hackathons.html" style="color:var(--accent);">Hackathons</a> to discover more.</p>`;
