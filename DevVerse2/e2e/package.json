@@ -1,0 +1,32 @@
+{
+  "name": "devverse2-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Opaque-box Playwright E2E test suite for DevVerse2 React 18 SPA",
+  "scripts": {
+    "test": "playwright test",
+    "test:tier1": "playwright test tests/tier1",
+    "test:tier2": "playwright test tests/tier2",
+    "test:tier3": "playwright test tests/tier3",
+    "test:tier4": "playwright test tests/tier4",
+    "test:dev": "cross-env BASE_URL=http://localhost:5173 playwright test",
+    "test:prod": "cross-env BASE_URL=http://localhost:5000 playwright test",
+    "test:list": "playwright test --list",
+    "check-env": "node scripts/check-env.js",
+    "test:check": "node scripts/check-env.js",
+    "seed": "node scripts/seed-cli.js",
+    "lint": "eslint .",
+    "verify:infra": "node scripts/verify-infra.js"
+  },
+  "dependencies": {
+    "@playwright/test": "^1.50.0",
+    "bcryptjs": "^2.4.3",
+    "mongoose": "^8.6.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.18.0",
+    "cross-env": "^7.0.3",
+    "eslint": "^9.18.0",
+    "globals": "^15.14.0"
+  }
+}

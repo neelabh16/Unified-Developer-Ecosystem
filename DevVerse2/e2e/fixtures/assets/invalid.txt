@@ -1,0 +1,1 @@
+Not a valid image file. Used to test Multer MIME rejection.

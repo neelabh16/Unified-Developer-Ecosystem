@@ -155,9 +155,17 @@ app.use(`${API_PREFIX}/leaderboard`, leaderboardRoutes);
 app.use(`${API_PREFIX}/uploads`, uploadRoutes);
 app.use(`${API_PREFIX}/github`, githubRoutes);
 
-// Serve static client frontend files from DevVerse2
-const clientPath = path.resolve(__dirname, '../../');
+// Serve static client frontend files from DevVerse2/client/dist
+const clientPath = path.resolve(__dirname, '../../client/dist');
 app.use(express.static(clientPath));
+
+// SPA fallback for client-side React Router routes (exclude /api and /uploads)
+app.get(/^\/(?!api|uploads).*/, (req, res, next) => {
+  const indexFile = path.join(clientPath, 'index.html');
+  res.sendFile(indexFile, (err) => {
+    if (err) next();
+  });
+});
 
 // Centralized 404 handler for unmatched routes
 app.all('*', (req, res, next) => {

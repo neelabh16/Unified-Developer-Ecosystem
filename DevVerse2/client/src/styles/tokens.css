@@ -1,0 +1,128 @@
+/* =========================================================
+   DEVVERSE — DESIGN SYSTEM TOKENS
+   Dark default (#07080c / #0c0e15 / #10131c) & Light (#efebdd / #faf8f0 / #ffffff)
+   ========================================================= */
+
+:root {
+  /* ---- Color: near-black base + aurora accents ---- */
+  --bg: #07080c;
+  --bg-elevated: #0c0e15;
+  --bg-panel: #10131c;
+  --surface: rgba(255, 255, 255, 0.045);
+  --surface-hover: rgba(255, 255, 255, 0.08);
+  --border: rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.16);
+
+  --text-primary: #f2f3f8;
+  --text-secondary: #9aa0b4;
+  --text-tertiary: #5c6178;
+
+  --dock-bg: rgba(12, 14, 21, 0.66);
+  --overlay-bg: rgba(7, 8, 12, 0.9);
+  --grid-dot: rgba(255, 255, 255, 0.055);
+  --shadow-color: rgba(0, 0, 0, 0.35);
+  --shadow-strong: rgba(0, 0, 0, 0.55);
+  --subtle-overlay: rgba(255, 255, 255, 0.03);
+  --on-accent: #07080c;
+
+  --violet: #7c6fff;
+  --violet-soft: rgba(124, 111, 255, 0.16);
+  --cyan: #4fe3c1;
+  --cyan-soft: rgba(79, 227, 193, 0.14);
+  --coral: #ff6b5b;
+  --coral-soft: rgba(255, 107, 91, 0.14);
+  --amber: #ffb86b;
+  --amber-soft: rgba(255, 184, 107, 0.14);
+
+  --aurora-1: #7c6fff;
+  --aurora-2: #4fe3c1;
+  --aurora-3: #ff6b5b;
+
+  /* ---- Type ---- */
+  --font-display: 'Space Grotesk', 'Inter', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* ---- Layout ---- */
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+  --dock-h: 76px;
+  --max-w: 1320px;
+
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-soft: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Accent themes — set data-accent on <html> from Settings */
+html[data-accent='cyan'] {
+  --accent: var(--cyan);
+  --accent-soft: var(--cyan-soft);
+  --aurora-1: var(--cyan);
+}
+html[data-accent='violet'],
+html:not([data-accent]) {
+  --accent: var(--violet);
+  --accent-soft: var(--violet-soft);
+  --aurora-1: var(--violet);
+}
+html[data-accent='coral'] {
+  --accent: var(--coral);
+  --accent-soft: var(--coral-soft);
+  --aurora-1: var(--coral);
+}
+html[data-accent='amber'] {
+  --accent: var(--amber);
+  --accent-soft: var(--amber-soft);
+  --aurora-1: var(--amber);
+}
+html[data-accent='legend'] {
+  --accent: #f0c419;
+  --accent-soft: rgba(240, 196, 25, 0.16);
+  --aurora-1: #f0c419;
+}
+
+/* =========================================================
+   LIGHT THEME — Pale Ivory & Smoke Signal
+   ========================================================= */
+html[data-theme='light'] {
+  --bg: #efebdd;
+  --bg-elevated: #faf8f0;
+  --bg-panel: #ffffff;
+  --surface: rgba(255, 255, 255, 0.72);
+  --surface-hover: rgba(255, 255, 255, 0.94);
+  --border: rgba(40, 34, 30, 0.14);
+  --border-strong: rgba(40, 34, 30, 0.28);
+
+  --text-primary: #241f1c;
+  --text-secondary: #5b5148;
+  --text-tertiary: #8c8175;
+
+  --dock-bg: rgba(250, 248, 240, 0.86);
+  --overlay-bg: rgba(239, 235, 221, 0.96);
+  --grid-dot: rgba(40, 34, 30, 0.08);
+  --shadow-color: rgba(36, 31, 28, 0.10);
+  --shadow-strong: rgba(36, 31, 28, 0.22);
+  --subtle-overlay: rgba(40, 34, 30, 0.035);
+  --on-accent: #fbf8f0;
+
+  --violet: #9c2b3c;
+  --violet-soft: rgba(156, 43, 60, 0.14);
+  --cyan: #b07a3e;
+  --cyan-soft: rgba(176, 122, 62, 0.16);
+  --coral: #c1502e;
+  --coral-soft: rgba(193, 80, 46, 0.15);
+  --amber: #a6862a;
+  --amber-soft: rgba(166, 134, 42, 0.16);
+
+  --aurora-1: var(--violet);
+  --aurora-2: var(--cyan);
+  --aurora-3: var(--coral);
+}
+
+html[data-theme='light'][data-accent='legend'] {
+  --accent: #d48806;
+  --accent-soft: rgba(212, 136, 6, 0.16);
+  --aurora-1: #d48806;
+}
