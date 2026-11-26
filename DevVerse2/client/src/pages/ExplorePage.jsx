@@ -6,6 +6,7 @@ import PageHeaderStats from '../components/common/PageHeaderStats';
 import Skeleton from '../components/common/Skeleton';
 import EmptyState from '../components/common/EmptyState';
 import ProjectCard from '../components/projects/ProjectCard';
+import { ParallaxLayer, RevealSection } from '../components/common/MotionPrimitives';
 import { projectsApi } from '../api/projects.api';
 import { useAuth } from '../hooks/useAuth';
 import { useDebounce } from '../hooks/useDebounce';
@@ -124,14 +125,16 @@ export default function ExplorePage() {
             Search developer tools, AI agents, systems software, and hackathon winners.
           </p>
         </div>
-        <PageHeaderStats
-          loading={isLoading}
-          stats={[
-            { label: 'Total Projects', value: allProjects.length },
-            { label: 'Categories', value: Math.max(0, categories.length - 1) },
-            { label: 'Matching', value: myProjects.length + communityProjects.length },
-          ]}
-        />
+        <ParallaxLayer speed={-18}>
+          <PageHeaderStats
+            loading={isLoading}
+            stats={[
+              { label: 'Total Projects', value: allProjects.length },
+              { label: 'Categories', value: Math.max(0, categories.length - 1) },
+              { label: 'Matching', value: myProjects.length + communityProjects.length },
+            ]}
+          />
+        </ParallaxLayer>
       </div>
 
       {/* Filter Toolbar */}
@@ -250,15 +253,17 @@ export default function ExplorePage() {
                   Community Projects ({communityProjects.length})
                 </h2>
               )}
-              <div className="grid grid-3">
-                {communityProjects.map((project, idx) => (
-                  <ProjectCard
-                    key={project._id || project.id || idx}
-                    project={project}
-                    index={idx}
-                  />
-                ))}
-              </div>
+              <RevealSection>
+                <div className="grid grid-3">
+                  {communityProjects.map((project, idx) => (
+                    <ProjectCard
+                      key={project._id || project.id || idx}
+                      project={project}
+                      index={idx}
+                    />
+                  ))}
+                </div>
+              </RevealSection>
             </section>
           )}
         </>

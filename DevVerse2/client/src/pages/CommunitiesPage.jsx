@@ -5,6 +5,7 @@ import GlassCard from '../components/common/GlassCard';
 import Button from '../components/common/Button';
 import PageHeaderStats from '../components/common/PageHeaderStats';
 import Skeleton from '../components/common/Skeleton';
+import { ParallaxLayer, RevealSection, TiltCard } from '../components/common/MotionPrimitives';
 import { communitiesApi } from '../api/communities.api';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
@@ -53,14 +54,16 @@ export default function CommunitiesPage() {
             Join specialized engineering guilds, ask deep technical questions, and share insights.
           </p>
         </div>
-        <PageHeaderStats
-          loading={isLoading}
-          stats={[
-            { label: 'Guilds', value: communities.length },
-            { label: 'Join Bonus', value: '+5 XP' },
-            { label: 'Thread Bonus', value: '+25 XP' },
-          ]}
-        />
+        <ParallaxLayer speed={-18}>
+          <PageHeaderStats
+            loading={isLoading}
+            stats={[
+              { label: 'Guilds', value: communities.length },
+              { label: 'Join Bonus', value: '+5 XP' },
+              { label: 'Thread Bonus', value: '+25 XP' },
+            ]}
+          />
+        </ParallaxLayer>
       </div>
 
       {isLoading ? (
@@ -68,13 +71,15 @@ export default function CommunitiesPage() {
           <Skeleton variant="card" count={6} />
         </div>
       ) : (
-        <div className="grid grid-3">
-          {communities.map((c, idx) => {
-            const id = c.legacyId || c.slug || c._id || c.id;
-            const grad = TECH_GRADIENTS[(Number(c.gradient) || idx) % TECH_GRADIENTS.length];
-            const isMember = Boolean(c.isMember);
-            return (
-              <GlassCard key={id} lift className="flex flex-col overflow-hidden">
+        <RevealSection>
+          <div className="grid grid-3">
+            {communities.map((c, idx) => {
+              const id = c.legacyId || c.slug || c._id || c.id;
+              const grad = TECH_GRADIENTS[(Number(c.gradient) || idx) % TECH_GRADIENTS.length];
+              const isMember = Boolean(c.isMember);
+              return (
+                <TiltCard key={id} className="h-full">
+                  <GlassCard lift className="flex h-full flex-col overflow-hidden">
                 <div className="h-24 w-full" style={{ background: grad }} />
                 <div className="flex flex-1 flex-col p-6">
                   <Link
@@ -114,10 +119,12 @@ export default function CommunitiesPage() {
                     </div>
                   </div>
                 </div>
-              </GlassCard>
-            );
-          })}
-        </div>
+                  </GlassCard>
+                </TiltCard>
+              );
+            })}
+          </div>
+        </RevealSection>
       )}
     </div>
   );

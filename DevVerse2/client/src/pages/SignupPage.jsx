@@ -6,7 +6,6 @@ import { motion } from 'framer-motion';
 import { AtSign, Check, Eye, EyeOff, Lock, Mail, Rocket, ShieldCheck, Sparkles, User } from 'lucide-react';
 import { GitHubIcon } from '../components/common/BrandIcons';
 import AuthShowcase3D from '../components/common/AuthShowcase3D';
-import { TiltCard } from '../components/common/MotionPrimitives';
 import Button from '../components/common/Button';
 import OAuthSetupModal from '../components/common/OAuthSetupModal';
 import { authApi } from '../api/auth.api';
@@ -176,7 +175,7 @@ export default function SignupPage() {
         </div>
 
         {/* Right Form Panel */}
-        <TiltCard maxTilt={2.5} className="p-8 sm:p-10">
+        <div className="p-8 sm:p-10">
           <div className="mb-6">
             <span className="eyebrow lg:hidden">DevVerse OS · Join Ecosystem</span>
             <h2 className="mb-1.5 text-3xl font-bold">Create your builder ID</h2>
@@ -232,9 +231,13 @@ export default function SignupPage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="field">
                 <label htmlFor="signup-name">Full name</label>
-                <div className="relative">
+                <div
+                  className={`flex items-center gap-3 rounded-[11px] border bg-[var(--surface)] px-3.5 transition-colors focus-within:border-[var(--accent)] focus-within:bg-[var(--surface-hover)] ${
+                    errors.name ? 'border-[var(--coral)]' : 'border-[var(--border)]'
+                  }`}
+                >
                   <User
-                    className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]"
+                    className="h-4 w-4 shrink-0 text-[var(--text-tertiary)]"
                     aria-hidden="true"
                   />
                   <input
@@ -242,7 +245,7 @@ export default function SignupPage() {
                     type="text"
                     autoComplete="name"
                     placeholder="Ada Lovelace"
-                    className={`pl-10 ${errors.name ? 'field-error' : ''}`}
+                    style={{ border: 'none', background: 'transparent', padding: '12px 0' }}
                     {...register('name')}
                   />
                 </div>
@@ -251,9 +254,13 @@ export default function SignupPage() {
 
               <div className="field">
                 <label htmlFor="signup-username">Username</label>
-                <div className="relative">
+                <div
+                  className={`flex items-center gap-3 rounded-[11px] border bg-[var(--surface)] px-3.5 transition-colors focus-within:border-[var(--accent)] focus-within:bg-[var(--surface-hover)] ${
+                    errors.username ? 'border-[var(--coral)]' : 'border-[var(--border)]'
+                  }`}
+                >
                   <AtSign
-                    className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]"
+                    className="h-4 w-4 shrink-0 text-[var(--text-tertiary)]"
                     aria-hidden="true"
                   />
                   <input
@@ -261,7 +268,7 @@ export default function SignupPage() {
                     type="text"
                     autoComplete="username"
                     placeholder="ada.codes"
-                    className={`pl-10 ${errors.username ? 'field-error' : ''}`}
+                    style={{ border: 'none', background: 'transparent', padding: '12px 0' }}
                     {...register('username')}
                   />
                 </div>
@@ -273,9 +280,13 @@ export default function SignupPage() {
 
             <div className="field">
               <label htmlFor="signup-email">Email address</label>
-              <div className="relative">
+              <div
+                className={`flex items-center gap-3 rounded-[11px] border bg-[var(--surface)] px-3.5 transition-colors focus-within:border-[var(--accent)] focus-within:bg-[var(--surface-hover)] ${
+                  errors.email ? 'border-[var(--coral)]' : 'border-[var(--border)]'
+                }`}
+              >
                 <Mail
-                  className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]"
+                  className="h-4 w-4 shrink-0 text-[var(--text-tertiary)]"
                   aria-hidden="true"
                 />
                 <input
@@ -283,7 +294,7 @@ export default function SignupPage() {
                   type="email"
                   autoComplete="email"
                   placeholder="ada@devverse.dev"
-                  className={`pl-10 ${errors.email ? 'field-error' : ''}`}
+                  style={{ border: 'none', background: 'transparent', padding: '12px 0' }}
                   {...register('email')}
                 />
               </div>
@@ -293,9 +304,13 @@ export default function SignupPage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="field">
                 <label htmlFor="signup-password">Password</label>
-                <div className="relative">
+                <div
+                  className={`flex items-center gap-3 rounded-[11px] border bg-[var(--surface)] px-3.5 transition-colors focus-within:border-[var(--accent)] focus-within:bg-[var(--surface-hover)] ${
+                    errors.password ? 'border-[var(--coral)]' : 'border-[var(--border)]'
+                  }`}
+                >
                   <Lock
-                    className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]"
+                    className="h-4 w-4 shrink-0 text-[var(--text-tertiary)]"
                     aria-hidden="true"
                   />
                   <input
@@ -303,14 +318,14 @@ export default function SignupPage() {
                     type={showPassword ? 'text' : 'password'}
                     autoComplete="new-password"
                     placeholder="Min 7 chars, 1 upper, 1 num, 1 symbol"
-                    className={`pl-10 pr-10 ${errors.password ? 'field-error' : ''}`}
+                    style={{ border: 'none', background: 'transparent', padding: '12px 0' }}
                     {...register('password')}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword((prev) => !prev)}
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+                    className="shrink-0 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -322,9 +337,13 @@ export default function SignupPage() {
 
               <div className="field">
                 <label htmlFor="signup-confirm">Confirm password</label>
-                <div className="relative">
+                <div
+                  className={`flex items-center gap-3 rounded-[11px] border bg-[var(--surface)] px-3.5 transition-colors focus-within:border-[var(--accent)] focus-within:bg-[var(--surface-hover)] ${
+                    errors.confirmPassword ? 'border-[var(--coral)]' : 'border-[var(--border)]'
+                  }`}
+                >
                   <Lock
-                    className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]"
+                    className="h-4 w-4 shrink-0 text-[var(--text-tertiary)]"
                     aria-hidden="true"
                   />
                   <input
@@ -332,14 +351,14 @@ export default function SignupPage() {
                     type={showConfirm ? 'text' : 'password'}
                     autoComplete="new-password"
                     placeholder="Repeat password"
-                    className={`pl-10 pr-10 ${errors.confirmPassword ? 'field-error' : ''}`}
+                    style={{ border: 'none', background: 'transparent', padding: '12px 0' }}
                     {...register('confirmPassword')}
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirm((prev) => !prev)}
                     aria-label={showConfirm ? 'Hide confirm password' : 'Show confirm password'}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+                    className="shrink-0 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
                   >
                     {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -410,7 +429,7 @@ export default function SignupPage() {
               Sign in
             </Link>
           </p>
-        </TiltCard>
+        </div>
       </div>
 
       <OAuthSetupModal

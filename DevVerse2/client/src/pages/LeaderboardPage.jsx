@@ -5,6 +5,7 @@ import { Crown, Flame, Trophy } from 'lucide-react';
 import GlassCard from '../components/common/GlassCard';
 import Badge from '../components/common/Badge';
 import Skeleton from '../components/common/Skeleton';
+import { ParallaxLayer, RevealSection, TiltCard } from '../components/common/MotionPrimitives';
 import { leaderboardApi } from '../api/leaderboard.api';
 import { AVATAR_FALLBACK_SVG, getAvatarUrl } from '../utils/avatar';
 import { formatCount } from '../utils/formatters';
@@ -76,18 +77,18 @@ export default function LeaderboardPage() {
 
       {/* Top 3 Podium */}
       {!isLoading && mode === 'devs' && topThree.length > 0 && (
-        <div className="mb-10 grid gap-5 md:grid-cols-3">
+        <ParallaxLayer speed={-14} className="mb-10 grid gap-5 md:grid-cols-3">
           {topThree.map((entry, idx) => {
             const handle = entry.username || entry.handle || 'builder';
             const tier = getCurrentTier(entry.points);
             const rankColors = ['var(--legend)', '#c0c7d6', 'var(--amber)'];
             return (
-              <GlassCard
-                key={handle + idx}
-                lift
-                className="relative flex flex-col items-center p-6 text-center"
-                style={{ borderColor: idx === 0 ? 'var(--legend)' : undefined }}
-              >
+              <TiltCard key={handle + idx}>
+                <GlassCard
+                  lift
+                  className="relative flex flex-col items-center p-6 text-center"
+                  style={{ borderColor: idx === 0 ? 'var(--legend)' : undefined }}
+                >
                 <div
                   className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-full font-mono text-xs font-bold text-black"
                   style={{ background: rankColors[idx] }}
@@ -116,13 +117,15 @@ export default function LeaderboardPage() {
                 <div className="mono text-xl font-bold text-[var(--cyan)]">
                   {Number(entry.points || 0).toLocaleString()} XP
                 </div>
-              </GlassCard>
+                </GlassCard>
+              </TiltCard>
             );
           })}
-        </div>
+        </ParallaxLayer>
       )}
 
-      <div className="detail-grid detail-grid--wide">
+      <RevealSection>
+        <div className="detail-grid detail-grid--wide">
         {/* Full Rankings List */}
         <GlassCard className="overflow-hidden p-6">
           <div className="mb-4 flex items-center gap-2">
@@ -257,6 +260,7 @@ export default function LeaderboardPage() {
           </GlassCard>
         </div>
       </div>
+      </RevealSection>
     </div>
   );
 }

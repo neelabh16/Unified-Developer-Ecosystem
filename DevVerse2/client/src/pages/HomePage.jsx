@@ -109,74 +109,73 @@ export default function HomePage() {
 
   return (
     <div data-testid="page-home">
-      {/* Hero Section with Three.js 3D WebGL Canvas */}
-      <section className="wrap pt-8 pb-12">
-        <div className="glass relative overflow-hidden rounded-[var(--radius-xl)] p-8 sm:p-12">
-          <div className="pointer-events-none absolute inset-0 opacity-65">
-            <HeroCanvas height={460} />
-          </div>
+      {/* Free-flowing Hero Section with Full-Bleed Three.js 3D WebGL Canvas */}
+      <section className="relative overflow-hidden pt-10 pb-16 sm:pt-14 sm:pb-20">
+        <div className="pointer-events-none absolute inset-0 opacity-75">
+          <HeroCanvas height={540} />
+        </div>
 
-          <div className="relative z-10 grid items-center gap-10 lg:grid-cols-[1.25fr_0.75fr]">
-            <div>
-              <span className="eyebrow">
-                <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-                DevVerse OS · Unified Developer Ecosystem
-              </span>
-              <h1 className="mb-5 text-4xl font-bold leading-[1.05] sm:text-6xl">
-                Where builders become <span className="grad-text">legends.</span>
-              </h1>
-              <p className="lede mb-6">
-                Ship open-source projects, form hackathon squads, publish post-mortems in the
-                Codex, and build a verifiable engineering portfolio.
-              </p>
+        <div className="wrap relative z-10 grid items-center gap-12 lg:grid-cols-[1.2fr_0.8fr]">
+          <ParallaxLayer speed={18}>
+            <span className="eyebrow">
+              <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+              DevVerse OS · Unified Developer Ecosystem
+            </span>
+            <h1 className="mb-5 text-4xl font-bold leading-[1.03] sm:text-6xl lg:text-7xl">
+              Where builders become <span className="grad-text">legends.</span>
+            </h1>
+            <p className="lede mb-7">
+              Ship open-source projects, form hackathon squads, publish post-mortems in the
+              Codex, and build a verifiable engineering portfolio.
+            </p>
 
-              {/* Terminal typing bar */}
-              <div className="mono mb-7 inline-flex items-center gap-2.5 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-elevated)]/80 px-4 py-2.5 text-xs text-[var(--cyan)] backdrop-blur-md">
-                <Terminal className="h-4 w-4 text-[var(--accent)]" aria-hidden="true" />
-                <span>$ {typedText}</span>
-                <span className="inline-block h-4 w-1.5 animate-pulse bg-[var(--cyan)]" />
-              </div>
-
-              <div className="flex flex-wrap items-center gap-3">
-                <Link to="/explore" className="btn btn-primary">
-                  <Compass className="h-4 w-4" aria-hidden="true" />
-                  Explore Projects
-                </Link>
-                {isAuthenticated ? (
-                  <Link to="/submit-project" className="btn btn-ghost">
-                    <Rocket className="h-4 w-4" aria-hidden="true" />
-                    Ship a Project
-                  </Link>
-                ) : (
-                  <Link to="/signup" className="btn btn-ghost">
-                    Join DevVerse (+20 pts)
-                  </Link>
-                )}
-              </div>
+            {/* Terminal typing bar */}
+            <div className="mono mb-8 inline-flex items-center gap-2.5 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-elevated)]/75 px-4 py-2.5 text-xs text-[var(--cyan)] backdrop-blur-md">
+              <Terminal className="h-4 w-4 text-[var(--accent)]" aria-hidden="true" />
+              <span>$ {typedText}</span>
+              <span className="inline-block h-4 w-1.5 animate-pulse bg-[var(--cyan)]" />
             </div>
 
-            <ParallaxLayer speed={-28} className="hidden justify-center lg:flex">
-              <motion.img
-                src={theme === 'light' ? heroRobotLight : heroRobotDark}
-                alt="DevVerse Mascot"
-                initial={{ opacity: 0, scale: 0.94 }}
-                animate={{ opacity: 1, scale: 1, y: [0, -10, 0] }}
-                transition={{
-                  opacity: { duration: 0.5 },
-                  scale: { duration: 0.5 },
-                  y: { duration: 5, repeat: Infinity, ease: 'easeInOut' },
-                }}
-                className="max-h-[340px] w-auto drop-shadow-[0_24px_48px_rgba(124,111,255,0.28)]"
-              />
-            </ParallaxLayer>
-          </div>
+            <div className="flex flex-wrap items-center gap-3.5">
+              <Link to="/explore" className="btn btn-primary">
+                <Compass className="h-4 w-4" aria-hidden="true" />
+                Explore Projects
+              </Link>
+              {isAuthenticated ? (
+                <Link to="/submit-project" className="btn btn-ghost">
+                  <Rocket className="h-4 w-4" aria-hidden="true" />
+                  Ship a Project
+                </Link>
+              ) : (
+                <Link to="/signup" className="btn btn-ghost">
+                  Join DevVerse (+20 pts)
+                </Link>
+              )}
+            </div>
+          </ParallaxLayer>
+
+          <ParallaxLayer speed={-36} className="hidden justify-center lg:flex">
+            <motion.img
+              src={theme === 'light' ? heroRobotLight : heroRobotDark}
+              alt="DevVerse Mascot"
+              initial={{ opacity: 0, scale: 0.94 }}
+              animate={{ opacity: 1, scale: 1, y: [0, -12, 0] }}
+              transition={{
+                opacity: { duration: 0.5 },
+                scale: { duration: 0.5 },
+                y: { duration: 5, repeat: Infinity, ease: 'easeInOut' },
+              }}
+              className="max-h-[380px] w-auto drop-shadow-[0_28px_56px_rgba(124,111,255,0.32)]"
+            />
+          </ParallaxLayer>
         </div>
       </section>
 
       {/* Platform Stat Strip */}
       <section className="wrap pb-16">
-        <RevealSection>
-          <div className="stat-strip">
+        <ParallaxLayer speed={-12}>
+          <RevealSection>
+            <div className="stat-strip">
           <div className="stat-cell">
             <div className="stat-num">
               <AnimatedCounter value={extractArray(projectsQuery.data, 'projects').length || 24} suffix="+" />
@@ -203,6 +202,7 @@ export default function HomePage() {
           </div>
           </div>
         </RevealSection>
+        </ParallaxLayer>
       </section>
 
       {/* Trending Projects */}

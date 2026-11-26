@@ -4,6 +4,7 @@ import PageHeaderStats from '../components/common/PageHeaderStats';
 import Skeleton from '../components/common/Skeleton';
 import EmptyState from '../components/common/EmptyState';
 import HackathonCard from '../components/hackathons/HackathonCard';
+import { ParallaxLayer, RevealSection } from '../components/common/MotionPrimitives';
 import { hackathonsApi } from '../api/hackathons.api';
 
 const FILTERS = ['All', 'Live', 'Upcoming', 'Ended'];
@@ -48,14 +49,16 @@ export default function HackathonsPage() {
             Compete solo or with a squad, ship under pressure, and earn +20 XP on registration.
           </p>
         </div>
-        <PageHeaderStats
-          loading={isLoading}
-          stats={[
-            { label: 'Total Arenas', value: hackathons.length },
-            { label: 'Live Now', value: liveCount },
-            { label: 'Reg Bonus', value: '+20 XP' },
-          ]}
-        />
+        <ParallaxLayer speed={-18}>
+          <PageHeaderStats
+            loading={isLoading}
+            stats={[
+              { label: 'Total Arenas', value: hackathons.length },
+              { label: 'Live Now', value: liveCount },
+              { label: 'Reg Bonus', value: '+20 XP' },
+            ]}
+          />
+        </ParallaxLayer>
       </div>
 
       <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
@@ -92,11 +95,13 @@ export default function HackathonsPage() {
           }
         />
       ) : (
-        <div className="grid grid-3">
-          {filtered.map((h, idx) => (
-            <HackathonCard key={h._id || h.id || h.legacyId || idx} hackathon={h} index={idx} />
-          ))}
-        </div>
+        <RevealSection>
+          <div className="grid grid-3">
+            {filtered.map((h, idx) => (
+              <HackathonCard key={h._id || h.id || h.legacyId || idx} hackathon={h} index={idx} />
+            ))}
+          </div>
+        </RevealSection>
       )}
     </div>
   );

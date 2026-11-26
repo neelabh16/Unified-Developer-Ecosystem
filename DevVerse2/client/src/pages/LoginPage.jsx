@@ -6,7 +6,6 @@ import { motion } from 'framer-motion';
 import { Code2, Eye, EyeOff, Lock, Mail, Sparkles, Trophy, Users } from 'lucide-react';
 import { GitHubIcon } from '../components/common/BrandIcons';
 import AuthShowcase3D from '../components/common/AuthShowcase3D';
-import { TiltCard } from '../components/common/MotionPrimitives';
 import Button from '../components/common/Button';
 import OAuthSetupModal from '../components/common/OAuthSetupModal';
 import { authApi } from '../api/auth.api';
@@ -188,7 +187,7 @@ export default function LoginPage() {
         </div>
 
         {/* Right Form Panel */}
-        <TiltCard maxTilt={3} className="flex flex-col justify-center p-8 sm:p-11">
+        <div className="flex flex-col justify-center p-8 sm:p-11">
           <div className="mb-7">
             <span className="eyebrow lg:hidden">DevVerse OS · Sign In</span>
             <h2 className="mb-1.5 text-3xl font-bold">Sign in</h2>
@@ -243,9 +242,13 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit(onSubmit)} noValidate>
             <div className="field">
               <label htmlFor="login-identifier">Email or username</label>
-              <div className="relative">
+              <div
+                className={`flex items-center gap-3 rounded-[11px] border bg-[var(--surface)] px-3.5 transition-colors focus-within:border-[var(--accent)] focus-within:bg-[var(--surface-hover)] ${
+                  errors.identifier ? 'border-[var(--coral)]' : 'border-[var(--border)]'
+                }`}
+              >
                 <Mail
-                  className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]"
+                  className="h-4 w-4 shrink-0 text-[var(--text-tertiary)]"
                   aria-hidden="true"
                 />
                 <input
@@ -253,7 +256,7 @@ export default function LoginPage() {
                   type="text"
                   autoComplete="username"
                   placeholder="you@domain.com or handle"
-                  className={`pl-10 ${errors.identifier ? 'field-error' : ''}`}
+                  style={{ border: 'none', background: 'transparent', padding: '12px 0' }}
                   {...register('identifier')}
                 />
               </div>
@@ -264,9 +267,13 @@ export default function LoginPage() {
 
             <div className="field">
               <label htmlFor="login-password">Password</label>
-              <div className="relative">
+              <div
+                className={`flex items-center gap-3 rounded-[11px] border bg-[var(--surface)] px-3.5 transition-colors focus-within:border-[var(--accent)] focus-within:bg-[var(--surface-hover)] ${
+                  errors.password ? 'border-[var(--coral)]' : 'border-[var(--border)]'
+                }`}
+              >
                 <Lock
-                  className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]"
+                  className="h-4 w-4 shrink-0 text-[var(--text-tertiary)]"
                   aria-hidden="true"
                 />
                 <input
@@ -274,7 +281,7 @@ export default function LoginPage() {
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
                   placeholder="••••••••"
-                  className={`pl-10 pr-10 ${errors.password ? 'field-error' : ''}`}
+                  style={{ border: 'none', background: 'transparent', padding: '12px 0' }}
                   onKeyUp={(e) => setCapsLockOn(e.getModifierState?.('CapsLock') || false)}
                   {...register('password')}
                 />
@@ -282,7 +289,7 @@ export default function LoginPage() {
                   type="button"
                   onClick={() => setShowPassword((prev) => !prev)}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+                  className="shrink-0 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -309,7 +316,7 @@ export default function LoginPage() {
               Create an account
             </Link>
           </p>
-        </TiltCard>
+        </div>
       </div>
 
       <OAuthSetupModal
