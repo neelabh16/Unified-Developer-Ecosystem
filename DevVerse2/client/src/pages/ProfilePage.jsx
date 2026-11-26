@@ -10,6 +10,7 @@ import Skeleton from '../components/common/Skeleton';
 import ProjectCard from '../components/projects/ProjectCard';
 import HackathonCard from '../components/hackathons/HackathonCard';
 import ContributionHeatmap from '../components/common/ContributionHeatmap';
+import EngineeringPassport from '../components/common/EngineeringPassport';
 import { ParallaxLayer, RevealSection } from '../components/common/MotionPrimitives';
 import { bookmarksApi, usersApi } from '../api/users.api';
 import { projectsApi } from '../api/projects.api';
@@ -433,13 +434,18 @@ export default function ProfilePage() {
 
       {tab === 'overview' && (
         <RevealSection className="space-y-8">
-          {isOwnProfile && (
+          <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
             <ContributionHeatmap
               events={activityItems}
               title={`@${profile.username} Shipping & XP Heatmap`}
               weeks={24}
             />
-          )}
+            <EngineeringPassport
+              profile={profile}
+              projectsCount={projects.length}
+              followersCount={followersCount}
+            />
+          </div>
 
           <div className="grid gap-4 sm:grid-cols-4">
             {BADGES.map((b) => (

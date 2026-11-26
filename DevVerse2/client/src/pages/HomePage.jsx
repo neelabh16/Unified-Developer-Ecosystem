@@ -7,6 +7,7 @@ import HeroCanvas from '../components/common/HeroCanvas';
 import GlassCard from '../components/common/GlassCard';
 import TechUniverse3D from '../components/common/TechUniverse3D';
 import ContributionHeatmap from '../components/common/ContributionHeatmap';
+import GitHubXRay from '../components/common/GitHubXRay';
 import { ParallaxLayer, RevealSection, TiltCard } from '../components/common/MotionPrimitives';
 import AnimatedCounter from '../components/common/AnimatedCounter';
 import Skeleton from '../components/common/Skeleton';
@@ -245,6 +246,8 @@ export default function HomePage() {
       <section className="wrap section-tight">
         <RevealSection className="space-y-6">
           <TechUniverse3D categories={categories} />
+
+          <GitHubXRay defaultHandle={user?.github || 'neelabh16'} />
 
           <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
             <ContributionHeatmap
