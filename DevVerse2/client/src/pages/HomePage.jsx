@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { ArrowRight, BookOpen, Code2, Compass, Rocket, Sparkles, Terminal, Users } from 'lucide-react';
-import HeroCanvas from '../components/common/HeroCanvas';
 import GlassCard from '../components/common/GlassCard';
 import TechUniverse3D from '../components/common/TechUniverse3D';
 import ContributionHeatmap from '../components/common/ContributionHeatmap';
@@ -117,12 +116,8 @@ export default function HomePage() {
 
   return (
     <div data-testid="page-home">
-      {/* Free-flowing Hero Section with Full-Bleed Three.js 3D WebGL Canvas */}
+      {/* Free-flowing Hero Section over Full-Page Three.js 3D WebGL Backdrop */}
       <section className="relative overflow-hidden pt-10 pb-16 sm:pt-14 sm:pb-20">
-        <div className="pointer-events-none absolute inset-0 opacity-75">
-          <HeroCanvas height={540} />
-        </div>
-
         <div className="wrap relative z-10 grid items-center gap-12 lg:grid-cols-[1.2fr_0.8fr]">
           <ParallaxLayer speed={18}>
             <span className="eyebrow">
