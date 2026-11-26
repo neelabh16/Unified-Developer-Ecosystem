@@ -1,21 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowDown, Sparkles } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import { heroRobotDark, heroRobotLight } from '../../utils/assets';
 
-const INTRO_STORAGE_KEY = 'dv_visor_intro_seen';
-
 export default function VisorIntroCurtain() {
-  const location = useLocation();
   const { motion: motionPref } = useTheme();
+  const mascotBoxRef = useRef(null);
   const canvasRef = useRef(null);
   const trailRef = useRef([]);
-  const pointerRef = useRef({ x: -999, y: -999, nx: 0, ny: 0, active: false });
   const [mascotOffset, setMascotOffset] = useState({ x: 0, y: 0, rx: 0, ry: 0 });
+  const [progress, setProgress] = useState(0);
 
-  const isHome = location.pathname === '/';
   const isTestEnv = import.meta.env.MODE === 'test';
   const prefersReduced =
     typeof window !== 'undefined' &&
@@ -23,129 +18,94 @@ export default function VisorIntroCurtain() {
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const disabled = isTestEnv || motionPref === 'off' || prefersReduced;
+  const [open, setOpen] = useState(() => !disabled);
 
-  const [open, setOpen] = useState(() => {
-    if (disabled || !isHome) return false;
-    try {
-      return !window.sessionStorage.getItem(INTRO_STORAGE_KEY);
-    } catch {
-      return true;
-    }
-  });
-
-  const dismiss = () => {
-    setOpen(false);
-    try {
-      window.sessionStorage.setItem(INTRO_STORAGE_KEY, '1');
-    } catch {
-      // ignore
-    }
-  };
-
-  // Scroll down to reveal Home Page; scroll UP when at top of Home Page to pull curtain back down
+  // Site loading progress (0% -> 100% over ~2.2s, then lifts smoothly)
   useEffect(() => {
-    if (disabled || !isHome) return undefined;
-    let touchStartY = 0;
+    if (!open || disabled) return undefined;
+    const start = performance.now();
+    const duration = 2200;
+    let rafId = 0;
 
-    const onWheel = (e) => {
-      if (open && e.deltaY > 18) {
-        dismiss();
-      } else if (!open && window.scrollY <= 4 && e.deltaY < -24) {
-        setOpen(true);
+    const tick = (now) => {
+      const pct = Math.min(100, Math.round(((now - start) / duration) * 100));
+      setProgress(pct);
+      if (pct < 100) {
+        rafId = window.requestAnimationFrame(tick);
+      } else {
+        setTimeout(() => setOpen(false), 350);
       }
     };
 
-    const onTouchStart = (e) => {
-      touchStartY = e.touches?.[0]?.clientY || 0;
-    };
-
-    const onTouchMove = (e) => {
-      const y = e.touches?.[0]?.clientY || 0;
-      const diff = touchStartY - y;
-      if (open && diff > 35) {
-        dismiss();
-      } else if (!open && window.scrollY <= 4 && diff < -45) {
-        setOpen(true);
-      }
-    };
-
-    const onKey = (e) => {
-      if (!open) return;
-      if (e.key === 'Escape' || e.key === 'Enter' || e.key === 'ArrowDown' || e.key === ' ') {
-        dismiss();
-      }
-    };
-
-    window.addEventListener('wheel', onWheel, { passive: true });
-    window.addEventListener('touchstart', onTouchStart, { passive: true });
-    window.addEventListener('touchmove', onTouchMove, { passive: true });
-    window.addEventListener('keydown', onKey);
+    rafId = window.requestAnimationFrame(tick);
     return () => {
-      window.removeEventListener('wheel', onWheel);
-      window.removeEventListener('touchstart', onTouchStart);
-      window.removeEventListener('touchmove', onTouchMove);
-      window.removeEventListener('keydown', onKey);
+      if (rafId) window.cancelAnimationFrame(rafId);
     };
-  }, [open, disabled, isHome]);
+  }, [open, disabled]);
 
-  // 60fps Cursor-Trail X-Ray Canvas Mask + Cursor-Following Mascot Sync
+  // Cursor-following mascot + mascot-only X-Ray visor reveal
   useEffect(() => {
     if (!open || disabled) return undefined;
     const canvas = canvasRef.current;
-    if (!canvas) return undefined;
+    const box = mascotBoxRef.current;
+    if (!canvas || !box) return undefined;
     const ctx = canvas.getContext('2d');
     if (!ctx) return undefined;
 
     const revealImg = new Image();
     revealImg.src = heroRobotLight;
 
-    let width = window.innerWidth;
-    let height = window.innerHeight;
-    const resize = () => {
-      width = window.innerWidth;
-      height = window.innerHeight;
+    const syncSize = () => {
+      const rect = box.getBoundingClientRect();
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      canvas.width = width * dpr;
-      canvas.height = height * dpr;
+      canvas.width = Math.max(1, Math.round(rect.width * dpr));
+      canvas.height = Math.max(1, Math.round(rect.height * dpr));
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
-    resize();
+    syncSize();
 
     const onMove = (e) => {
-      const nx = e.clientX / Math.max(1, width) - 0.5;
-      const ny = e.clientY / Math.max(1, height) - 0.5;
-      pointerRef.current = { x: e.clientX, y: e.clientY, nx, ny, active: true };
+      const vw = Math.max(1, window.innerWidth);
+      const vh = Math.max(1, window.innerHeight);
+      const nx = e.clientX / vw - 0.5;
+      const ny = e.clientY / vh - 0.5;
+
       setMascotOffset({
-        x: nx * 38,
-        y: ny * 26,
+        x: nx * 36,
+        y: ny * 24,
         rx: -ny * 10,
         ry: nx * 14,
       });
 
+      const rect = box.getBoundingClientRect();
       trailRef.current.push({
-        x: e.clientX,
-        y: e.clientY,
-        r: 76,
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+        r: 68,
         born: performance.now(),
       });
-      if (trailRef.current.length > 26) {
+      if (trailRef.current.length > 24) {
         trailRef.current.shift();
       }
     };
 
-    window.addEventListener('resize', resize);
+    window.addEventListener('resize', syncSize);
     window.addEventListener('pointermove', onMove, { passive: true });
 
     let rafId = 0;
     const render = (now) => {
       rafId = window.requestAnimationFrame(render);
-      ctx.clearRect(0, 0, width, height);
+      const rect = box.getBoundingClientRect();
+      const w = rect.width;
+      const h = rect.height;
+      ctx.clearRect(0, 0, w, h);
 
       trailRef.current = trailRef.current.filter((pt) => now - pt.born < 650);
       if (trailRef.current.length === 0) return;
 
-      // 1. Metaball / visor cursor mask
+      // 1. Draw cursor trail blobs on the mascot canvas
       ctx.save();
+      ctx.globalCompositeOperation = 'source-over';
       ctx.beginPath();
       trailRef.current.forEach((pt) => {
         const age = (now - pt.born) / 650;
@@ -155,94 +115,44 @@ export default function VisorIntroCurtain() {
           ctx.arc(pt.x, pt.y, radius, 0, Math.PI * 2);
         }
       });
-      ctx.clip();
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
 
-      // 2. Inside clipped visor: glowing neon violet/cyan cybernetic X-Ray layer
-      const grad = ctx.createRadialGradient(
-        width / 2,
-        height / 2,
-        40,
-        width / 2,
-        height / 2,
-        Math.max(width, height) * 0.65
-      );
-      grad.addColorStop(0, '#2a1f5d');
-      grad.addColorStop(0.55, '#112a38');
-      grad.addColorStop(1, '#090b12');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, width, height);
-
-      // Neon wireframe grid inside X-Ray
-      ctx.strokeStyle = 'rgba(79, 227, 193, 0.35)';
-      ctx.lineWidth = 1;
-      for (let gx = 0; gx < width; gx += 34) {
-        ctx.beginPath();
-        ctx.moveTo(gx, 0);
-        ctx.lineTo(gx, height);
-        ctx.stroke();
-      }
-      for (let gy = 0; gy < height; gy += 34) {
-        ctx.beginPath();
-        ctx.moveTo(0, gy);
-        ctx.lineTo(width, gy);
-        ctx.stroke();
-      }
-
+      // 2. Mask STRICTLY onto the alternate mascot silhouette (zero background bleed!)
       if (revealImg.complete && revealImg.naturalWidth > 0) {
-        const targetH = Math.min(height * 0.68, 520);
-        const targetW = (revealImg.naturalWidth / revealImg.naturalHeight) * targetH;
-        const dx = pointerRef.current.nx * 38;
-        const dy = pointerRef.current.ny * 26;
-        ctx.drawImage(
-          revealImg,
-          width / 2 - targetW / 2 + dx,
-          height / 2 - targetH / 2 + dy,
-          targetW,
-          targetH
-        );
+        ctx.globalCompositeOperation = 'source-in';
+        ctx.drawImage(revealImg, 0, 0, w, h);
       }
       ctx.restore();
-
-      // 3. Glowing visor ring around active cursor
-      if (pointerRef.current.active) {
-        ctx.save();
-        ctx.strokeStyle = 'rgba(79, 227, 193, 0.85)';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(pointerRef.current.x, pointerRef.current.y, 72, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.restore();
-      }
     };
 
     rafId = window.requestAnimationFrame(render);
     return () => {
       if (rafId) window.cancelAnimationFrame(rafId);
-      window.removeEventListener('resize', resize);
+      window.removeEventListener('resize', syncSize);
       window.removeEventListener('pointermove', onMove);
     };
   }, [open, disabled]);
 
-  if (disabled || !isHome) return null;
+  if (disabled) return null;
 
   return (
     <AnimatePresence>
       {open && (
         <motion.div
-          key="visor-intro"
-          initial={{ y: '-100%' }}
-          animate={{ y: '0%' }}
+          key="site-loader"
+          initial={{ y: 0 }}
           exit={{ y: '-100%' }}
           transition={{ duration: 0.72, ease: [0.16, 1, 0.3, 1] }}
           className="fixed inset-0 z-[11000] flex flex-col items-center justify-between overflow-hidden bg-[#07080c] text-[#eef0f8] select-none"
         >
-          {/* Dark Aurora + Topographic Contour Background */}
+          {/* Subtle Dark Aurora Backdrop */}
           <div
             aria-hidden="true"
             className="pointer-events-none absolute inset-0"
             style={{
               backgroundImage:
-                'radial-gradient(circle at 25% 25%, rgba(124,111,255,0.22) 0, transparent 52%), radial-gradient(circle at 75% 75%, rgba(79,227,193,0.16) 0, transparent 52%), repeating-radial-gradient(circle at 50% 50%, transparent 0, transparent 38px, rgba(255,255,255,0.04) 39px)',
+                'radial-gradient(circle at 25% 25%, rgba(124,111,255,0.2) 0, transparent 52%), radial-gradient(circle at 75% 75%, rgba(79,227,193,0.14) 0, transparent 52%)',
             }}
           />
 
@@ -263,18 +173,17 @@ export default function VisorIntroCurtain() {
 
             <button
               type="button"
-              onClick={dismiss}
-              className="mono rounded-full border border-white/15 bg-white/5 px-4 py-1.5 text-xs font-semibold text-white/90 backdrop-blur-md transition hover:border-[var(--cyan)] hover:text-[var(--cyan)]"
+              onClick={() => setOpen(false)}
+              className="mono rounded-full border border-white/15 bg-white/5 px-4 py-1.5 text-xs font-semibold text-white/80 backdrop-blur-md transition hover:border-[var(--cyan)] hover:text-[var(--cyan)]"
             >
-              Skip Intro →
+              Skip →
             </button>
           </div>
 
-          {/* Center Base Mascot following the cursor */}
-          <div className="pointer-events-none relative z-10 flex flex-1 items-center justify-center">
-            <motion.img
-              src={heroRobotDark}
-              alt="DevVerse Builder"
+          {/* Center Mascot with Mascot-Only Cursor Visor X-Ray */}
+          <div className="relative z-10 flex flex-1 items-center justify-center">
+            <motion.div
+              ref={mascotBoxRef}
               animate={{
                 x: mascotOffset.x,
                 y: mascotOffset.y,
@@ -283,34 +192,32 @@ export default function VisorIntroCurtain() {
               }}
               transition={{ type: 'spring', stiffness: 160, damping: 18, mass: 0.5 }}
               style={{ transformPerspective: 900 }}
-              className="max-h-[68vh] max-w-[85vw] object-contain drop-shadow-[0_28px_60px_rgba(124,111,255,0.38)]"
-            />
+              className="relative"
+            >
+              <img
+                src={heroRobotDark}
+                alt="DevVerse Loading Mascot"
+                className="pointer-events-none block max-h-[62vh] max-w-[82vw] object-contain drop-shadow-[0_28px_60px_rgba(124,111,255,0.38)]"
+              />
+              <canvas
+                ref={canvasRef}
+                className="pointer-events-none absolute inset-0 h-full w-full"
+              />
+            </motion.div>
           </div>
 
-          {/* Interactive Cursor-Trail X-Ray Reveal Canvas */}
-          <canvas
-            ref={canvasRef}
-            className="pointer-events-none absolute inset-0 z-15 h-full w-full"
-          />
-
-          {/* Bottom Telemetry & Scroll Prompt */}
-          <div className="relative z-20 flex w-full flex-col items-center gap-3 pb-8 text-center">
-            <div className="mono inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-white/80 backdrop-blur-md">
-              <Sparkles className="h-3.5 w-3.5 text-[var(--cyan)]" aria-hidden="true" />
-              <span>Move cursor to X-Ray · Scroll down to enter</span>
+          {/* Bottom Loading Progress */}
+          <div className="relative z-20 flex w-full max-w-xs flex-col items-center gap-2 pb-10">
+            <div className="mono flex w-full justify-between text-[11px] uppercase tracking-widest text-white/60">
+              <span>Initializing DevVerse</span>
+              <span className="text-[var(--cyan)]">{progress}%</span>
             </div>
-
-            <button
-              type="button"
-              onClick={dismiss}
-              className="group inline-flex items-center gap-2 rounded-full bg-[var(--accent)] px-6 py-2.5 text-xs font-semibold text-[#07080c] shadow-[0_10px_30px_-6px_var(--accent)] transition-transform hover:-translate-y-0.5"
-            >
-              <span>Enter DevVerse</span>
-              <ArrowDown
-                className="h-3.5 w-3.5 transition-transform group-hover:translate-y-0.5"
-                aria-hidden="true"
+            <div className="h-1 w-full overflow-hidden rounded-full bg-white/10">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-[var(--violet)] via-[var(--cyan)] to-[var(--coral)] transition-all duration-75"
+                style={{ width: `${progress}%` }}
               />
-            </button>
+            </div>
           </div>
         </motion.div>
       )}
