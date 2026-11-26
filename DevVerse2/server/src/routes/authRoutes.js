@@ -11,6 +11,8 @@ const csrfProtection = require('../middleware/csrf');
 router.post('/register', csrfProtection, authController.register);
 router.post('/signup', csrfProtection, authController.register); // Alias for signup
 router.post('/login', csrfProtection, authController.login);
+router.post('/forgot-password', csrfProtection, authController.forgotPassword);
+router.post('/reset-password', csrfProtection, authController.resetPassword);
 router.post('/oauth', csrfProtection, authController.oauthLogin);
 router.post('/logout', authController.logout);
 

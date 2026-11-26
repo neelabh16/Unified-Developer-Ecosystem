@@ -7,12 +7,13 @@ import { Code2, Eye, EyeOff, Lock, Mail, Sparkles, Trophy, Users } from 'lucide-
 import { GitHubIcon } from '../components/common/BrandIcons';
 import AuthShowcase3D from '../components/common/AuthShowcase3D';
 import Button from '../components/common/Button';
+import Modal from '../components/common/Modal';
 import OAuthSetupModal from '../components/common/OAuthSetupModal';
 import { authApi } from '../api/auth.api';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import { robotCoding } from '../utils/assets';
-import { loginSchema } from '../utils/validation';
+import { loginSchema, strongPasswordSchema } from '../utils/validation';
 
 function sanitizeRedirect(raw) {
   if (!raw || typeof raw !== 'string') return '/';
@@ -42,8 +43,17 @@ const BENEFITS = [
 export default function LoginPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { isAuthenticated, login } = useAuth();
+  const { isAuthenticated, login, refreshUser } = useAuth();
   const { showToast } = useToast();
+
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [forgotStep, setForgotStep] = useState(1);
+  const [forgotIdentifier, setForgotIdentifier] = useState('');
+  const [forgotCode, setForgotCode] = useState('');
+  const [issuedCodeInfo, setIssuedCodeInfo] = useState(null);
+  const [newResetPassword, setNewResetPassword] = useState('');
+  const [forgotError, setForgotError] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
 
   const redirectTarget = sanitizeRedirect(searchParams.get('redirect'));
   const oauthError = searchParams.get('oauth_error');
@@ -243,7 +253,7 @@ export default function LoginPage() {
             <div className="field">
               <label htmlFor="login-identifier">Email or username</label>
               <div
-                className={`flex items-center gap-3 rounded-[11px] border bg-[var(--surface)] px-3.5 transition-colors focus-within:border-[var(--accent)] focus-within:bg-[var(--surface-hover)] ${
+                className={`flex items-center gap-3 overflow-hidden rounded-[11px] border bg-[var(--surface)] px-3.5 transition-colors focus-within:border-[var(--accent)] focus-within:bg-[var(--surface-hover)] ${
                   errors.identifier ? 'border-[var(--coral)]' : 'border-[var(--border)]'
                 }`}
               >
@@ -256,7 +266,8 @@ export default function LoginPage() {
                   type="text"
                   autoComplete="username"
                   placeholder="you@domain.com or handle"
-                  style={{ border: 'none', background: 'transparent', padding: '12px 0' }}
+                  className="min-w-0 flex-1"
+                  style={{ border: 'none', background: 'transparent', padding: '12px 0', boxShadow: 'none' }}
                   {...register('identifier')}
                 />
               </div>
@@ -266,9 +277,24 @@ export default function LoginPage() {
             </div>
 
             <div className="field">
-              <label htmlFor="login-password">Password</label>
+              <div className="flex items-center justify-between">
+                <label htmlFor="login-password">Password</label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForgotStep(1);
+                    setForgotError('');
+                    setIssuedCodeInfo(null);
+                    setNewResetPassword('');
+                    setForgotOpen(true);
+                  }}
+                  className="text-xs font-semibold text-[var(--accent)] hover:underline"
+                >
+                  Forgot password?
+                </button>
+              </div>
               <div
-                className={`flex items-center gap-3 rounded-[11px] border bg-[var(--surface)] px-3.5 transition-colors focus-within:border-[var(--accent)] focus-within:bg-[var(--surface-hover)] ${
+                className={`flex items-center gap-3 overflow-hidden rounded-[11px] border bg-[var(--surface)] px-3.5 transition-colors focus-within:border-[var(--accent)] focus-within:bg-[var(--surface-hover)] ${
                   errors.password ? 'border-[var(--coral)]' : 'border-[var(--border)]'
                 }`}
               >
@@ -281,7 +307,8 @@ export default function LoginPage() {
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
                   placeholder="••••••••"
-                  style={{ border: 'none', background: 'transparent', padding: '12px 0' }}
+                  className="min-w-0 flex-1"
+                  style={{ border: 'none', background: 'transparent', padding: '12px 0', boxShadow: 'none' }}
                   onKeyUp={(e) => setCapsLockOn(e.getModifierState?.('CapsLock') || false)}
                   {...register('password')}
                 />
@@ -324,6 +351,139 @@ export default function LoginPage() {
         isOpen={Boolean(oauthSetupProvider)}
         onClose={() => setOauthSetupProvider(null)}
       />
+
+      <Modal
+        isOpen={forgotOpen}
+        onClose={() => setForgotOpen(false)}
+        title="Reset your password"
+        maxWidth="440px"
+      >
+        {forgotError && (
+          <div className="mb-4 rounded-xl border border-[var(--coral)]/40 bg-[var(--coral-soft)] px-3.5 py-2.5 text-xs text-[var(--coral)]">
+            {forgotError}
+          </div>
+        )}
+
+        {forgotStep === 1 ? (
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setForgotError('');
+              if (!forgotIdentifier.trim()) {
+                setForgotError('Enter your email or username.');
+                return;
+              }
+              setForgotLoading(true);
+              try {
+                const res = await authApi.forgotPassword(forgotIdentifier.trim());
+                const code = res?.data?.resetCode || '';
+                setIssuedCodeInfo(res?.data || null);
+                setForgotCode(code);
+                setForgotStep(2);
+                showToast('Reset code generated', 'success');
+              } catch (err) {
+                setForgotError(err.message || 'Could not generate reset code.');
+              } finally {
+                setForgotLoading(false);
+              }
+            }}
+          >
+            <p className="mb-4 text-sm text-[var(--text-secondary)]">
+              Enter your DevVerse email or username to generate a 15-minute password reset code.
+            </p>
+            <div className="field">
+              <label htmlFor="forgot-id">Email or username</label>
+              <input
+                id="forgot-id"
+                type="text"
+                value={forgotIdentifier}
+                onChange={(e) => setForgotIdentifier(e.target.value)}
+                placeholder="you@domain.com or handle"
+              />
+            </div>
+            <Button type="submit" variant="primary" size="sm" loading={forgotLoading} className="w-full">
+              Generate Reset Code
+            </Button>
+          </form>
+        ) : (
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setForgotError('');
+              const parsed = strongPasswordSchema.safeParse(newResetPassword);
+              if (!parsed.success) {
+                setForgotError(parsed.error.errors[0]?.message || 'Use a stronger password.');
+                return;
+              }
+              setForgotLoading(true);
+              try {
+                await authApi.resetPassword({
+                  code: forgotCode.trim(),
+                  newPassword: newResetPassword,
+                });
+                await refreshUser();
+                setForgotOpen(false);
+                showToast('Password updated and signed in!', 'success');
+                navigate(redirectTarget, { replace: true });
+              } catch (err) {
+                setForgotError(err.message || 'Failed to reset password.');
+              } finally {
+                setForgotLoading(false);
+              }
+            }}
+          >
+            {issuedCodeInfo?.resetCode && (
+              <div className="mb-4 rounded-xl border border-[var(--cyan)]/40 bg-[var(--cyan-soft)] p-3 text-xs">
+                <div className="mb-1 font-semibold text-[var(--cyan)]">
+                  Reset code for {issuedCodeInfo.maskedEmail || forgotIdentifier}:
+                </div>
+                <div className="mono text-base font-bold tracking-widest text-[var(--text-primary)]">
+                  {issuedCodeInfo.resetCode}
+                </div>
+              </div>
+            )}
+            <div className="field">
+              <label htmlFor="forgot-code">Reset Code</label>
+              <input
+                id="forgot-code"
+                type="text"
+                value={forgotCode}
+                onChange={(e) => setForgotCode(e.target.value)}
+                placeholder="8-character reset code"
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="forgot-new-pw">New Password</label>
+              <input
+                id="forgot-new-pw"
+                type="password"
+                value={newResetPassword}
+                onChange={(e) => setNewResetPassword(e.target.value)}
+                placeholder="Min 7 chars, 1 upper, 1 num, 1 symbol"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setForgotStep(1)}
+              >
+                Back
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+                size="sm"
+                loading={forgotLoading}
+                className="flex-1"
+              >
+                Reset Password &amp; Sign In
+              </Button>
+            </div>
+          </form>
+        )}
+      </Modal>
     </div>
   );
 }

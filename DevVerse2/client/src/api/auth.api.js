@@ -45,6 +45,18 @@ export const authApi = {
     return apiClient.put('/auth/change-password', payload);
   },
 
+  forgotPassword(identifier) {
+    return apiClient.post('/auth/forgot-password', { identifier });
+  },
+
+  async resetPassword(payload) {
+    const res = await apiClient.post('/auth/reset-password', payload);
+    if (res?.data?.token) {
+      setAuthToken(res.data.token);
+    }
+    return res;
+  },
+
   getOAuthUrl(provider, redirectPath = '/') {
     const origin =
       typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173';

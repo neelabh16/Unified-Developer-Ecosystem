@@ -232,7 +232,7 @@ export default function SignupPage() {
               <div className="field">
                 <label htmlFor="signup-name">Full name</label>
                 <div
-                  className={`flex items-center gap-3 rounded-[11px] border bg-[var(--surface)] px-3.5 transition-colors focus-within:border-[var(--accent)] focus-within:bg-[var(--surface-hover)] ${
+                  className={`flex items-center gap-3 overflow-hidden rounded-[11px] border bg-[var(--surface)] px-3.5 transition-colors focus-within:border-[var(--accent)] focus-within:bg-[var(--surface-hover)] ${
                     errors.name ? 'border-[var(--coral)]' : 'border-[var(--border)]'
                   }`}
                 >
@@ -245,7 +245,8 @@ export default function SignupPage() {
                     type="text"
                     autoComplete="name"
                     placeholder="Ada Lovelace"
-                    style={{ border: 'none', background: 'transparent', padding: '12px 0' }}
+                    className="min-w-0 flex-1"
+                    style={{ border: 'none', background: 'transparent', padding: '12px 0', boxShadow: 'none' }}
                     {...register('name')}
                   />
                 </div>
@@ -255,7 +256,7 @@ export default function SignupPage() {
               <div className="field">
                 <label htmlFor="signup-username">Username</label>
                 <div
-                  className={`flex items-center gap-3 rounded-[11px] border bg-[var(--surface)] px-3.5 transition-colors focus-within:border-[var(--accent)] focus-within:bg-[var(--surface-hover)] ${
+                  className={`flex items-center gap-3 overflow-hidden rounded-[11px] border bg-[var(--surface)] px-3.5 transition-colors focus-within:border-[var(--accent)] focus-within:bg-[var(--surface-hover)] ${
                     errors.username ? 'border-[var(--coral)]' : 'border-[var(--border)]'
                   }`}
                 >
@@ -268,7 +269,8 @@ export default function SignupPage() {
                     type="text"
                     autoComplete="username"
                     placeholder="ada.codes"
-                    style={{ border: 'none', background: 'transparent', padding: '12px 0' }}
+                    className="min-w-0 flex-1"
+                    style={{ border: 'none', background: 'transparent', padding: '12px 0', boxShadow: 'none' }}
                     {...register('username')}
                   />
                 </div>
@@ -281,7 +283,7 @@ export default function SignupPage() {
             <div className="field">
               <label htmlFor="signup-email">Email address</label>
               <div
-                className={`flex items-center gap-3 rounded-[11px] border bg-[var(--surface)] px-3.5 transition-colors focus-within:border-[var(--accent)] focus-within:bg-[var(--surface-hover)] ${
+                className={`flex items-center gap-3 overflow-hidden rounded-[11px] border bg-[var(--surface)] px-3.5 transition-colors focus-within:border-[var(--accent)] focus-within:bg-[var(--surface-hover)] ${
                   errors.email ? 'border-[var(--coral)]' : 'border-[var(--border)]'
                 }`}
               >
@@ -294,7 +296,8 @@ export default function SignupPage() {
                   type="email"
                   autoComplete="email"
                   placeholder="ada@devverse.dev"
-                  style={{ border: 'none', background: 'transparent', padding: '12px 0' }}
+                  className="min-w-0 flex-1"
+                  style={{ border: 'none', background: 'transparent', padding: '12px 0', boxShadow: 'none' }}
                   {...register('email')}
                 />
               </div>
@@ -305,7 +308,7 @@ export default function SignupPage() {
               <div className="field">
                 <label htmlFor="signup-password">Password</label>
                 <div
-                  className={`flex items-center gap-3 rounded-[11px] border bg-[var(--surface)] px-3.5 transition-colors focus-within:border-[var(--accent)] focus-within:bg-[var(--surface-hover)] ${
+                  className={`flex items-center gap-3 overflow-hidden rounded-[11px] border bg-[var(--surface)] px-3.5 transition-colors focus-within:border-[var(--accent)] focus-within:bg-[var(--surface-hover)] ${
                     errors.password ? 'border-[var(--coral)]' : 'border-[var(--border)]'
                   }`}
                 >
@@ -318,7 +321,8 @@ export default function SignupPage() {
                     type={showPassword ? 'text' : 'password'}
                     autoComplete="new-password"
                     placeholder="Min 7 chars, 1 upper, 1 num, 1 symbol"
-                    style={{ border: 'none', background: 'transparent', padding: '12px 0' }}
+                    className="min-w-0 flex-1"
+                    style={{ border: 'none', background: 'transparent', padding: '12px 0', boxShadow: 'none' }}
                     {...register('password')}
                   />
                   <button
@@ -338,7 +342,7 @@ export default function SignupPage() {
               <div className="field">
                 <label htmlFor="signup-confirm">Confirm password</label>
                 <div
-                  className={`flex items-center gap-3 rounded-[11px] border bg-[var(--surface)] px-3.5 transition-colors focus-within:border-[var(--accent)] focus-within:bg-[var(--surface-hover)] ${
+                  className={`flex items-center gap-3 overflow-hidden rounded-[11px] border bg-[var(--surface)] px-3.5 transition-colors focus-within:border-[var(--accent)] focus-within:bg-[var(--surface-hover)] ${
                     errors.confirmPassword ? 'border-[var(--coral)]' : 'border-[var(--border)]'
                   }`}
                 >
@@ -351,7 +355,8 @@ export default function SignupPage() {
                     type={showConfirm ? 'text' : 'password'}
                     autoComplete="new-password"
                     placeholder="Repeat password"
-                    style={{ border: 'none', background: 'transparent', padding: '12px 0' }}
+                    className="min-w-0 flex-1"
+                    style={{ border: 'none', background: 'transparent', padding: '12px 0', boxShadow: 'none' }}
                     {...register('confirmPassword')}
                   />
                   <button

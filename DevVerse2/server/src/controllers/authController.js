@@ -1,6 +1,7 @@
 // =============================================================================
 // Auth Controller
 // =============================================================================
+const crypto = require('crypto');
 const mongoose = require('mongoose');
 const User = require('../models/User');
 const Activity = require('../models/Activity');
@@ -719,12 +720,114 @@ const googleOAuthCallback = async (req, res) => {
   }
 };
 
+/**
+ * Request a password reset code.
+ * POST /api/v1/auth/forgot-password
+ */
+const forgotPassword = async (req, res, next) => {
+  try {
+    const raw = (req.body.identifier || req.body.email || '').trim().toLowerCase();
+    if (!raw) {
+      return next(new AppError('Please provide your email or username.', 400));
+    }
+
+    const user = await User.findOne({
+      $or: [{ email: raw }, { username: raw }],
+    });
+
+    if (!user) {
+      return next(new AppError('No account found with that email or username.', 404));
+    }
+
+    const resetCode = crypto.randomBytes(4).toString('hex').toUpperCase();
+    const hashed = crypto.createHash('sha256').update(resetCode).digest('hex');
+
+    user.resetPasswordToken = hashed;
+    user.resetPasswordExpires = new Date(Date.now() + 15 * 60 * 1000);
+    await user.save({ validateBeforeSave: false });
+
+    const emailParts = (user.email || '').split('@');
+    const maskedEmail =
+      emailParts.length === 2
+        ? `${emailParts[0].slice(0, 2)}***@${emailParts[1]}`
+        : user.email;
+
+    return sendSuccess(res, 200, 'Password reset code generated', {
+      resetCode,
+      maskedEmail,
+      expiresInMinutes: 15,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Reset password using a valid reset code.
+ * POST /api/v1/auth/reset-password
+ */
+const resetPassword = async (req, res, next) => {
+  try {
+    const code = (req.body.code || req.body.token || '').trim().toUpperCase();
+    const newPassword = req.body.newPassword || '';
+
+    if (!code || !newPassword) {
+      return next(new AppError('Reset code and new password are required.', 400));
+    }
+
+    if (newPassword.length < 7) {
+      return next(new AppError('Password must be at least 7 characters long.', 400));
+    }
+    const hasUpper = /[A-Z]/.test(newPassword);
+    const hasNumber = /[0-9]/.test(newPassword);
+    const hasSpecial = /[!@#$%^&*()_+\-=\[\]{}|;:'",.<>?/`~\\]/.test(newPassword);
+    if (!hasUpper || !hasNumber || !hasSpecial) {
+      return next(
+        new AppError(
+          'Password must include at least one uppercase letter, one number, and one special character.',
+          400
+        )
+      );
+    }
+
+    const hashed = crypto.createHash('sha256').update(code).digest('hex');
+    const user = await User.findOne({
+      resetPasswordToken: hashed,
+      resetPasswordExpires: { $gt: Date.now() },
+    }).select('+password +resetPasswordToken +resetPasswordExpires');
+
+    if (!user) {
+      return next(new AppError('Invalid or expired reset code.', 400));
+    }
+
+    user.password = newPassword;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    if (user.provider && user.provider !== 'local') {
+      user.provider = 'local';
+    }
+    await user.save();
+
+    const token = signToken(user._id, user.role);
+    setAuthCookie(res, token);
+
+    return sendSuccess(res, 200, 'Password reset successful', {
+      user,
+      token,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   register,
   login,
   logout,
   getMe,
   changePassword,
+  forgotPassword,
+  resetPassword,
   oauthLogin,
   getOAuthProviders,
   githubOAuth,
