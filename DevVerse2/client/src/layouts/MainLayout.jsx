@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Lock, Menu, Moon, Search, Settings, Sparkles, Sun, User, X } from 'lucide-react';
+import { Lock, Menu, Moon, Search, Settings, Sparkles, Sun, Terminal, User, X } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
 import { useToast } from '../hooks/useToast';
@@ -12,6 +12,7 @@ import AmbientThreeField from '../components/common/AmbientThreeField';
 import CursorGlow from '../components/common/CursorGlow';
 import { ScrollProgressBar } from '../components/common/MotionPrimitives';
 import CommandPalette from '../components/common/CommandPalette';
+import InteractiveTerminal from '../components/common/InteractiveTerminal';
 import Footer from '../components/common/Footer';
 import BackToTop from '../components/common/BackToTop';
 import ToastContainer from '../components/common/ToastContainer';
@@ -35,6 +36,7 @@ export default function MainLayout({ children }) {
 
   const routeKey = `${location.pathname}${location.search}`;
   const [cmdkOpen, setCmdkOpen] = useState(false);
+  const [terminalOpen, setTerminalOpen] = useState(false);
   const [mobileOpenRoute, setMobileOpenRoute] = useState(null);
   const [avatarOpenRoute, setAvatarOpenRoute] = useState(null);
   const avatarWrapRef = useRef(null);
@@ -62,6 +64,11 @@ export default function MainLayout({ children }) {
       if (e.key === 'Escape') {
         setAvatarOpenRoute(null);
         setMobileOpenRoute(null);
+        setTerminalOpen(false);
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === '`') {
+        e.preventDefault();
+        setTerminalOpen((prev) => !prev);
       }
     };
     const handleClickOutside = (e) => {
@@ -147,6 +154,16 @@ export default function MainLayout({ children }) {
               <Search className="h-3.5 w-3.5" aria-hidden="true" />
               <span className="cmdk-trigger-label-text">Search</span>
               <kbd>{isMac ? '⌘K' : 'Ctrl K'}</kbd>
+            </button>
+
+            <button
+              type="button"
+              className="dock-icon-btn"
+              onClick={() => setTerminalOpen(true)}
+              aria-label="Open DevVerse OS Terminal"
+              title="OS Terminal (Ctrl+`)"
+            >
+              <Terminal className="h-4 w-4" aria-hidden="true" />
             </button>
 
             <button
@@ -353,6 +370,10 @@ export default function MainLayout({ children }) {
         isOpen={cmdkOpen}
         onClose={() => setCmdkOpen(false)}
         onToggle={toggleCmdk}
+      />
+      <InteractiveTerminal
+        isOpen={terminalOpen}
+        onClose={() => setTerminalOpen(false)}
       />
       <ToastContainer />
     </div>

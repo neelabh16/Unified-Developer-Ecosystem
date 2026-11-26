@@ -5,6 +5,7 @@ import { Crown, Flame, Trophy } from 'lucide-react';
 import GlassCard from '../components/common/GlassCard';
 import Badge from '../components/common/Badge';
 import Skeleton from '../components/common/Skeleton';
+import DevDuel from '../components/common/DevDuel';
 import { ParallaxLayer, RevealSection, TiltCard } from '../components/common/MotionPrimitives';
 import { leaderboardApi } from '../api/leaderboard.api';
 import { AVATAR_FALLBACK_SVG, getAvatarUrl } from '../utils/avatar';
@@ -74,6 +75,9 @@ export default function LeaderboardPage() {
           </div>
         </div>
       </div>
+
+      {/* 1v1 GitHub Battle Mode */}
+      <DevDuel />
 
       {/* Top 3 Podium */}
       {!isLoading && mode === 'devs' && topThree.length > 0 && (
