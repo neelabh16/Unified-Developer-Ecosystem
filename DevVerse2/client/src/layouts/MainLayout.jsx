@@ -14,6 +14,7 @@ import { ScrollProgressBar } from '../components/common/MotionPrimitives';
 import { TelemetryHud } from '../components/common/KineticMotion';
 import CommandPalette from '../components/common/CommandPalette';
 import InteractiveTerminal from '../components/common/InteractiveTerminal';
+import VisorIntroCurtain from '../components/common/VisorIntroCurtain';
 import Footer from '../components/common/Footer';
 import BackToTop from '../components/common/BackToTop';
 import ToastContainer from '../components/common/ToastContainer';
@@ -38,6 +39,7 @@ export default function MainLayout({ children }) {
   const routeKey = `${location.pathname}${location.search}`;
   const [cmdkOpen, setCmdkOpen] = useState(false);
   const [terminalOpen, setTerminalOpen] = useState(false);
+  const [replayIntro, setReplayIntro] = useState(false);
   const [mobileOpenRoute, setMobileOpenRoute] = useState(null);
   const [avatarOpenRoute, setAvatarOpenRoute] = useState(null);
   const avatarWrapRef = useRef(null);
@@ -102,6 +104,10 @@ export default function MainLayout({ children }) {
       </a>
 
       <ScrollProgressBar />
+      <VisorIntroCurtain
+        forceOpen={replayIntro}
+        onDismiss={() => setReplayIntro(false)}
+      />
       <AuroraBackground />
       <AmbientThreeField />
       <CursorGlow />
@@ -155,6 +161,16 @@ export default function MainLayout({ children }) {
               <Search className="h-3.5 w-3.5" aria-hidden="true" />
               <span className="cmdk-trigger-label-text">Search</span>
               <kbd>{isMac ? '⌘K' : 'Ctrl K'}</kbd>
+            </button>
+
+            <button
+              type="button"
+              className="dock-icon-btn"
+              onClick={() => setReplayIntro(true)}
+              aria-label="Replay Visor X-Ray Intro"
+              title="Replay X-Ray Intro"
+            >
+              <Sparkles className="h-4 w-4" aria-hidden="true" />
             </button>
 
             <button
