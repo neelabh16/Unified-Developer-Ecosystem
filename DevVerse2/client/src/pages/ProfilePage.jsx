@@ -11,6 +11,7 @@ import ProjectCard from '../components/projects/ProjectCard';
 import HackathonCard from '../components/hackathons/HackathonCard';
 import ContributionHeatmap from '../components/common/ContributionHeatmap';
 import EngineeringPassport from '../components/common/EngineeringPassport';
+import ReadinessAudit from '../components/common/ReadinessAudit';
 import { ParallaxLayer, RevealSection } from '../components/common/MotionPrimitives';
 import { bookmarksApi, usersApi } from '../api/users.api';
 import { projectsApi } from '../api/projects.api';
@@ -434,11 +435,12 @@ export default function ProfilePage() {
 
       {tab === 'overview' && (
         <RevealSection className="space-y-8">
-          <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-            <ContributionHeatmap
-              events={activityItems}
-              title={`@${profile.username} Shipping & XP Heatmap`}
-              weeks={24}
+          <div className="grid gap-6 lg:grid-cols-2">
+            <ReadinessAudit
+              profile={profile}
+              projectsCount={projects.length}
+              followersCount={followersCount}
+              isOwnProfile={isOwnProfile}
             />
             <EngineeringPassport
               profile={profile}
@@ -446,6 +448,12 @@ export default function ProfilePage() {
               followersCount={followersCount}
             />
           </div>
+
+          <ContributionHeatmap
+            events={activityItems}
+            title={`@${profile.username} Shipping & XP Heatmap`}
+            weeks={28}
+          />
 
           <div className="grid gap-4 sm:grid-cols-4">
             {BADGES.map((b) => (
