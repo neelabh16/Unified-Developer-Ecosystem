@@ -108,7 +108,7 @@ export default function HomePage() {
     .slice(0, 4);
 
   const featuredHackathons = extractArray(hackathonsQuery.data, 'hackathons').slice(0, 3);
-  const activityFeed = extractArray(feedQuery.data, 'events').slice(0, 5);
+  const activityFeed = extractArray(feedQuery.data, 'feed').slice(0, 12);
 
   const categories = Array.from(
     new Set(extractArray(projectsQuery.data, 'projects').map((p) => p.category).filter(Boolean))
@@ -367,20 +367,22 @@ export default function HomePage() {
                 </p>
               ) : (
                 <ul className="divide-y divide-[var(--border)]">
-                  {activityFeed.map((ev, idx) => (
-                    <li key={ev._id || idx} className="py-3 first:pt-0 last:pb-0">
+                  {activityFeed.slice(0, 5).map((ev, idx) => (
+                    <li key={ev._id || ev.id || idx} className="py-3 first:pt-0 last:pb-0">
                       <div className="flex items-center justify-between gap-2 text-sm">
                         <span className="font-medium text-[var(--text-primary)]">
-                          {ev.description || ev.action || ev.reason || 'Builder activity'}
+                          {ev.description || ev.reason || ev.action || 'Builder activity'}
                         </span>
-                        {ev.points ? (
+                        {(ev.amount || ev.points) ? (
                           <span className="mono text-xs font-semibold text-[var(--cyan)]">
-                            +{ev.points} XP
+                            +{ev.amount || ev.points} XP
                           </span>
                         ) : null}
                       </div>
                       <div className="mono mt-1 text-[11px] text-[var(--text-tertiary)]">
-                        {ev.actor?.username ? `@${ev.actor.username} · ` : ''}
+                        {(ev.user?.username || ev.actor?.username)
+                          ? `@${ev.user?.username || ev.actor?.username} · `
+                          : ''}
                         {timeAgo(ev.createdAt)}
                       </div>
                     </li>

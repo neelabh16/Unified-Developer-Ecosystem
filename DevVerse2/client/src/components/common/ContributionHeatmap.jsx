@@ -13,10 +13,11 @@ export default function ContributionHeatmap({ events = [], title = 'Builder Mome
   const [hovered, setHovered] = useState(null);
 
   const { grid, totalPoints } = useMemo(() => {
+    const safeEvents = Array.isArray(events) ? events : [];
     const countsByDay = new Map();
     let sum = 0;
 
-    events.forEach((ev) => {
+    safeEvents.forEach((ev) => {
       const d = ev?.createdAt ? new Date(ev.createdAt) : null;
       if (!d || Number.isNaN(d.getTime())) return;
       const key = d.toISOString().slice(0, 10);

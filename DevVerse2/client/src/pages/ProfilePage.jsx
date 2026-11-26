@@ -230,7 +230,11 @@ export default function ProfilePage() {
     : 100;
 
   const ghRepos = ghReposQuery.data?.data?.repos || ghReposQuery.data?.data || [];
-  const activityItems = activityQuery.data?.data?.events || activityQuery.data?.data || [];
+  const rawActivity =
+    activityQuery.data?.data?.log ||
+    activityQuery.data?.data?.events ||
+    activityQuery.data?.data;
+  const activityItems = Array.isArray(rawActivity) ? rawActivity : [];
 
   return (
     <div className="wrap page-header" data-testid="page-profile">
@@ -581,10 +585,12 @@ export default function ProfilePage() {
             <ul className="divide-y divide-[var(--border)]">
               {activityItems.map((ev, idx) => (
                 <li key={ev._id || idx} className="flex items-center justify-between py-3 text-sm">
-                  <span>{ev.description || ev.reason || ev.action}</span>
+                  <span>{ev.reason || ev.description || ev.action}</span>
                   <div className="flex items-center gap-3">
-                    {ev.points && (
-                      <span className="mono font-semibold text-[var(--cyan)]">+{ev.points} XP</span>
+                    {(ev.amount || ev.points) && (
+                      <span className="mono font-semibold text-[var(--cyan)]">
+                        +{ev.amount || ev.points} XP
+                      </span>
                     )}
                     <span className="mono text-xs text-[var(--text-tertiary)]">
                       {timeAgo(ev.createdAt)}
