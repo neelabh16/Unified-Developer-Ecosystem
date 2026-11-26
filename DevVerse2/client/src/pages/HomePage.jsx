@@ -8,6 +8,7 @@ import TechUniverse3D from '../components/common/TechUniverse3D';
 import ContributionHeatmap from '../components/common/ContributionHeatmap';
 import GitHubXRay from '../components/common/GitHubXRay';
 import { ParallaxLayer, RevealSection, TiltCard } from '../components/common/MotionPrimitives';
+import { KineticText, MagneticWrapper, VelocityMarquee } from '../components/common/KineticMotion';
 import AnimatedCounter from '../components/common/AnimatedCounter';
 import Skeleton from '../components/common/Skeleton';
 import ProjectCard from '../components/projects/ProjectCard';
@@ -125,7 +126,8 @@ export default function HomePage() {
               DevVerse OS · Unified Developer Ecosystem
             </span>
             <h1 className="mb-5 text-4xl font-bold leading-[1.03] sm:text-6xl lg:text-7xl">
-              Where builders become <span className="grad-text">legends.</span>
+              <KineticText text="Where builders become" />{' '}
+              <KineticText text="legends." className="grad-text" delay={0.22} />
             </h1>
             <p className="lede mb-7">
               Ship open-source projects, form hackathon squads, publish post-mortems in the
@@ -140,19 +142,25 @@ export default function HomePage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-3.5">
-              <Link to="/explore" className="btn btn-primary">
-                <Compass className="h-4 w-4" aria-hidden="true" />
-                Explore Projects
-              </Link>
+              <MagneticWrapper>
+                <Link to="/explore" className="btn btn-primary">
+                  <Compass className="h-4 w-4" aria-hidden="true" />
+                  Explore Projects
+                </Link>
+              </MagneticWrapper>
               {isAuthenticated ? (
-                <Link to="/submit-project" className="btn btn-ghost">
-                  <Rocket className="h-4 w-4" aria-hidden="true" />
-                  Ship a Project
-                </Link>
+                <MagneticWrapper>
+                  <Link to="/submit-project" className="btn btn-ghost">
+                    <Rocket className="h-4 w-4" aria-hidden="true" />
+                    Ship a Project
+                  </Link>
+                </MagneticWrapper>
               ) : (
-                <Link to="/signup" className="btn btn-ghost">
-                  Join DevVerse (+20 pts)
-                </Link>
+                <MagneticWrapper>
+                  <Link to="/signup" className="btn btn-ghost">
+                    Join DevVerse (+20 pts)
+                  </Link>
+                </MagneticWrapper>
               )}
             </div>
           </ParallaxLayer>
@@ -173,6 +181,19 @@ export default function HomePage() {
           </ParallaxLayer>
         </div>
       </section>
+
+      {/* Scroll-Velocity-Driven Kinetic Marquee */}
+      <VelocityMarquee
+        className="mb-14"
+        items={[
+          'SHIP IN PUBLIC',
+          'OPEN SOURCE',
+          '48H HACKATHONS',
+          'LIVE GITHUB X-RAY',
+          'BUILDER READINESS INDEX',
+          'ENGINEERING CODEX 200+ XP',
+        ]}
+      />
 
       {/* Platform Stat Strip */}
       <section className="wrap pb-16">

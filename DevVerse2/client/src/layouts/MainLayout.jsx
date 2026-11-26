@@ -11,6 +11,7 @@ import AuroraBackground from '../components/common/AuroraBackground';
 import AmbientThreeField from '../components/common/AmbientThreeField';
 import CursorGlow from '../components/common/CursorGlow';
 import { ScrollProgressBar } from '../components/common/MotionPrimitives';
+import { TelemetryHud } from '../components/common/KineticMotion';
 import CommandPalette from '../components/common/CommandPalette';
 import InteractiveTerminal from '../components/common/InteractiveTerminal';
 import Footer from '../components/common/Footer';
@@ -353,10 +354,10 @@ export default function MainLayout({ children }) {
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}
-              initial={{ opacity: 0, y: 14, scale: 0.99 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -10, scale: 0.99 }}
-              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+              initial={{ opacity: 0, y: 18, clipPath: 'inset(0 0 6% 0)' }}
+              animate={{ opacity: 1, y: 0, clipPath: 'inset(0 0 0% 0)' }}
+              exit={{ opacity: 0, y: -12, clipPath: 'inset(6% 0 0 0)' }}
+              transition={{ duration: 0.34, ease: [0.16, 1, 0.3, 1] }}
             >
               {children || <Outlet />}
             </motion.div>
@@ -366,6 +367,7 @@ export default function MainLayout({ children }) {
 
       <Footer />
       <BackToTop />
+      <TelemetryHud />
       <CommandPalette
         isOpen={cmdkOpen}
         onClose={() => setCmdkOpen(false)}
