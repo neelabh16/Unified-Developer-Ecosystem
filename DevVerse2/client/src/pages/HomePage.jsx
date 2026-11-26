@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { ArrowRight, BookOpen, Code2, Compass, Rocket, Sparkles, Terminal, Users } from 'lucide-react';
 import HeroCanvas from '../components/common/HeroCanvas';
 import GlassCard from '../components/common/GlassCard';
+import { ParallaxLayer, RevealSection } from '../components/common/MotionPrimitives';
 import AnimatedCounter from '../components/common/AnimatedCounter';
 import Skeleton from '../components/common/Skeleton';
 import ProjectCard from '../components/projects/ProjectCard';
@@ -154,25 +155,28 @@ export default function HomePage() {
               </div>
             </div>
 
-            <motion.div
-              initial={{ opacity: 0, scale: 0.94 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5 }}
-              className="hidden justify-center lg:flex"
-            >
-              <img
+            <ParallaxLayer speed={-28} className="hidden justify-center lg:flex">
+              <motion.img
                 src={theme === 'light' ? heroRobotLight : heroRobotDark}
                 alt="DevVerse Mascot"
+                initial={{ opacity: 0, scale: 0.94 }}
+                animate={{ opacity: 1, scale: 1, y: [0, -10, 0] }}
+                transition={{
+                  opacity: { duration: 0.5 },
+                  scale: { duration: 0.5 },
+                  y: { duration: 5, repeat: Infinity, ease: 'easeInOut' },
+                }}
                 className="max-h-[340px] w-auto drop-shadow-[0_24px_48px_rgba(124,111,255,0.28)]"
               />
-            </motion.div>
+            </ParallaxLayer>
           </div>
         </div>
       </section>
 
       {/* Platform Stat Strip */}
       <section className="wrap pb-16">
-        <div className="stat-strip">
+        <RevealSection>
+          <div className="stat-strip">
           <div className="stat-cell">
             <div className="stat-num">
               <AnimatedCounter value={extractArray(projectsQuery.data, 'projects').length || 24} suffix="+" />
@@ -197,11 +201,13 @@ export default function HomePage() {
             </div>
             <div className="stat-label">MERN Uptime</div>
           </div>
-        </div>
+          </div>
+        </RevealSection>
       </section>
 
       {/* Trending Projects */}
       <section className="wrap section-tight">
+        <RevealSection>
         <div className="section-head">
           <div>
             <span className="eyebrow">Shipped by the community</span>
@@ -225,6 +231,7 @@ export default function HomePage() {
             ))
           )}
         </div>
+        </RevealSection>
       </section>
 
       {/* Category Tiles */}
@@ -253,6 +260,7 @@ export default function HomePage() {
 
       {/* Featured Hackathons */}
       <section className="wrap section-tight">
+        <RevealSection>
         <div className="section-head">
           <div>
             <span className="eyebrow">48-hour sprints</span>
@@ -272,10 +280,12 @@ export default function HomePage() {
             ))
           )}
         </div>
+        </RevealSection>
       </section>
 
       {/* Top Builders + Live Activity Feed */}
       <section className="wrap section-tight">
+        <RevealSection>
         <div className="detail-grid detail-grid--wide">
           <div>
             <div className="mb-6 flex items-center justify-between">
@@ -353,6 +363,7 @@ export default function HomePage() {
             </GlassCard>
           </div>
         </div>
+        </RevealSection>
       </section>
     </div>
   );

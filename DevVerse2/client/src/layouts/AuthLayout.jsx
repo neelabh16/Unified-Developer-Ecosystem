@@ -4,6 +4,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, Moon, Search, Sun } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 import AuroraBackground from '../components/common/AuroraBackground';
+import AmbientThreeField from '../components/common/AmbientThreeField';
+import { ScrollProgressBar } from '../components/common/MotionPrimitives';
 import CommandPalette from '../components/common/CommandPalette';
 import Footer from '../components/common/Footer';
 import ToastContainer from '../components/common/ToastContainer';
@@ -26,7 +28,9 @@ export default function AuthLayout({ children }) {
         Skip to content
       </a>
 
+      <ScrollProgressBar />
       <AuroraBackground />
+      <AmbientThreeField />
 
       <div className="dock-wrap">
         <nav className="dock justify-between" aria-label="Authentication navigation">
@@ -81,10 +85,10 @@ export default function AuthLayout({ children }) {
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+              initial={{ opacity: 0, y: 14, scale: 0.99 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.99 }}
+              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
             >
               {children || <Outlet />}
             </motion.div>

@@ -129,6 +129,26 @@ export default function HeroCanvas({ className = '', height = 420 }) {
     const wireMesh = new THREE.Mesh(wireGeo, wireMat);
     group.add(wireMesh);
 
+    const knotGeo = new THREE.TorusKnotGeometry(0.95, 0.24, 96, 16);
+    const knotMat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color(cyanHex),
+      wireframe: true,
+      transparent: true,
+      opacity: theme === 'light' ? 0.2 : 0.14,
+    });
+    const knotMesh = new THREE.Mesh(knotGeo, knotMat);
+    group.add(knotMesh);
+
+    const orbitRingGeo = new THREE.TorusGeometry(2.35, 0.018, 12, 96);
+    const orbitRingMat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color(coralHex),
+      transparent: true,
+      opacity: 0.35,
+    });
+    const orbitRing = new THREE.Mesh(orbitRingGeo, orbitRingMat);
+    orbitRing.rotation.x = Math.PI / 2.6;
+    group.add(orbitRing);
+
     const pointer = { x: 0, y: 0 };
     const handlePointerMove = (e) => {
       const rect = container.getBoundingClientRect();
@@ -155,10 +175,14 @@ export default function HeroCanvas({ className = '', height = 420 }) {
     let rafId = 0;
     const animate = () => {
       rafId = window.requestAnimationFrame(animate);
+      const scrollTilt = window.scrollY * 0.0015;
       group.rotation.y += 0.0022;
-      group.rotation.x += (pointer.y * 0.45 - group.rotation.x) * 0.04;
+      group.rotation.x += (pointer.y * 0.45 + scrollTilt - group.rotation.x) * 0.04;
       group.rotation.z += (-pointer.x * 0.25 - group.rotation.z) * 0.04;
       wireMesh.rotation.y -= 0.0014;
+      knotMesh.rotation.x += 0.003;
+      knotMesh.rotation.y += 0.002;
+      orbitRing.rotation.z += 0.0025;
       renderer.render(scene, camera);
     };
     animate();
@@ -171,6 +195,10 @@ export default function HeroCanvas({ className = '', height = 420 }) {
       pointsMat.dispose();
       wireGeo.dispose();
       wireMat.dispose();
+      knotGeo.dispose();
+      knotMat.dispose();
+      orbitRingGeo.dispose();
+      orbitRingMat.dispose();
       renderer.dispose();
     };
   }, [shouldRenderFallback, height, theme, accent]);

@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Calendar, Trophy, Users } from 'lucide-react';
 import Badge from '../common/Badge';
+import { TiltCard } from '../common/MotionPrimitives';
 import { useCountdown } from '../../hooks/useCountdown';
 
 export default function HackathonCard({ hackathon, index = 0 }) {
@@ -17,12 +18,13 @@ export default function HackathonCard({ hackathon, index = 0 }) {
   const tags = Array.isArray(hackathon.tags) ? hackathon.tags.slice(0, 3) : [];
 
   return (
-    <motion.article
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, delay: Math.min(index * 0.05, 0.25) }}
-      className="glass card-lift flex flex-col p-6"
-    >
+    <TiltCard className="h-full">
+      <motion.article
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, delay: Math.min(index * 0.05, 0.25) }}
+        className="glass card-lift flex h-full flex-col p-6"
+      >
       <div className="mb-4 flex items-center justify-between gap-2">
         <Badge
           variant={status.toLowerCase() === 'live' ? 'accent' : 'default'}
@@ -80,5 +82,6 @@ export default function HackathonCard({ hackathon, index = 0 }) {
         </Link>
       </div>
     </motion.article>
+    </TiltCard>
   );
 }

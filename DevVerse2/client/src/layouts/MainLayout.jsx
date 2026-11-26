@@ -8,6 +8,8 @@ import { useToast } from '../hooks/useToast';
 import { getInitialGradient } from '../utils/avatar';
 import { isCodexUnlocked } from '../utils/gamification';
 import AuroraBackground from '../components/common/AuroraBackground';
+import AmbientThreeField from '../components/common/AmbientThreeField';
+import { ScrollProgressBar } from '../components/common/MotionPrimitives';
 import CommandPalette from '../components/common/CommandPalette';
 import Footer from '../components/common/Footer';
 import BackToTop from '../components/common/BackToTop';
@@ -90,7 +92,9 @@ export default function MainLayout({ children }) {
         Skip to content
       </a>
 
+      <ScrollProgressBar />
       <AuroraBackground />
+      <AmbientThreeField />
 
       <div className="dock-wrap">
         <nav className="dock" aria-label="Primary navigation">
@@ -330,10 +334,10 @@ export default function MainLayout({ children }) {
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+              initial={{ opacity: 0, y: 14, scale: 0.99 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.99 }}
+              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
             >
               {children || <Outlet />}
             </motion.div>

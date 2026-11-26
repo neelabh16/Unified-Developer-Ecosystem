@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Eye, Heart } from 'lucide-react';
 import Badge from '../common/Badge';
+import { TiltCard } from '../common/MotionPrimitives';
 import { formatCount, resolveProjectArt } from '../../utils/formatters';
 import { resolveUploadUrl } from '../../utils/avatar';
 
@@ -34,12 +35,13 @@ export default function ProjectCard({ project, index = 0 }) {
   const coverSrc = firstImage || resolveProjectArt(project);
 
   return (
-    <motion.article
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, delay: Math.min(index * 0.04, 0.28) }}
-      className="glass card-lift group flex flex-col overflow-hidden"
-    >
+    <TiltCard className="h-full">
+      <motion.article
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, delay: Math.min(index * 0.04, 0.28) }}
+        className="glass card-lift group flex h-full flex-col overflow-hidden"
+      >
       <Link to={`/projects/${encodeURIComponent(projectId)}`} className="block overflow-hidden">
         <div className="relative h-44 w-full overflow-hidden bg-[var(--bg-elevated)]">
           <img
@@ -103,5 +105,6 @@ export default function ProjectCard({ project, index = 0 }) {
         </div>
       </div>
     </motion.article>
+    </TiltCard>
   );
 }

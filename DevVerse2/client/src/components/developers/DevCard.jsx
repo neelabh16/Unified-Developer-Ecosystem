@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import Badge from '../common/Badge';
+import { TiltCard } from '../common/MotionPrimitives';
 import { formatCount } from '../../utils/formatters';
 import { AVATAR_FALLBACK_SVG, getAvatarUrl } from '../../utils/avatar';
 import { getCurrentTier } from '../../utils/gamification';
@@ -17,11 +18,12 @@ export default function DevCard({ dev, index = 0 }) {
   const tier = getCurrentTier(points);
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 14 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: Math.min(index * 0.04, 0.24) }}
-    >
+    <TiltCard>
+      <motion.div
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: Math.min(index * 0.04, 0.24) }}
+      >
       <Link
         to={`/profile/${encodeURIComponent(handle)}`}
         className="glass card-lift flex flex-col items-center p-6 text-center transition-all"
@@ -66,5 +68,6 @@ export default function DevCard({ dev, index = 0 }) {
         </div>
       </Link>
     </motion.div>
+    </TiltCard>
   );
 }
