@@ -1,14 +1,17 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Camera, Crown, MapPin, Save, UserCheck, UserPlus } from 'lucide-react';
+import { Bookmark, Camera, Crown, Heart, MapPin, Save, UserCheck, UserPlus } from 'lucide-react';
 import { GitHubIcon } from '../components/common/BrandIcons';
 import GlassCard from '../components/common/GlassCard';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
 import Skeleton from '../components/common/Skeleton';
 import ProjectCard from '../components/projects/ProjectCard';
-import { usersApi } from '../api/users.api';
+import HackathonCard from '../components/hackathons/HackathonCard';
+import { ParallaxLayer, RevealSection } from '../components/common/MotionPrimitives';
+import { bookmarksApi, usersApi } from '../api/users.api';
+import { projectsApi } from '../api/projects.api';
 import { activityApi } from '../api/leaderboard.api';
 import { githubApi } from '../api/github.api';
 import { uploadsApi } from '../api/uploads.api';
@@ -24,6 +27,20 @@ import {
   isLegendUnlocked,
 } from '../utils/gamification';
 import { validateImageFile } from '../utils/validation';
+
+function matchesAuthor(project, profile) {
+  if (!project || !profile) return false;
+  const pId = String(profile._id || profile.id || '');
+  const pUsername = (profile.username || '').toLowerCase();
+  const aId = String(project.author?._id || project.author?.id || project.authorId || '');
+  if (pId && aId && pId === aId) return true;
+  const aHandle = (
+    typeof project.author === 'string'
+      ? project.author
+      : project.author?.username || project.authorHandle || ''
+  ).toLowerCase();
+  return Boolean(pUsername && aHandle && aHandle === pUsername);
+}
 
 export default function ProfilePage() {
   const { username } = useParams();
@@ -46,14 +63,45 @@ export default function ProfilePage() {
     enabled: Boolean(targetHandle),
   });
 
+  const allProjectsQuery = useQuery({
+    queryKey: ['projects', { limit: 100 }],
+    queryFn: () => projectsApi.list({ limit: 100 }),
+  });
+
+  const bookmarksQuery = useQuery({
+    queryKey: ['bookmarks'],
+    queryFn: () => bookmarksApi.get(),
+    enabled: isOwnProfile && isAuthenticated,
+  });
+
+  const likesQuery = useQuery({
+    queryKey: ['bookmarks', 'likes'],
+    queryFn: () => bookmarksApi.getLikes(),
+    enabled: isOwnProfile && isAuthenticated,
+  });
+
   const profile =
     profileQuery.data?.data?.user ||
     profileQuery.data?.data?.profile ||
     profileQuery.data?.data ||
     (isOwnProfile ? user : null);
 
-  const projects = profileQuery.data?.data?.projects || profile?.projects || [];
+  const followersCount =
+    profileQuery.data?.data?.followersCount ?? profile?.followersCount ?? 0;
+  const followingCount =
+    profileQuery.data?.data?.followingCount ?? profile?.followingCount ?? 0;
   const isFollowing = Boolean(profileQuery.data?.data?.isFollowing ?? profile?.isFollowing);
+
+  const projects = useMemo(() => {
+    const list =
+      allProjectsQuery.data?.data?.projects ||
+      (Array.isArray(allProjectsQuery.data?.data) ? allProjectsQuery.data.data : []);
+    return list.filter((p) => matchesAuthor(p, profile));
+  }, [allProjectsQuery.data, profile]);
+
+  const likedProjects = likesQuery.data?.data?.projects || [];
+  const bookmarkedProjects = bookmarksQuery.data?.data?.projects || [];
+  const bookmarkedHackathons = bookmarksQuery.data?.data?.hackathons || [];
 
   const baseEditForm = {
     name: profile?.name || '',
@@ -92,7 +140,10 @@ export default function ProfilePage() {
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ['profile', targetHandle] });
       invalidateGamification(queryClient);
-      showToast(res?.data?.following ? `Following @${targetHandle} (+2 XP)` : 'Unfollowed', 'success');
+      showToast(
+        res?.data?.following ? `Following @${targetHandle} (+2 XP)` : 'Unfollowed',
+        'success'
+      );
     },
     onError: (err) => showToast(err.message || 'Sign in to follow builders', 'error'),
   });
@@ -183,144 +234,168 @@ export default function ProfilePage() {
   return (
     <div className="wrap page-header" data-testid="page-profile">
       {/* Header Banner */}
-      <GlassCard className="mb-8 p-7 sm:p-9">
-        <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-5">
-            <div className="relative">
-              <img
-                src={getAvatarUrl(profile.avatarUrl || profile.username, 120)}
-                alt={profile.name || profile.username}
-                onError={(e) => {
-                  e.currentTarget.src = AVATAR_FALLBACK_SVG;
-                }}
-                className="h-24 w-24 rounded-full border-2 border-[var(--accent)] object-cover"
-              />
-              {isOwnProfile && (
-                <label
-                  htmlFor="profile-avatar-upload"
-                  title="Upload avatar"
-                  className="absolute bottom-0 right-0 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-[var(--border-strong)] bg-[var(--bg-panel)] text-[var(--text-primary)] hover:border-[var(--accent)]"
-                >
-                  <Camera className="h-4 w-4" aria-hidden="true" />
-                  <input
-                    id="profile-avatar-upload"
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp,image/gif"
-                    className="hidden"
-                    onChange={handleAvatarUpload}
-                  />
-                </label>
-              )}
-            </div>
-
-            <div>
-              <div className="mb-1 flex flex-wrap items-center gap-2.5">
-                <h1 className="text-2xl font-bold sm:text-3xl">{profile.name || profile.username}</h1>
-                <Badge variant="tier" icon={currentTier.icon}>
-                  {currentTier.name}
-                </Badge>
-              </div>
-              <div className="mono mb-2 text-sm text-[var(--text-tertiary)]">
-                @{profile.username}
-                {profile.roleTitle ? ` · ${profile.roleTitle}` : ''}
-              </div>
-              <div className="flex flex-wrap gap-4 text-xs text-[var(--text-secondary)]">
-                {profile.location && (
-                  <span className="inline-flex items-center gap-1">
-                    <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
-                    {profile.location}
-                  </span>
-                )}
-                {profile.github && (
-                  <a
-                    href={`https://github.com/${profile.github}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-[var(--accent)] hover:underline"
+      <ParallaxLayer speed={-10}>
+        <GlassCard className="mb-8 p-7 sm:p-9">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-5">
+              <div className="relative">
+                <img
+                  src={getAvatarUrl(profile.avatarUrl || profile.avatarSeed || profile.username, 120)}
+                  alt={profile.name || profile.username}
+                  onError={(e) => {
+                    e.currentTarget.src = AVATAR_FALLBACK_SVG;
+                  }}
+                  className="h-24 w-24 rounded-full border-2 border-[var(--accent)] object-cover"
+                />
+                {isOwnProfile && (
+                  <label
+                    htmlFor="profile-avatar-upload"
+                    title="Upload avatar"
+                    className="absolute bottom-0 right-0 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-[var(--border-strong)] bg-[var(--bg-panel)] text-[var(--text-primary)] hover:border-[var(--accent)]"
                   >
-                    <GitHubIcon className="h-3.5 w-3.5" />
-                    {profile.github}
-                  </a>
+                    <Camera className="h-4 w-4" aria-hidden="true" />
+                    <input
+                      id="profile-avatar-upload"
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/gif"
+                      className="hidden"
+                      onChange={handleAvatarUpload}
+                    />
+                  </label>
                 )}
+              </div>
+
+              <div>
+                <div className="mb-1 flex flex-wrap items-center gap-2.5">
+                  <h1 className="text-2xl font-bold sm:text-3xl">
+                    {profile.name || profile.username}
+                  </h1>
+                  <Badge variant="tier" icon={currentTier.icon}>
+                    {currentTier.name}
+                  </Badge>
+                </div>
+                <div className="mono mb-2 text-sm text-[var(--text-tertiary)]">
+                  @{profile.username}
+                  {profile.roleTitle ? ` · ${profile.roleTitle}` : ''}
+                </div>
+                <div className="flex flex-wrap gap-4 text-xs text-[var(--text-secondary)]">
+                  {profile.location && (
+                    <span className="inline-flex items-center gap-1">
+                      <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
+                      {profile.location}
+                    </span>
+                  )}
+                  {profile.github && (
+                    <a
+                      href={`https://github.com/${profile.github}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[var(--accent)] hover:underline"
+                    >
+                      <GitHubIcon className="h-3.5 w-3.5" />
+                      {profile.github}
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              {!isOwnProfile && isAuthenticated && (
+                <Button
+                  type="button"
+                  variant={isFollowing ? 'ghost' : 'primary'}
+                  size="sm"
+                  onClick={() => followMutation.mutate()}
+                  loading={followMutation.isPending}
+                >
+                  {isFollowing ? (
+                    <>
+                      <UserCheck className="h-4 w-4 text-[var(--cyan)]" aria-hidden="true" />
+                      Following
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="h-4 w-4" aria-hidden="true" />
+                      Follow (+2 XP)
+                    </>
+                  )}
+                </Button>
+              )}
+              <Link
+                to={`/portfolio/${encodeURIComponent(profile.username)}`}
+                className="btn btn-outline btn-sm"
+              >
+                Portfolio
+              </Link>
+            </div>
+          </div>
+
+          {profile.bio && (
+            <p className="mt-5 max-w-3xl text-sm text-[var(--text-secondary)]">{profile.bio}</p>
+          )}
+
+          <div className="mt-6 grid grid-cols-2 gap-4 border-t border-[var(--border)] pt-5 sm:grid-cols-4">
+            <div>
+              <div className="mono text-xl font-bold text-[var(--cyan)]">
+                {points.toLocaleString()} XP
+              </div>
+              <div className="text-xs text-[var(--text-tertiary)]">Total Points</div>
+            </div>
+            <div>
+              <div className="mono text-xl font-bold">{projects.length}</div>
+              <div className="text-xs text-[var(--text-tertiary)]">Projects</div>
+            </div>
+            <div>
+              <div className="mono text-xl font-bold">
+                {followersCount} / {followingCount}
+              </div>
+              <div className="text-xs text-[var(--text-tertiary)]">Followers / Following</div>
+            </div>
+            <div>
+              <div className="mono mb-1 flex justify-between text-xs text-[var(--text-tertiary)]">
+                <span>{nextTier ? `Next: ${nextTier.name}` : 'Max Tier'}</span>
+                <span>{tierProgress}%</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-[var(--surface-hover)]">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-[var(--violet)] to-[var(--cyan)]"
+                  style={{ width: `${tierProgress}%` }}
+                />
               </div>
             </div>
           </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            {!isOwnProfile && isAuthenticated && (
-              <Button
-                type="button"
-                variant={isFollowing ? 'ghost' : 'primary'}
-                size="sm"
-                onClick={() => followMutation.mutate()}
-                loading={followMutation.isPending}
-              >
-                {isFollowing ? (
-                  <>
-                    <UserCheck className="h-4 w-4 text-[var(--cyan)]" aria-hidden="true" />
-                    Following
-                  </>
-                ) : (
-                  <>
-                    <UserPlus className="h-4 w-4" aria-hidden="true" />
-                    Follow (+2 XP)
-                  </>
-                )}
-              </Button>
-            )}
-            <Link
-              to={`/portfolio/${encodeURIComponent(profile.username)}`}
-              className="btn btn-outline btn-sm"
-            >
-              Portfolio
-            </Link>
-          </div>
-        </div>
-
-        {profile.bio && (
-          <p className="mt-5 max-w-3xl text-sm text-[var(--text-secondary)]">{profile.bio}</p>
-        )}
-
-        <div className="mt-6 grid grid-cols-2 gap-4 border-t border-[var(--border)] pt-5 sm:grid-cols-4">
-          <div>
-            <div className="mono text-xl font-bold text-[var(--cyan)]">
-              {points.toLocaleString()} XP
-            </div>
-            <div className="text-xs text-[var(--text-tertiary)]">Total Points</div>
-          </div>
-          <div>
-            <div className="mono text-xl font-bold">{projects.length}</div>
-            <div className="text-xs text-[var(--text-tertiary)]">Projects</div>
-          </div>
-          <div>
-            <div className="mono text-xl font-bold">{profile.followersCount ?? 0}</div>
-            <div className="text-xs text-[var(--text-tertiary)]">Followers</div>
-          </div>
-          <div>
-            <div className="mono mb-1 flex justify-between text-xs text-[var(--text-tertiary)]">
-              <span>{nextTier ? `Next: ${nextTier.name}` : 'Max Tier'}</span>
-              <span>{tierProgress}%</span>
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-[var(--surface-hover)]">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-[var(--violet)] to-[var(--cyan)]"
-                style={{ width: `${tierProgress}%` }}
-              />
-            </div>
-          </div>
-        </div>
-      </GlassCard>
+        </GlassCard>
+      </ParallaxLayer>
 
       {/* Tabs */}
       <div className="mb-6 flex flex-wrap gap-2">
-        <div className="pill-toggle">
+        <div className="pill-toggle flex-wrap">
           <button
             type="button"
             onClick={() => setTab('overview')}
             className={tab === 'overview' ? 'active' : ''}
           >
-            Projects &amp; Badges
+            Projects ({projects.length})
           </button>
+          {isOwnProfile && (
+            <>
+              <button
+                type="button"
+                onClick={() => setTab('likes')}
+                className={tab === 'likes' ? 'active' : ''}
+              >
+                Likes ({likedProjects.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setTab('bookmarks')}
+                className={tab === 'bookmarks' ? 'active' : ''}
+              >
+                Bookmarks ({bookmarkedProjects.length + bookmarkedHackathons.length})
+              </button>
+            </>
+          )}
           {ghHandle && (
             <button
               type="button"
@@ -352,7 +427,7 @@ export default function ProfilePage() {
       </div>
 
       {tab === 'overview' && (
-        <div className="space-y-8">
+        <RevealSection className="space-y-8">
           <div className="grid gap-4 sm:grid-cols-4">
             {BADGES.map((b) => (
               <GlassCard key={b.id} className="p-4">
@@ -364,8 +439,19 @@ export default function ProfilePage() {
           </div>
 
           <div>
-            <h2 className="mb-4 text-xl font-bold">Shipped Projects ({projects.length})</h2>
-            {projects.length === 0 ? (
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-xl font-bold">Shipped Projects ({projects.length})</h2>
+              {isOwnProfile && (
+                <Link to="/submit-project" className="btn btn-outline btn-sm">
+                  + Submit Project
+                </Link>
+              )}
+            </div>
+            {allProjectsQuery.isLoading ? (
+              <div className="grid grid-3">
+                <Skeleton variant="card" count={2} />
+              </div>
+            ) : projects.length === 0 ? (
               <GlassCard className="p-8 text-center text-sm text-[var(--text-secondary)]">
                 No published projects yet.
               </GlassCard>
@@ -377,7 +463,70 @@ export default function ProfilePage() {
               </div>
             )}
           </div>
-        </div>
+        </RevealSection>
+      )}
+
+      {tab === 'likes' && isOwnProfile && (
+        <RevealSection>
+          <div className="mb-4 flex items-center gap-2">
+            <Heart className="h-5 w-5 text-[var(--coral)]" fill="currentColor" aria-hidden="true" />
+            <h2 className="text-xl font-bold">Liked Projects ({likedProjects.length})</h2>
+          </div>
+          {likesQuery.isLoading ? (
+            <div className="grid grid-3">
+              <Skeleton variant="card" count={3} />
+            </div>
+          ) : likedProjects.length === 0 ? (
+            <GlassCard className="p-8 text-center text-sm text-[var(--text-secondary)]">
+              You haven&apos;t liked any projects yet. Explore builds to earn +2 XP per like!
+            </GlassCard>
+          ) : (
+            <div className="grid grid-3">
+              {likedProjects.map((p, idx) => (
+                <ProjectCard key={p._id || p.id || idx} project={p} index={idx} />
+              ))}
+            </div>
+          )}
+        </RevealSection>
+      )}
+
+      {tab === 'bookmarks' && isOwnProfile && (
+        <RevealSection className="space-y-8">
+          <div>
+            <div className="mb-4 flex items-center gap-2">
+              <Bookmark className="h-5 w-5 text-[var(--cyan)]" fill="currentColor" aria-hidden="true" />
+              <h2 className="text-xl font-bold">Saved Projects ({bookmarkedProjects.length})</h2>
+            </div>
+            {bookmarksQuery.isLoading ? (
+              <div className="grid grid-3">
+                <Skeleton variant="card" count={2} />
+              </div>
+            ) : bookmarkedProjects.length === 0 ? (
+              <GlassCard className="p-8 text-center text-sm text-[var(--text-secondary)]">
+                No bookmarked projects yet.
+              </GlassCard>
+            ) : (
+              <div className="grid grid-3">
+                {bookmarkedProjects.map((p, idx) => (
+                  <ProjectCard key={p._id || p.id || idx} project={p} index={idx} />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {bookmarkedHackathons.length > 0 && (
+            <div>
+              <h2 className="mb-4 text-xl font-bold">
+                Saved Hackathons ({bookmarkedHackathons.length})
+              </h2>
+              <div className="grid grid-3">
+                {bookmarkedHackathons.map((h, idx) => (
+                  <HackathonCard key={h._id || h.id || idx} hackathon={h} index={idx} />
+                ))}
+              </div>
+            </div>
+          )}
+        </RevealSection>
       )}
 
       {tab === 'github' && (

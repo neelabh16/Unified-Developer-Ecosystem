@@ -40,7 +40,11 @@ import { commentSchema } from '../utils/validation';
 
 function extractIdSet(res, key) {
   const payload = res?.data ?? res;
-  const list = payload?.[key] || payload?.projects || (Array.isArray(payload) ? payload : []);
+  const list =
+    payload?.projectIds ||
+    payload?.[key] ||
+    payload?.projects ||
+    (Array.isArray(payload) ? payload : []);
   const set = new Set();
   if (Array.isArray(list)) {
     list.forEach((item) => {

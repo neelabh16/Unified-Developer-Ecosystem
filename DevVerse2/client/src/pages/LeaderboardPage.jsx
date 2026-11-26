@@ -66,8 +66,8 @@ export default function LeaderboardPage() {
             </button>
             <button
               type="button"
-              onClick={() => setRange('week')}
-              className={range === 'week' ? 'active' : ''}
+              onClick={() => setRange('weekly')}
+              className={range === 'weekly' ? 'active' : ''}
             >
               This Week
             </button>
@@ -77,50 +77,52 @@ export default function LeaderboardPage() {
 
       {/* Top 3 Podium */}
       {!isLoading && mode === 'devs' && topThree.length > 0 && (
-        <ParallaxLayer speed={-14} className="mb-10 grid gap-5 md:grid-cols-3">
-          {topThree.map((entry, idx) => {
-            const handle = entry.username || entry.handle || 'builder';
-            const tier = getCurrentTier(entry.points);
-            const rankColors = ['var(--legend)', '#c0c7d6', 'var(--amber)'];
-            return (
-              <TiltCard key={handle + idx}>
-                <GlassCard
-                  lift
-                  className="relative flex flex-col items-center p-6 text-center"
-                  style={{ borderColor: idx === 0 ? 'var(--legend)' : undefined }}
-                >
-                <div
-                  className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-full font-mono text-xs font-bold text-black"
-                  style={{ background: rankColors[idx] }}
-                >
-                  #{idx + 1}
-                </div>
-                <img
-                  src={getAvatarUrl(entry.avatarUrl || handle, 96)}
-                  alt={entry.name || handle}
-                  onError={(e) => {
-                    e.currentTarget.src = AVATAR_FALLBACK_SVG;
-                  }}
-                  className="mb-3 h-16 w-16 rounded-full border-2 object-cover"
-                  style={{ borderColor: rankColors[idx] }}
-                />
-                <Link
-                  to={`/profile/${encodeURIComponent(handle)}`}
-                  className="text-lg font-bold hover:text-[var(--accent)]"
-                >
-                  {entry.name || handle}
-                </Link>
-                <div className="mono mb-2 text-xs text-[var(--text-tertiary)]">@{handle}</div>
-                <Badge variant="tier" icon={tier.icon} className="mb-3">
-                  {tier.name}
-                </Badge>
-                <div className="mono text-xl font-bold text-[var(--cyan)]">
-                  {Number(entry.points || 0).toLocaleString()} XP
-                </div>
-                </GlassCard>
-              </TiltCard>
-            );
-          })}
+        <ParallaxLayer speed={-14} className="mb-10">
+          <div className="grid gap-5 md:grid-cols-3">
+            {topThree.map((entry, idx) => {
+              const handle = entry.username || entry.handle || 'builder';
+              const tier = getCurrentTier(entry.points);
+              const rankColors = ['var(--legend)', '#c0c7d6', 'var(--amber)'];
+              return (
+                <TiltCard key={handle + idx}>
+                  <GlassCard
+                    lift
+                    className="relative flex h-full flex-col items-center p-6 text-center"
+                    style={{ borderColor: idx === 0 ? 'var(--legend)' : undefined }}
+                  >
+                    <div
+                      className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-full font-mono text-xs font-bold text-black"
+                      style={{ background: rankColors[idx] }}
+                    >
+                      #{idx + 1}
+                    </div>
+                    <img
+                      src={getAvatarUrl(entry.avatarUrl || entry.avatarSeed || handle, 96)}
+                      alt={entry.name || handle}
+                      onError={(e) => {
+                        e.currentTarget.src = AVATAR_FALLBACK_SVG;
+                      }}
+                      className="mb-3 h-16 w-16 rounded-full border-2 object-cover"
+                      style={{ borderColor: rankColors[idx] }}
+                    />
+                    <Link
+                      to={`/profile/${encodeURIComponent(handle)}`}
+                      className="text-lg font-bold hover:text-[var(--accent)]"
+                    >
+                      {entry.name || handle}
+                    </Link>
+                    <div className="mono mb-2 text-xs text-[var(--text-tertiary)]">@{handle}</div>
+                    <Badge variant="tier" icon={tier.icon} className="mb-3">
+                      {tier.name}
+                    </Badge>
+                    <div className="mono mt-auto text-xl font-bold text-[var(--cyan)]">
+                      {Number(entry.points || 0).toLocaleString()} XP
+                    </div>
+                  </GlassCard>
+                </TiltCard>
+              );
+            })}
+          </div>
         </ParallaxLayer>
       )}
 
