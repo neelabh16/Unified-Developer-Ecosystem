@@ -5,7 +5,9 @@ import { motion } from 'framer-motion';
 import { ArrowRight, BookOpen, Code2, Compass, Rocket, Sparkles, Terminal, Users } from 'lucide-react';
 import HeroCanvas from '../components/common/HeroCanvas';
 import GlassCard from '../components/common/GlassCard';
-import { ParallaxLayer, RevealSection } from '../components/common/MotionPrimitives';
+import TechUniverse3D from '../components/common/TechUniverse3D';
+import ContributionHeatmap from '../components/common/ContributionHeatmap';
+import { ParallaxLayer, RevealSection, TiltCard } from '../components/common/MotionPrimitives';
 import AnimatedCounter from '../components/common/AnimatedCounter';
 import Skeleton from '../components/common/Skeleton';
 import ProjectCard from '../components/projects/ProjectCard';
@@ -17,7 +19,7 @@ import { hackathonsApi } from '../api/hackathons.api';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
 import { heroRobotDark, heroRobotLight } from '../utils/assets';
-import { timeAgo } from '../utils/formatters';
+import { formatCount, resolveProjectArt, timeAgo } from '../utils/formatters';
 
 const TERMINAL_COMMANDS = [
   'devverse init --builder',
@@ -91,6 +93,11 @@ export default function HomePage() {
     .slice()
     .sort((a, b) => (b.likesCount ?? b.likes ?? 0) - (a.likesCount ?? a.likes ?? 0))
     .slice(0, 6);
+
+  const spotlightProject = trendingProjects[0] || null;
+  const spotlightId = spotlightProject
+    ? spotlightProject.legacyId || spotlightProject.slug || spotlightProject.id || spotlightProject._id
+    : null;
 
   const topDevs = extractArray(devsQuery.data, 'rankings')
     .filter((d) => {
@@ -234,29 +241,67 @@ export default function HomePage() {
         </RevealSection>
       </section>
 
-      {/* Category Tiles */}
-      {categories.length > 0 && (
-        <section className="wrap section-tight">
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-              <span className="eyebrow">Browse by Stack</span>
-              <h2 className="text-2xl font-bold">Ecosystem Domains</h2>
-            </div>
+      {/* Interactive 3D Tech Universe + Builder Momentum Heatmap Bento */}
+      <section className="wrap section-tight">
+        <RevealSection className="space-y-6">
+          <TechUniverse3D categories={categories} />
+
+          <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+            <ContributionHeatmap
+              events={activityFeed}
+              title="Ecosystem Shipping Momentum"
+              weeks={22}
+            />
+
+            {spotlightProject && (
+              <TiltCard>
+                <GlassCard className="flex h-full flex-col justify-between overflow-hidden p-6">
+                  <div>
+                    <div className="mb-3 flex items-center justify-between gap-2">
+                      <span className="eyebrow mb-0">
+                        <Code2 className="h-3.5 w-3.5" aria-hidden="true" />
+                        #1 Trending Spotlight
+                      </span>
+                      <span className="mono text-xs text-[var(--coral)]">
+                        ♥ {formatCount(spotlightProject.likesCount ?? spotlightProject.likes ?? 0)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <img
+                        src={resolveProjectArt(spotlightProject)}
+                        alt={spotlightProject.title}
+                        className="h-20 w-24 shrink-0 rounded-xl border border-[var(--border)] object-cover"
+                      />
+                      <div className="min-w-0">
+                        <Link
+                          to={`/projects/${encodeURIComponent(spotlightId)}`}
+                          className="block truncate text-lg font-bold hover:text-[var(--accent)]"
+                        >
+                          {spotlightProject.title}
+                        </Link>
+                        <p className="line-clamp-2 text-xs text-[var(--text-secondary)]">
+                          {spotlightProject.desc || spotlightProject.tagline}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex items-center justify-between border-t border-[var(--border)] pt-3 text-xs">
+                    <span className="mono text-[var(--text-tertiary)]">
+                      @{spotlightProject.author?.username || spotlightProject.author || 'devverse'}
+                    </span>
+                    <Link
+                      to={`/projects/${encodeURIComponent(spotlightId)}`}
+                      className="font-semibold text-[var(--accent)] hover:underline"
+                    >
+                      Inspect build →
+                    </Link>
+                  </div>
+                </GlassCard>
+              </TiltCard>
+            )}
           </div>
-          <div className="flex flex-wrap gap-2.5">
-            {categories.map((cat) => (
-              <Link
-                key={cat}
-                to={`/explore?cat=${encodeURIComponent(cat)}`}
-                className="chip chip-link px-4 py-2 text-xs"
-              >
-                <Code2 className="h-3.5 w-3.5 text-[var(--accent)]" aria-hidden="true" />
-                {cat}
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
+        </RevealSection>
+      </section>
 
       {/* Featured Hackathons */}
       <section className="wrap section-tight">

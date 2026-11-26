@@ -9,6 +9,7 @@ import { getInitialGradient } from '../utils/avatar';
 import { isCodexUnlocked } from '../utils/gamification';
 import AuroraBackground from '../components/common/AuroraBackground';
 import AmbientThreeField from '../components/common/AmbientThreeField';
+import CursorGlow from '../components/common/CursorGlow';
 import { ScrollProgressBar } from '../components/common/MotionPrimitives';
 import CommandPalette from '../components/common/CommandPalette';
 import Footer from '../components/common/Footer';
@@ -95,6 +96,7 @@ export default function MainLayout({ children }) {
       <ScrollProgressBar />
       <AuroraBackground />
       <AmbientThreeField />
+      <CursorGlow />
 
       <div className="dock-wrap">
         <nav className="dock" aria-label="Primary navigation">

@@ -9,6 +9,7 @@ import Badge from '../components/common/Badge';
 import Skeleton from '../components/common/Skeleton';
 import ProjectCard from '../components/projects/ProjectCard';
 import HackathonCard from '../components/hackathons/HackathonCard';
+import ContributionHeatmap from '../components/common/ContributionHeatmap';
 import { ParallaxLayer, RevealSection } from '../components/common/MotionPrimitives';
 import { bookmarksApi, usersApi } from '../api/users.api';
 import { projectsApi } from '../api/projects.api';
@@ -132,7 +133,7 @@ export default function ProfilePage() {
   const activityQuery = useQuery({
     queryKey: ['activity', 'me'],
     queryFn: () => activityApi.mine(),
-    enabled: isOwnProfile && tab === 'activity',
+    enabled: isOwnProfile,
   });
 
   const followMutation = useMutation({
@@ -428,6 +429,14 @@ export default function ProfilePage() {
 
       {tab === 'overview' && (
         <RevealSection className="space-y-8">
+          {isOwnProfile && (
+            <ContributionHeatmap
+              events={activityItems}
+              title={`@${profile.username} Shipping & XP Heatmap`}
+              weeks={24}
+            />
+          )}
+
           <div className="grid gap-4 sm:grid-cols-4">
             {BADGES.map((b) => (
               <GlassCard key={b.id} className="p-4">
