@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowDown, Sparkles } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
@@ -6,55 +7,70 @@ import { heroRobotDark, heroRobotLight } from '../../utils/assets';
 
 const INTRO_STORAGE_KEY = 'dv_visor_intro_seen';
 
-export default function VisorIntroCurtain({ forceOpen = false, onDismiss }) {
+export default function VisorIntroCurtain() {
+  const location = useLocation();
   const { motion: motionPref } = useTheme();
   const canvasRef = useRef(null);
   const trailRef = useRef([]);
-  const pointerRef = useRef({ x: -999, y: -999, active: false });
+  const pointerRef = useRef({ x: -999, y: -999, nx: 0, ny: 0, active: false });
+  const [mascotOffset, setMascotOffset] = useState({ x: 0, y: 0, rx: 0, ry: 0 });
 
+  const isHome = location.pathname === '/';
   const isTestEnv = import.meta.env.MODE === 'test';
   const prefersReduced =
     typeof window !== 'undefined' &&
     typeof window.matchMedia === 'function' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  const [dismissed, setDismissed] = useState(() => {
-    if (isTestEnv || motionPref === 'off' || prefersReduced) return true;
+  const disabled = isTestEnv || motionPref === 'off' || prefersReduced;
+
+  const [open, setOpen] = useState(() => {
+    if (disabled || !isHome) return false;
     try {
-      return Boolean(window.sessionStorage.getItem(INTRO_STORAGE_KEY));
+      return !window.sessionStorage.getItem(INTRO_STORAGE_KEY);
     } catch {
-      return false;
+      return true;
     }
   });
 
-  const open = forceOpen || !dismissed;
-
   const dismiss = () => {
-    setDismissed(true);
+    setOpen(false);
     try {
       window.sessionStorage.setItem(INTRO_STORAGE_KEY, '1');
     } catch {
       // ignore
     }
-    onDismiss?.();
   };
 
-  // Dismiss on wheel down, swipe up, or Escape/Space/Enter
+  // Scroll down to reveal Home Page; scroll UP when at top of Home Page to pull curtain back down
   useEffect(() => {
-    if (!open) return undefined;
+    if (disabled || !isHome) return undefined;
     let touchStartY = 0;
 
     const onWheel = (e) => {
-      if (e.deltaY > 18) dismiss();
+      if (open && e.deltaY > 18) {
+        dismiss();
+      } else if (!open && window.scrollY <= 4 && e.deltaY < -24) {
+        setOpen(true);
+      }
     };
+
     const onTouchStart = (e) => {
       touchStartY = e.touches?.[0]?.clientY || 0;
     };
+
     const onTouchMove = (e) => {
       const y = e.touches?.[0]?.clientY || 0;
-      if (touchStartY - y > 35) dismiss();
+      const diff = touchStartY - y;
+      if (open && diff > 35) {
+        dismiss();
+      } else if (!open && window.scrollY <= 4 && diff < -45) {
+        setOpen(true);
+      }
     };
+
     const onKey = (e) => {
+      if (!open) return;
       if (e.key === 'Escape' || e.key === 'Enter' || e.key === 'ArrowDown' || e.key === ' ') {
         dismiss();
       }
@@ -70,19 +86,18 @@ export default function VisorIntroCurtain({ forceOpen = false, onDismiss }) {
       window.removeEventListener('touchmove', onTouchMove);
       window.removeEventListener('keydown', onKey);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, disabled, isHome]);
 
-  // 60fps Cursor-Trail X-Ray Canvas Mask revealing the cybernetic layer
+  // 60fps Cursor-Trail X-Ray Canvas Mask + Cursor-Following Mascot Sync
   useEffect(() => {
-    if (!open) return undefined;
+    if (!open || disabled) return undefined;
     const canvas = canvasRef.current;
     if (!canvas) return undefined;
     const ctx = canvas.getContext('2d');
     if (!ctx) return undefined;
 
     const revealImg = new Image();
-    revealImg.src = heroRobotDark;
+    revealImg.src = heroRobotLight;
 
     let width = window.innerWidth;
     let height = window.innerHeight;
@@ -97,11 +112,20 @@ export default function VisorIntroCurtain({ forceOpen = false, onDismiss }) {
     resize();
 
     const onMove = (e) => {
-      pointerRef.current = { x: e.clientX, y: e.clientY, active: true };
+      const nx = e.clientX / Math.max(1, width) - 0.5;
+      const ny = e.clientY / Math.max(1, height) - 0.5;
+      pointerRef.current = { x: e.clientX, y: e.clientY, nx, ny, active: true };
+      setMascotOffset({
+        x: nx * 38,
+        y: ny * 26,
+        rx: -ny * 10,
+        ry: nx * 14,
+      });
+
       trailRef.current.push({
         x: e.clientX,
         y: e.clientY,
-        r: 72,
+        r: 76,
         born: performance.now(),
       });
       if (trailRef.current.length > 26) {
@@ -117,16 +141,15 @@ export default function VisorIntroCurtain({ forceOpen = false, onDismiss }) {
       rafId = window.requestAnimationFrame(render);
       ctx.clearRect(0, 0, width, height);
 
-      // Prune faded trail blobs (lifetime ~650ms)
       trailRef.current = trailRef.current.filter((pt) => now - pt.born < 650);
       if (trailRef.current.length === 0) return;
 
-      // 1. Draw metaball/visor cursor mask
+      // 1. Metaball / visor cursor mask
       ctx.save();
       ctx.beginPath();
       trailRef.current.forEach((pt) => {
         const age = (now - pt.born) / 650;
-        const radius = pt.r * (1 - age * 0.65);
+        const radius = pt.r * (1 - age * 0.62);
         if (radius > 2) {
           ctx.moveTo(pt.x + radius, pt.y);
           ctx.arc(pt.x, pt.y, radius, 0, Math.PI * 2);
@@ -134,7 +157,7 @@ export default function VisorIntroCurtain({ forceOpen = false, onDismiss }) {
       });
       ctx.clip();
 
-      // 2. Inside clipped visor region: draw dark cybernetic backdrop + neon grid + dark robot
+      // 2. Inside clipped visor: glowing neon violet/cyan cybernetic X-Ray layer
       const grad = ctx.createRadialGradient(
         width / 2,
         height / 2,
@@ -143,21 +166,22 @@ export default function VisorIntroCurtain({ forceOpen = false, onDismiss }) {
         height / 2,
         Math.max(width, height) * 0.65
       );
-      grad.addColorStop(0, '#13162a');
-      grad.addColorStop(1, '#07080c');
+      grad.addColorStop(0, '#2a1f5d');
+      grad.addColorStop(0.55, '#112a38');
+      grad.addColorStop(1, '#090b12');
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, width, height);
 
-      // Subtle cyber wireframe grid inside X-Ray
-      ctx.strokeStyle = 'rgba(79, 227, 193, 0.22)';
+      // Neon wireframe grid inside X-Ray
+      ctx.strokeStyle = 'rgba(79, 227, 193, 0.35)';
       ctx.lineWidth = 1;
-      for (let gx = 0; gx < width; gx += 38) {
+      for (let gx = 0; gx < width; gx += 34) {
         ctx.beginPath();
         ctx.moveTo(gx, 0);
         ctx.lineTo(gx, height);
         ctx.stroke();
       }
-      for (let gy = 0; gy < height; gy += 38) {
+      for (let gy = 0; gy < height; gy += 34) {
         ctx.beginPath();
         ctx.moveTo(0, gy);
         ctx.lineTo(width, gy);
@@ -167,23 +191,25 @@ export default function VisorIntroCurtain({ forceOpen = false, onDismiss }) {
       if (revealImg.complete && revealImg.naturalWidth > 0) {
         const targetH = Math.min(height * 0.68, 520);
         const targetW = (revealImg.naturalWidth / revealImg.naturalHeight) * targetH;
+        const dx = pointerRef.current.nx * 38;
+        const dy = pointerRef.current.ny * 26;
         ctx.drawImage(
           revealImg,
-          width / 2 - targetW / 2,
-          height / 2 - targetH / 2,
+          width / 2 - targetW / 2 + dx,
+          height / 2 - targetH / 2 + dy,
           targetW,
           targetH
         );
       }
       ctx.restore();
 
-      // 3. Draw glowing visor rim around active pointer
+      // 3. Glowing visor ring around active cursor
       if (pointerRef.current.active) {
         ctx.save();
-        ctx.strokeStyle = 'rgba(124, 111, 255, 0.75)';
+        ctx.strokeStyle = 'rgba(79, 227, 193, 0.85)';
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.arc(pointerRef.current.x, pointerRef.current.y, 68, 0, Math.PI * 2);
+        ctx.arc(pointerRef.current.x, pointerRef.current.y, 72, 0, Math.PI * 2);
         ctx.stroke();
         ctx.restore();
       }
@@ -195,32 +221,41 @@ export default function VisorIntroCurtain({ forceOpen = false, onDismiss }) {
       window.removeEventListener('resize', resize);
       window.removeEventListener('pointermove', onMove);
     };
-  }, [open]);
+  }, [open, disabled]);
+
+  if (disabled || !isHome) return null;
 
   return (
     <AnimatePresence>
       {open && (
         <motion.div
           key="visor-intro"
-          initial={{ y: 0 }}
+          initial={{ y: '-100%' }}
+          animate={{ y: '0%' }}
           exit={{ y: '-100%' }}
-          transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
-          className="fixed inset-0 z-[11000] flex flex-col items-center justify-between overflow-hidden bg-[#f4f5fa] text-[#0d0f17] select-none"
+          transition={{ duration: 0.72, ease: [0.16, 1, 0.3, 1] }}
+          className="fixed inset-0 z-[11000] flex flex-col items-center justify-between overflow-hidden bg-[#07080c] text-[#eef0f8] select-none"
         >
-          {/* Topographic Contour Background */}
+          {/* Dark Aurora + Topographic Contour Background */}
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-0 opacity-35"
+            className="pointer-events-none absolute inset-0"
             style={{
               backgroundImage:
-                'radial-gradient(circle at 50% 50%, rgba(124,111,255,0.12) 0, transparent 58%), repeating-radial-gradient(circle at 50% 50%, transparent 0, transparent 36px, rgba(13,15,23,0.06) 37px)',
+                'radial-gradient(circle at 25% 25%, rgba(124,111,255,0.22) 0, transparent 52%), radial-gradient(circle at 75% 75%, rgba(79,227,193,0.16) 0, transparent 52%), repeating-radial-gradient(circle at 50% 50%, transparent 0, transparent 38px, rgba(255,255,255,0.04) 39px)',
             }}
           />
 
           {/* Top Bar */}
           <div className="relative z-20 flex w-full items-center justify-between px-6 py-5 sm:px-10">
             <div className="flex items-center gap-2.5 font-display text-lg font-bold tracking-tight">
-              <span className="grid h-8 w-8 place-items-center rounded-lg bg-[#0d0f17] text-xs font-extrabold text-white">
+              <span
+                className="grid h-8 w-8 place-items-center rounded-lg text-xs font-extrabold text-[#07080c]"
+                style={{
+                  background:
+                    'conic-gradient(from 180deg, var(--violet), var(--cyan), var(--coral), var(--violet))',
+                }}
+              >
                 DV
               </span>
               <span>DEVVERSE OS</span>
@@ -229,18 +264,26 @@ export default function VisorIntroCurtain({ forceOpen = false, onDismiss }) {
             <button
               type="button"
               onClick={dismiss}
-              className="mono rounded-full border border-[#0d0f17]/20 bg-white/80 px-4 py-1.5 text-xs font-semibold text-[#0d0f17] backdrop-blur-md transition hover:bg-[#0d0f17] hover:text-white"
+              className="mono rounded-full border border-white/15 bg-white/5 px-4 py-1.5 text-xs font-semibold text-white/90 backdrop-blur-md transition hover:border-[var(--cyan)] hover:text-[var(--cyan)]"
             >
               Skip Intro →
             </button>
           </div>
 
-          {/* Center Base Mascot (Light) */}
+          {/* Center Base Mascot following the cursor */}
           <div className="pointer-events-none relative z-10 flex flex-1 items-center justify-center">
-            <img
-              src={heroRobotLight}
+            <motion.img
+              src={heroRobotDark}
               alt="DevVerse Builder"
-              className="max-h-[68vh] max-w-[85vw] object-contain drop-shadow-[0_24px_48px_rgba(13,15,23,0.18)]"
+              animate={{
+                x: mascotOffset.x,
+                y: mascotOffset.y,
+                rotateX: mascotOffset.rx,
+                rotateY: mascotOffset.ry,
+              }}
+              transition={{ type: 'spring', stiffness: 160, damping: 18, mass: 0.5 }}
+              style={{ transformPerspective: 900 }}
+              className="max-h-[68vh] max-w-[85vw] object-contain drop-shadow-[0_28px_60px_rgba(124,111,255,0.38)]"
             />
           </div>
 
@@ -250,17 +293,17 @@ export default function VisorIntroCurtain({ forceOpen = false, onDismiss }) {
             className="pointer-events-none absolute inset-0 z-15 h-full w-full"
           />
 
-          {/* Bottom Telemetry & Scroll-Up Prompt */}
+          {/* Bottom Telemetry & Scroll Prompt */}
           <div className="relative z-20 flex w-full flex-col items-center gap-3 pb-8 text-center">
-            <div className="mono inline-flex items-center gap-2 rounded-full border border-[#0d0f17]/15 bg-white/85 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-[#0d0f17] backdrop-blur-md">
-              <Sparkles className="h-3.5 w-3.5 text-[#7c6fff]" aria-hidden="true" />
-              <span>Move cursor to X-Ray · Scroll to enter</span>
+            <div className="mono inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-white/80 backdrop-blur-md">
+              <Sparkles className="h-3.5 w-3.5 text-[var(--cyan)]" aria-hidden="true" />
+              <span>Move cursor to X-Ray · Scroll down to enter</span>
             </div>
 
             <button
               type="button"
               onClick={dismiss}
-              className="group inline-flex items-center gap-2 rounded-full bg-[#0d0f17] px-6 py-2.5 text-xs font-semibold text-white shadow-xl transition-transform hover:-translate-y-0.5"
+              className="group inline-flex items-center gap-2 rounded-full bg-[var(--accent)] px-6 py-2.5 text-xs font-semibold text-[#07080c] shadow-[0_10px_30px_-6px_var(--accent)] transition-transform hover:-translate-y-0.5"
             >
               <span>Enter DevVerse</span>
               <ArrowDown
